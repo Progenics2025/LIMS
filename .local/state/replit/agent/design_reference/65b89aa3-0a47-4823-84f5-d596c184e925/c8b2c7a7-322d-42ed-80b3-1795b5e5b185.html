@@ -1,0 +1,811 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIMS - Laboratory Information Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1976D2',
+                        secondary: '#424242',
+                        accent: '#FF9800',
+                        success: '#4CAF50',
+                        warning: '#FFC107',
+                        error: '#F44336'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .shadow-card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .transition-all { transition: all 0.2s ease; }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter">
+    <!-- @COMPONENT: Navigation Header -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-8">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-flask text-primary text-2xl"></i>
+                        <h1 class="text-xl font-semibold text-gray-900">LIMS Portal</h1>
+                    </div>
+                    <div class="hidden md:flex space-x-6">
+                        <a href="#dashboard" class="text-primary font-medium border-b-2 border-primary pb-4">Dashboard</a>
+                        <a href="#leads" class="text-gray-600 hover:text-primary transition-all pb-4">Sales Leads</a>
+                        <a href="#samples" class="text-gray-600 hover:text-primary transition-all pb-4">Sample Tracking</a>
+                        <a href="#lab" class="text-gray-600 hover:text-primary transition-all pb-4">Lab Processing</a>
+                        <a href="#reports" class="text-gray-600 hover:text-primary transition-all pb-4">Reports</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Notifications -->
+                    <div class="relative">
+                        <button class="p-2 text-gray-600 hover:text-primary transition-all relative">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="absolute -top-1 -right-1 bg-error text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                        </button>
+                    </div>
+                    <!-- User Menu -->
+                    <div class="flex items-center space-x-3">
+                        <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" alt="User Avatar" class="h-8 w-8 rounded-full object-cover">
+                        <span class="text-sm font-medium text-gray-700">Dr. Sarah Chen</span>
+                        <i class="fas fa-chevron-down text-gray-400 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- @END_COMPONENT: Navigation Header -->
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- @COMPONENT: Dashboard Overview -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Dashboard Overview</h2>
+            
+            <!-- Key Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Leads</p>
+                            <p class="text-3xl font-bold text-gray-900" data-bind="metrics.activeLeads">24</p>
+                        </div>
+                        <div class="p-3 bg-blue-100 rounded-full">
+                            <i class="fas fa-user-plus text-primary text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-sm text-success"><i class="fas fa-arrow-up"></i> +12% from last month</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Samples Processing</p>
+                            <p class="text-3xl font-bold text-gray-900" data-bind="metrics.samplesProcessing">18</p>
+                        </div>
+                        <div class="p-3 bg-orange-100 rounded-full">
+                            <i class="fas fa-vial text-accent text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-sm text-warning"><i class="fas fa-clock"></i> 3 samples overdue</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Reports Pending</p>
+                            <p class="text-3xl font-bold text-gray-900" data-bind="metrics.reportsPending">7</p>
+                        </div>
+                        <div class="p-3 bg-green-100 rounded-full">
+                            <i class="fas fa-file-alt text-success text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-sm text-success"><i class="fas fa-check"></i> 5 ready for approval</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Revenue (Month)</p>
+                            <p class="text-3xl font-bold text-gray-900" data-bind="metrics.monthlyRevenue">$124,580</p>
+                        </div>
+                        <div class="p-3 bg-purple-100 rounded-full">
+                            <i class="fas fa-dollar-sign text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-sm text-success"><i class="fas fa-arrow-up"></i> +8% from last month</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Lead Conversion Chart -->
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Lead Conversion Rate</h3>
+                    <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                        <!-- @FUNCTIONALITY: Implement chart.js or similar for lead conversion visualization -->
+                        <div class="text-center">
+                            <i class="fas fa-chart-line text-4xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-500">Chart: Lead Conversion Analytics</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sample Status Distribution -->
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Sample Status Distribution</h3>
+                    <div class="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                        <!-- @FUNCTIONALITY: Implement donut chart for sample status distribution -->
+                        <div class="text-center">
+                            <i class="fas fa-chart-pie text-4xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-500">Chart: Sample Status Breakdown</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Dashboard Overview -->
+
+        <!-- @COMPONENT: Sales Lead Entry Section -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900">Sales Lead Management</h2>
+                <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all flex items-center space-x-2" data-event="click:openLeadForm">
+                    <i class="fas fa-plus"></i>
+                    <span>New Lead</span>
+                </button>
+            </div>
+
+            <!-- Lead Entry Form -->
+            <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Create New Lead</h3>
+                <form class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- @STATE: formData for lead entry -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Client Name *</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Enter client name" data-bind="formData.clientName" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Contact Email *</label>
+                        <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="client@company.com" data-bind="formData.email" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                        <input type="tel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="+1 (555) 123-4567" data-bind="formData.phone">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Company name" data-bind="formData.company">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Service Type *</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="formData.serviceType" required>
+                            <option value="">Select service type</option>
+                            <option value="clinical">Clinical Testing</option>
+                            <option value="discovery">Discovery Research</option>
+                            <option value="both">Both Services</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimated Value</label>
+                        <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="10000" data-bind="formData.estimatedValue">
+                    </div>
+
+                    <div class="md:col-span-2 lg:col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <textarea rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Additional notes about the lead..." data-bind="formData.notes"></textarea>
+                    </div>
+
+                    <div class="md:col-span-2 lg:col-span-3 flex justify-end space-x-3">
+                        <button type="button" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">Cancel</button>
+                        <button type="submit" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all" data-event="click:submitLead">
+                            Create Lead
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Recent Leads Table -->
+            <div class="bg-white rounded-lg shadow-card">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Recent Leads</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <!-- @MAP: leads.map(lead => ( -->
+                            <tr class="hover:bg-gray-50 transition-all" data-mock="true">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900" data-bind="lead.clientName">BioTech Solutions</div>
+                                            <div class="text-sm text-gray-500" data-bind="lead.email">contact@biotech.com</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="lead.serviceType">Clinical Testing</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800" data-bind="lead.status">
+                                        In Progress
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="lead.estimatedValue">$15,000</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-bind="lead.createdDate">2024-08-07</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-primary hover:text-blue-700 mr-3" data-event="click:editLead">Edit</button>
+                                    <button class="text-success hover:text-green-700 mr-3" data-event="click:convertLead">Convert</button>
+                                    <button class="text-error hover:text-red-700" data-event="click:deleteLead">Delete</button>
+                                </td>
+                            </tr>
+                            <!-- @END_MAP )) -->
+                            <tr class="hover:bg-gray-50 transition-all" data-mock="true">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900">Genomics Research Inc</div>
+                                            <div class="text-sm text-gray-500">research@genomics.com</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Discovery Research</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                        Converted
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$28,500</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-08-05</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-primary hover:text-blue-700 mr-3">View Details</button>
+                                    <button class="text-secondary hover:text-gray-700">Sample ID: PG202408051430</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Sales Lead Entry Section -->
+
+        <!-- @COMPONENT: Sample Tracking Workflow -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Sample Tracking & Processing</h2>
+
+            <!-- Workflow Progress -->
+            <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Workflow Status</h3>
+                <div class="flex items-center justify-between space-x-4 overflow-x-auto pb-4">
+                    <!-- @FUNCTIONALITY: Dynamic workflow stepper based on sample status -->
+                    <div class="flex items-center space-x-2 min-w-max">
+                        <div class="flex items-center justify-center w-8 h-8 bg-success text-white rounded-full text-sm font-medium">1</div>
+                        <span class="text-sm font-medium text-success">Lead Converted</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-success"></div>
+                    <div class="flex items-center space-x-2 min-w-max">
+                        <div class="flex items-center justify-center w-8 h-8 bg-success text-white rounded-full text-sm font-medium">2</div>
+                        <span class="text-sm font-medium text-success">Sample ID Generated</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-success"></div>
+                    <div class="flex items-center space-x-2 min-w-max">
+                        <div class="flex items-center justify-center w-8 h-8 bg-primary text-white rounded-full text-sm font-medium">3</div>
+                        <span class="text-sm font-medium text-primary">Sample Collection</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-200"></div>
+                    <div class="flex items-center space-x-2 min-w-max">
+                        <div class="flex items-center justify-center w-8 h-8 bg-gray-200 text-gray-600 rounded-full text-sm font-medium">4</div>
+                        <span class="text-sm font-medium text-gray-500">Lab Processing</span>
+                    </div>
+                    <div class="flex-1 h-0.5 bg-gray-200"></div>
+                    <div class="flex items-center space-x-2 min-w-max">
+                        <div class="flex items-center justify-center w-8 h-8 bg-gray-200 text-gray-600 rounded-full text-sm font-medium">5</div>
+                        <span class="text-sm font-medium text-gray-500">Report Generation</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sample Collection Form -->
+            <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Sample Collection & Courier Details</h3>
+                <form class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- @STATE: sampleCollectionData -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sample ID</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" value="PG202408071702" data-bind="sampleData.sampleId" readonly>
+                        <p class="text-xs text-gray-500 mt-1">Auto-generated based on service type and timestamp</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Collection Date *</label>
+                        <input type="datetime-local" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="sampleData.collectionDate" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Courier Service *</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="sampleData.courier" required>
+                            <option value="">Select courier</option>
+                            <option value="fedex">FedEx</option>
+                            <option value="ups">UPS</option>
+                            <option value="dhl">DHL</option>
+                            <option value="local">Local Pickup</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tracking Number</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Enter tracking number" data-bind="sampleData.trackingNumber">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Test Amount ($) *</label>
+                        <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="5000" data-bind="sampleData.testAmount" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Expected TAT (days)</label>
+                        <input type="number" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="14" data-bind="sampleData.tat">
+                    </div>
+
+                    <div class="md:col-span-2 lg:col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Collection Notes</label>
+                        <textarea rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Special instructions for sample collection..." data-bind="sampleData.notes"></textarea>
+                    </div>
+
+                    <div class="md:col-span-2 lg:col-span-3 flex justify-end space-x-3">
+                        <button type="button" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">Save Draft</button>
+                        <button type="submit" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all" data-event="click:submitSampleCollection">
+                            Submit & Notify Finance
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Active Samples Tracking -->
+            <div class="bg-white rounded-lg shadow-card">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Active Samples</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TAT Remaining</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <!-- @MAP: samples.map(sample => ( -->
+                            <tr class="hover:bg-gray-50 transition-all" data-mock="true">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-bind="sample.sampleId">PG202408071702</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="sample.clientName">BioTech Solutions</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" data-bind="sample.status">
+                                        Lab Processing
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-bind="sample.collectionDate">2024-08-07 17:02</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" data-bind="sample.tatRemaining">10 days</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-primary hover:text-blue-700 mr-3" data-event="click:viewSampleDetails">View Details</button>
+                                    <button class="text-secondary hover:text-gray-700" data-event="click:updateStatus">Update Status</button>
+                                </td>
+                            </tr>
+                            <!-- @END_MAP )) -->
+                            <tr class="hover:bg-gray-50 transition-all" data-mock="true">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">DG202408051430</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Genomics Research Inc</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                        Bioinformatics
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2024-08-05 14:30</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12 days</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-primary hover:text-blue-700 mr-3">View Details</button>
+                                    <button class="text-secondary hover:text-gray-700">Update Status</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Sample Tracking Workflow -->
+
+        <!-- @COMPONENT: Lab Processing Interface -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Lab Processing</h2>
+
+            <!-- Lab Processing Form -->
+            <div class="bg-white rounded-lg shadow-card p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Sample Processing Details</h3>
+                <form class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- @STATE: labProcessingData -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sample ID</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" value="PG202408071702" readonly>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Lab ID *</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="LAB-2024-001" data-bind="labData.labId" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">QC Status *</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="labData.qcStatus" required>
+                            <option value="">Select QC status</option>
+                            <option value="passed">Passed</option>
+                            <option value="failed">Failed</option>
+                            <option value="retest">Requires Retest</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">DNA Quantity (ng/μL)</label>
+                        <input type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="150.5" data-bind="labData.dnaQuantity">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">RNA Quantity (ng/μL)</label>
+                        <input type="number" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="85.2" data-bind="labData.rnaQuantity">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Run ID</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="RUN-2024-08-001" data-bind="labData.runId">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Library Prepared</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="labData.libraryPrepared">
+                            <option value="">Select status</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                            <option value="in-progress">In Progress</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sequencing ID</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="SEQ-2024-08-001" data-bind="labData.sequencingId">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Outsourced</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="labData.outsourced" data-event="change:toggleOutsourceFields">
+                            <option value="no">No</option>
+                            <option value="yes">Yes</option>
+                        </select>
+                    </div>
+
+                    <!-- Outsource Details (shown when outsourced = yes) -->
+                    <!-- @STATE: showOutsourceFields based on outsourced selection -->
+                    <div class="md:col-span-2 lg:col-span-3 border-t border-gray-200 pt-6 mt-4" style="display: none;" id="outsourceFields">
+                        <h4 class="text-md font-semibold text-gray-900 mb-4">Outsourcing Details</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Outsource Partner</label>
+                                <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Partner Lab Name" data-bind="labData.outsourcePartner">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Dispatch Date</label>
+                                <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" data-bind="labData.dispatchDate">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Sample Type</label>
+                                <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="DNA/RNA/Tissue" data-bind="labData.sampleType">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Courier Tracking</label>
+                                <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Tracking number" data-bind="labData.courierTracking">
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">TRF Document</label>
+                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-all">
+                                    <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 mb-2"></i>
+                                    <p class="text-sm text-gray-600">Click to upload TRF document or drag and drop</p>
+                                    <p class="text-xs text-gray-500 mt-1">PDF, JPG, PNG up to 10MB</p>
+                                    <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png" data-bind="labData.trfDocument">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 lg:col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Processing Notes</label>
+                        <textarea rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" placeholder="Lab processing notes..." data-bind="labData.notes"></textarea>
+                    </div>
+
+                    <div class="md:col-span-2 lg:col-span-3 flex justify-end space-x-3">
+                        <button type="button" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">Save Progress</button>
+                        <button type="submit" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all" data-event="click:submitLabProcessing">
+                            Complete Processing & Notify Bioinformatics
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Lab Processing Interface -->
+
+        <!-- @COMPONENT: Reporting & Finance Approval -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Reporting & Finance</h2>
+
+            <!-- Report Status Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Reports Ready</h3>
+                            <p class="text-3xl font-bold text-success mt-2" data-bind="reportMetrics.ready">5</p>
+                        </div>
+                        <i class="fas fa-file-check text-success text-2xl"></i>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Awaiting finance approval</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Pending Balance</h3>
+                            <p class="text-3xl font-bold text-warning mt-2" data-bind="reportMetrics.pendingBalance">$12,450</p>
+                        </div>
+                        <i class="fas fa-exclamation-triangle text-warning text-2xl"></i>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Outstanding payments</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Released Today</h3>
+                            <p class="text-3xl font-bold text-primary mt-2" data-bind="reportMetrics.releasedToday">3</p>
+                        </div>
+                        <i class="fas fa-paper-plane text-primary text-2xl"></i>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">Reports sent to clients</p>
+                </div>
+            </div>
+
+            <!-- Reports Pending Approval -->
+            <div class="bg-white rounded-lg shadow-card">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Reports Pending Approval</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <!-- @MAP: pendingReports.map(report => ( -->
+                            <tr class="hover:bg-gray-50 transition-all" data-mock="true">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-bind="report.sampleId">PG202408071702</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="report.clientName">BioTech Solutions</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="report.testAmount">$5,000</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="report.balance">$0</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800" data-bind="report.status">
+                                        Ready for Release
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-primary hover:text-blue-700 mr-3" data-event="click:previewReport">Preview</button>
+                                    <button class="text-success hover:text-green-700 mr-3" data-event="click:approveReport">Approve</button>
+                                    <button class="text-warning hover:text-yellow-700" data-event="click:requestRevision">Request Revision</button>
+                                </td>
+                            </tr>
+                            <!-- @END_MAP )) -->
+                            <tr class="hover:bg-gray-50 transition-all" data-mock="true">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">DG202408051430</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Genomics Research Inc</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$8,500</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$2,500</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                        Pending Payment
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button class="text-primary hover:text-blue-700 mr-3">Preview</button>
+                                    <button class="text-gray-400" disabled>Approve</button>
+                                    <button class="text-secondary hover:text-gray-700">Contact Client</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Reporting & Finance Approval -->
+
+        <!-- @COMPONENT: Notifications Panel -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900 mb-6">Recent Notifications</h2>
+            <div class="bg-white rounded-lg shadow-card">
+                <div class="divide-y divide-gray-200">
+                    <!-- @MAP: notifications.map(notification => ( -->
+                    <div class="p-6 hover:bg-gray-50 transition-all" data-mock="true">
+                        <div class="flex items-start space-x-4">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-envelope text-primary"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900" data-bind="notification.title">
+                                    Sample PG202408071702 ready for bioinformatics processing
+                                </p>
+                                <p class="text-sm text-gray-500 mt-1" data-bind="notification.message">
+                                    Lab processing completed. QC passed with DNA quantity 150.5 ng/μL.
+                                </p>
+                                <p class="text-xs text-gray-400 mt-2" data-bind="notification.timestamp">2 hours ago</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" data-bind="notification.type">
+                                    Lab Update
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                    <div class="p-6 hover:bg-gray-50 transition-all" data-mock="true">
+                        <div class="flex items-start space-x-4">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-check text-success"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900">
+                                    Report approved for sample DG202408051430
+                                </p>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Finance has approved the report. PDF generated and sent to client.
+                                </p>
+                                <p class="text-xs text-gray-400 mt-2">4 hours ago</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Report Released
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6 hover:bg-gray-50 transition-all" data-mock="true">
+                        <div class="flex items-start space-x-4">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-900">
+                                    Sample CL202408061200 approaching TAT deadline
+                                </p>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Only 2 days remaining before TAT deadline. Currently in bioinformatics processing.
+                                </p>
+                                <p class="text-xs text-gray-400 mt-2">6 hours ago</p>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    TAT Alert
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: Notifications Panel -->
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center text-gray-600">
+                <p>&copy; 2024 LIMS Portal. All rights reserved.</p>
+                <p class="text-sm mt-2">Laboratory Information Management System v2.1.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        (function() {
+            // TODO: Implement React state management for all data binding
+            // TODO: Add form validation and error handling
+            // TODO: Implement API calls for data persistence
+            // TODO: Add real-time notifications using WebSocket
+            // TODO: Implement file upload functionality
+            // TODO: Add chart.js for data visualization
+            // TODO: Implement role-based access control
+            // TODO: Add email notification system integration
+            
+            // Simple toggle for outsource fields demo
+            const outsourceSelect = document.querySelector('[data-bind="labData.outsourced"]');
+            const outsourceFields = document.getElementById('outsourceFields');
+            
+            if (outsourceSelect && outsourceFields) {
+                outsourceSelect.addEventListener('change', function() {
+                    if (this.value === 'yes') {
+                        outsourceFields.style.display = 'block';
+                    } else {
+                        outsourceFields.style.display = 'none';
+                    }
+                });
+            }
+
+            // Notification badge animation
+            const notificationBadge = document.querySelector('.fa-bell + span');
+            if (notificationBadge) {
+                setInterval(() => {
+                    notificationBadge.classList.add('animate-pulse');
+                    setTimeout(() => {
+                        notificationBadge.classList.remove('animate-pulse');
+                    }, 1000);
+                }, 5000);
+            }
+
+            // Simple form interaction handlers
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('[data-event*="click:"]')) {
+                    const action = e.target.dataset.event.split(':')[1];
+                    console.log(`Action triggered: ${action}`);
+                    // TODO: Implement actual action handlers
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

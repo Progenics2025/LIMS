@@ -1,0 +1,11 @@
+{
+    "git.ignoreLimitWarning": true,
+    "css.validate": false,
+    "tailwindCSS.validate": true,
+    "tailwindCSS.experimental.classRegex": [
+        ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+        ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+        ["clsx\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+    ],
+    "css.lint.unknownAtRules": "ignore"
+}

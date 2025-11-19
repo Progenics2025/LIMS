@@ -1,0 +1,74 @@
+
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts --host 0.0.0.0 --port 4000
+
+Database config: {
+  host: 'localhost',
+  port: 3306,
+  user: 'remote_user',
+  password: '***',
+  database: 'leadlab_lims',
+  ssl: false,
+  connectTimeout: 60000,
+  charset: 'utf8mb4'
+}
+Testing database connection...
+🚀 Starting LIMS server with modular architecture...
+🚀 Initializing LIMS modules...
+Initializing module: authentication
+✅ Database connection pool initialized successfully
+✅ Database connection successful
+Authentication Schema Check: ✅
+✅ Module initialized: authentication
+✅ Module authentication initialized successfully
+Initializing module: lead-management
+Lead Management Schema Check: ✅
+✅ Module initialized: lead-management
+✅ Module lead-management initialized successfully
+Initializing module: sample-tracking
+Sample Tracking Schema Check: ✅
+✅ Module initialized: sample-tracking
+✅ Module sample-tracking initialized successfully
+Initializing module: finance
+Finance Schema Check: ✅
+✅ Module initialized: finance
+✅ Module finance initialized successfully
+Initializing module: dashboard
+Dashboard Schema Check: ✅
+✅ Module initialized: dashboard
+✅ Module dashboard initialized successfully
+🎉 Module initialization complete. 5/5 modules enabled
+🔗 Registering module routes...
+🔗 Registering Authentication routes...
+✅ Authentication routes registered
+🔗 Registering Lead Management routes...
+✅ Lead Management routes registered
+🔗 Registering Sample Tracking routes...
+✅ Sample Tracking routes registered
+🔗 Registering Finance routes...
+✅ Finance routes registered
+🔗 Registering Dashboard routes...
+✅ Dashboard routes registered
+✅ Module routes registered
+✅ Modular routes registered successfully
+✅ Ensured recycle_bin table exists
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:4000
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at doListen (node:net:2139:7)
+    at process.processTicksAndRejections (node:internal/process/task_queues:83:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 4000
+}
+
+Node.js v20.19.5

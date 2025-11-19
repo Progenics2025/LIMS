@@ -1,0 +1,981 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIMS - Laboratory Information Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'ui-sans-serif', 'system-ui'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#E3F2FD',
+                            500: '#1976D2',
+                            600: '#1565C0',
+                            700: '#0D47A1'
+                        },
+                        success: {
+                            50: '#E8F5E8',
+                            500: '#388E3C',
+                            600: '#2E7D32'
+                        },
+                        warning: {
+                            50: '#FFF3E0',
+                            500: '#FF9800',
+                            600: '#F57C00'
+                        },
+                        error: {
+                            50: '#FFEBEE',
+                            500: '#D32F2F',
+                            600: '#C62828'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- @COMPONENT: LoginPage -->
+    <div id="loginPage" class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <div>
+                <div class="mx-auto h-16 w-16 bg-primary-500 rounded-full flex items-center justify-center">
+                    <i class="fas fa-flask text-white text-2xl"></i>
+                </div>
+                <h2 class="mt-6 text-center text-3xl font-bold text-gray-900">LIMS Portal</h2>
+                <p class="mt-2 text-center text-sm text-gray-600">Laboratory Information Management System</p>
+            </div>
+            <form class="mt-8 space-y-6" data-event="submit:handleLogin">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="email-address" class="sr-only">Email address</label>
+                        <input id="email-address" name="email" type="email" required 
+                               class="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm" 
+                               placeholder="Email address" data-bind="user.email">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Password</label>
+                        <input id="password" name="password" type="password" required 
+                               class="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm" 
+                               placeholder="Password" data-bind="user.password">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input id="remember-me" name="remember-me" type="checkbox" 
+                               class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                        <label for="remember-me" class="ml-2 block text-sm text-gray-900">Remember me</label>
+                    </div>
+                    <div class="text-sm">
+                        <a href="#" class="font-medium text-primary-600 hover:text-primary-500">Forgot password?</a>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit" onclick="showDashboard()" 
+                            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                        Sign in
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: LoginPage -->
+
+    <!-- @COMPONENT: MainApplication -->
+    <div id="mainApp" class="hidden">
+        <!-- @COMPONENT: Sidebar -->
+        <div class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full transition-transform duration-300 ease-in-out lg:translate-x-0">
+            <div class="flex items-center justify-center h-16 bg-primary-600">
+                <div class="flex items-center">
+                    <i class="fas fa-flask text-white text-2xl mr-3"></i>
+                    <span class="text-white text-xl font-semibold">LIMS</span>
+                </div>
+            </div>
+            <nav class="mt-8">
+                <div class="px-4 space-y-2" data-implementation="Role-based navigation visibility">
+                    <!-- @STATE: userRole:string, activeTab:string -->
+                    <a href="#" onclick="showTab('dashboard')" class="nav-item active group flex items-center px-2 py-2 text-sm font-medium rounded-md text-primary-600 bg-primary-50">
+                        <i class="fas fa-tachometer-alt mr-3 text-primary-500"></i>
+                        Dashboard
+                    </a>
+                    <a href="#" onclick="showTab('leads')" class="nav-item group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-user-plus mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Lead Management
+                    </a>
+                    <a href="#" onclick="showTab('samples')" class="nav-item group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-vial mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Sample Tracking
+                    </a>
+                    <a href="#" onclick="showTab('lab')" class="nav-item group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-microscope mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Lab Processing
+                    </a>
+                    <a href="#" onclick="showTab('finance')" class="nav-item group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-rupee-sign mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Finance
+                    </a>
+                    <a href="#" onclick="showTab('reports')" class="nav-item group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-file-alt mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Reports
+                    </a>
+                    <a href="#" onclick="showTab('admin')" class="nav-item group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900">
+                        <i class="fas fa-users-cog mr-3 text-gray-400 group-hover:text-gray-500"></i>
+                        Admin Panel
+                    </a>
+                </div>
+            </nav>
+        </div>
+        <!-- @END_COMPONENT: Sidebar -->
+
+        <!-- @COMPONENT: TopBar -->
+        <div class="lg:pl-64 flex flex-col">
+            <div class="sticky top-0 z-40 lg:mx-auto lg:max-w-none lg:px-0 bg-white shadow-sm border-b border-gray-200">
+                <div class="px-4 sm:px-6 lg:px-8">
+                    <div class="relative flex h-16 justify-between">
+                        <div class="relative z-10 flex px-2 lg:px-0">
+                            <div class="flex flex-shrink-0 items-center">
+                                <button type="button" class="lg:hidden" onclick="toggleSidebar()">
+                                    <i class="fas fa-bars text-gray-500 text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="relative z-0 flex flex-1 items-center justify-center px-2 sm:absolute sm:inset-0">
+                            <div class="w-full sm:max-w-xs">
+                                <label for="search" class="sr-only">Search</label>
+                                <div class="relative">
+                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <i class="fas fa-search text-gray-400 text-sm"></i>
+                                    </div>
+                                    <input id="search" name="search" 
+                                           class="block w-full rounded-md border-gray-300 bg-white py-2 pl-10 pr-3 text-sm placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500" 
+                                           placeholder="Search samples, leads..." type="search">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="relative z-10 flex items-center lg:ml-4">
+                            <button type="button" class="flex-shrink-0 rounded-full bg-white p-1 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                                <i class="fas fa-bell text-lg"></i>
+                                <span class="absolute -top-1 -right-1 h-4 w-4 bg-error-500 rounded-full text-xs text-white flex items-center justify-center" data-bind="notifications.count">3</span>
+                            </button>
+                            <div class="relative ml-4 flex-shrink-0">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center">
+                                        <span class="text-white font-medium text-sm" data-bind="user.initials">AD</span>
+                                    </div>
+                                    <span class="ml-3 text-sm font-medium text-gray-700" data-bind="user.name">Admin User</span>
+                                    <span class="ml-2 text-xs bg-primary-100 text-primary-600 px-2 py-1 rounded-full" data-bind="user.role">Administrator</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: TopBar -->
+
+        <!-- @COMPONENT: MainContent -->
+        <main class="lg:pl-64">
+            <div class="px-4 sm:px-6 lg:px-8 py-8">
+                
+                <!-- @COMPONENT: DashboardTab -->
+                <div id="dashboardTab" class="tab-content">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+                        <p class="mt-2 text-sm text-gray-600">Monitor your laboratory operations and key metrics</p>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-user-plus text-primary-500 text-2xl"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">Active Leads</dt>
+                                            <dd class="text-lg font-medium text-gray-900" data-bind="stats.activeLeads">24</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-vial text-success-500 text-2xl"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">Samples Processing</dt>
+                                            <dd class="text-lg font-medium text-gray-900" data-bind="stats.samplesProcessing">18</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-rupee-sign text-warning-500 text-2xl"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">Pending Revenue</dt>
+                                            <dd class="text-lg font-medium text-gray-900" data-bind="stats.pendingRevenue">₹2,85,000</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-file-alt text-error-500 text-2xl"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">Reports Pending</dt>
+                                            <dd class="text-lg font-medium text-gray-900" data-bind="stats.reportsPending">7</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">Recent Leads</h3>
+                            </div>
+                            <div class="divide-y divide-gray-200">
+                                <!-- @MAP: recentLeads.map(lead => ( -->
+                                <div class="px-6 py-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900" data-bind="lead.organization">Apollo Hospitals</p>
+                                            <p class="text-sm text-gray-500" data-bind="lead.testName">Whole Genome Sequencing</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-sm font-medium text-gray-900" data-bind="lead.amount">₹45,000</p>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800" data-bind="lead.status">Quoted</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="px-6 py-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900" data-bind="lead.organization">Fortis Healthcare</p>
+                                            <p class="text-sm text-gray-500" data-bind="lead.testName">RNA Sequencing</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-sm font-medium text-gray-900" data-bind="lead.amount">₹28,000</p>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800" data-bind="lead.status">Converted</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+
+                        <div class="bg-white shadow rounded-lg">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">Sample Status</h3>
+                            </div>
+                            <div class="divide-y divide-gray-200">
+                                <!-- @MAP: sampleStatuses.map(sample => ( -->
+                                <div class="px-6 py-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900" data-bind="sample.id">PG202508071702</p>
+                                            <p class="text-sm text-gray-500" data-bind="sample.organization">Max Healthcare</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800" data-bind="sample.status">Lab Processing</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="px-6 py-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900" data-bind="sample.id">DG202508061445</p>
+                                            <p class="text-sm text-gray-500" data-bind="sample.organization">AIIMS Delhi</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800" data-bind="sample.status">Bioinformatics</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: DashboardTab -->
+
+                <!-- @COMPONENT: LeadsTab -->
+                <div id="leadsTab" class="tab-content hidden">
+                    <div class="mb-8 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Lead Management</h1>
+                            <p class="mt-2 text-sm text-gray-600">Create and track sales leads and conversions</p>
+                        </div>
+                        <button onclick="showModal('leadModal')" class="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add New Lead
+                        </button>
+                    </div>
+
+                    <!-- Leads Table -->
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- @MAP: leads.map(lead => ( -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900" data-bind="lead.organization">Apollo Hospitals</div>
+                                        <div class="text-sm text-gray-500" data-bind="lead.location">Mumbai</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900" data-bind="lead.referredDoctor">Dr. Sharma</div>
+                                        <div class="text-sm text-gray-500" data-bind="lead.phone">+91 9876543210</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900" data-bind="lead.testName">WGS - Clinical</div>
+                                        <div class="text-sm text-gray-500" data-bind="lead.sampleType">Blood</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="lead.amount">₹45,000</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800" data-bind="lead.status">Quoted</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-primary-600 hover:text-primary-900 mr-3" data-event="click:editLead">Edit</button>
+                                        <button class="text-success-600 hover:text-success-900" data-event="click:convertLead">Convert</button>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: LeadsTab -->
+
+                <!-- @COMPONENT: SamplesTab -->
+                <div id="samplesTab" class="tab-content hidden">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900">Sample Tracking</h1>
+                        <p class="mt-2 text-sm text-gray-600">Track sample pickup, courier details, and processing status</p>
+                    </div>
+
+                    <!-- Sample Tracking Cards -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <!-- @MAP: samples.map(sample => ( -->
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-medium text-gray-900" data-bind="sample.id">PG202508071702</h3>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800" data-bind="sample.status">In Transit</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500">Organization</p>
+                                    <p class="text-sm text-gray-900" data-bind="sample.organization">Apollo Hospitals</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500">Test Type</p>
+                                    <p class="text-sm text-gray-900" data-bind="sample.testType">WGS - Clinical</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500">Courier</p>
+                                    <p class="text-sm text-gray-900" data-bind="sample.courier">Blue Dart - BD123456789</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500">Amount</p>
+                                    <p class="text-sm text-gray-900" data-bind="sample.amount">₹45,000</p>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex space-x-2">
+                                <button class="flex-1 bg-primary-600 text-white px-3 py-2 rounded-md text-sm hover:bg-primary-700" data-event="click:viewSampleDetails">View Details</button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50" data-event="click:updateSampleStatus">Update</button>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: SamplesTab -->
+
+                <!-- @COMPONENT: LabTab -->
+                <div id="labTab" class="tab-content hidden">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900">Lab Processing</h1>
+                        <p class="mt-2 text-sm text-gray-600">Manage lab processing, QC, and data entry</p>
+                    </div>
+
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">Sample Processing Form</h3>
+                        </div>
+                        <form class="p-6 space-y-6" data-event="submit:handleLabProcessing">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Sample ID</label>
+                                    <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                           placeholder="PG202508071702" data-bind="labForm.sampleId">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Lab ID</label>
+                                    <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                           placeholder="LAB001234" data-bind="labForm.labId">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">QC Status</label>
+                                    <select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" data-bind="labForm.qcStatus">
+                                        <option>Passed</option>
+                                        <option>Failed</option>
+                                        <option>Retest Required</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">DNA/RNA Quantity (ng/μL)</label>
+                                    <input type="number" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                           placeholder="250.5" data-bind="labForm.quantity">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Run ID</label>
+                                    <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                           placeholder="RUN_20250807_001" data-bind="labForm.runId">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Library Prepared</label>
+                                    <select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" data-bind="labForm.libraryPrepared">
+                                        <option>Yes</option>
+                                        <option>No</option>
+                                        <option>In Progress</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Sequencing ID</label>
+                                    <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                           placeholder="SEQ_20250807_001" data-bind="labForm.sequencingId">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Outsourced</label>
+                                    <select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                            data-bind="labForm.outsourced" onchange="toggleOutsourceDetails(this)">
+                                        <option value="no">No</option>
+                                        <option value="yes">Yes</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Outsource Details (hidden by default) -->
+                            <div id="outsourceDetails" class="hidden border-t pt-6">
+                                <h4 class="text-md font-medium text-gray-900 mb-4">Outsource Details</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Outsource Partner</label>
+                                        <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                               placeholder="Partner Lab Name" data-bind="labForm.outsourcePartner">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Dispatch Date</label>
+                                        <input type="date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                               data-bind="labForm.dispatchDate">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Courier Tracking</label>
+                                        <input type="text" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                               placeholder="Tracking Number" data-bind="labForm.courierTracking">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">TRF Document</label>
+                                        <input type="file" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                               accept="image/*,application/pdf" data-bind="labForm.trfDocument">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="px-4 py-2 bg-primary-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-primary-700">
+                                    Update Lab Status
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: LabTab -->
+
+                <!-- @COMPONENT: FinanceTab -->
+                <div id="financeTab" class="tab-content hidden">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900">Finance Management</h1>
+                        <p class="mt-2 text-sm text-gray-600">Track payments, pending amounts, and financial approvals</p>
+                    </div>
+
+                    <!-- Finance Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-rupee-sign text-success-500 text-3xl"></i>
+                                </div>
+                                <div class="ml-5">
+                                    <p class="text-sm font-medium text-gray-500">Total Revenue</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="finance.totalRevenue">₹12,45,000</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-clock text-warning-500 text-3xl"></i>
+                                </div>
+                                <div class="ml-5">
+                                    <p class="text-sm font-medium text-gray-500">Pending Payments</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="finance.pendingPayments">₹2,85,000</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-file-invoice text-primary-500 text-3xl"></i>
+                                </div>
+                                <div class="ml-5">
+                                    <p class="text-sm font-medium text-gray-500">Pending Approvals</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="finance.pendingApprovals">7</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pending Approvals Table -->
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">Pending Financial Approvals</h3>
+                        </div>
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- @MAP: pendingApprovals.map(approval => ( -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-bind="approval.sampleId">PG202508071702</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="approval.organization">Apollo Hospitals</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="approval.totalAmount">₹45,000</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="approval.paidAmount">₹30,000</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-medium text-error-600" data-bind="approval.balance">₹15,000</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button class="bg-success-600 text-white px-3 py-1 rounded text-xs hover:bg-success-700" data-event="click:approvePayment">
+                                            Approve
+                                        </button>
+                                        <button class="bg-gray-600 text-white px-3 py-1 rounded text-xs hover:bg-gray-700" data-event="click:viewPaymentDetails">
+                                            Details
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: FinanceTab -->
+
+                <!-- @COMPONENT: ReportsTab -->
+                <div id="reportsTab" class="tab-content hidden">
+                    <div class="mb-8">
+                        <h1 class="text-2xl font-bold text-gray-900">Report Management</h1>
+                        <p class="mt-2 text-sm text-gray-600">Generate, approve, and deliver client reports</p>
+                    </div>
+
+                    <!-- Report Status Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white shadow rounded-lg p-6 text-center">
+                            <i class="fas fa-file-alt text-primary-500 text-3xl mb-3"></i>
+                            <p class="text-2xl font-bold text-gray-900" data-bind="reports.inProgress">12</p>
+                            <p class="text-sm text-gray-500">In Progress</p>
+                        </div>
+                        <div class="bg-white shadow rounded-lg p-6 text-center">
+                            <i class="fas fa-clock text-warning-500 text-3xl mb-3"></i>
+                            <p class="text-2xl font-bold text-gray-900" data-bind="reports.awaitingApproval">7</p>
+                            <p class="text-sm text-gray-500">Awaiting Approval</p>
+                        </div>
+                        <div class="bg-white shadow rounded-lg p-6 text-center">
+                            <i class="fas fa-check-circle text-success-500 text-3xl mb-3"></i>
+                            <p class="text-2xl font-bold text-gray-900" data-bind="reports.approved">23</p>
+                            <p class="text-sm text-gray-500">Approved</p>
+                        </div>
+                        <div class="bg-white shadow rounded-lg p-6 text-center">
+                            <i class="fas fa-paper-plane text-primary-500 text-3xl mb-3"></i>
+                            <p class="text-2xl font-bold text-gray-900" data-bind="reports.delivered">156</p>
+                            <p class="text-sm text-gray-500">Delivered</p>
+                        </div>
+                    </div>
+
+                    <!-- Reports Table -->
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                            <h3 class="text-lg font-medium text-gray-900">Report Queue</h3>
+                            <button class="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 text-sm">
+                                <i class="fas fa-file-pdf mr-2"></i>
+                                Generate Report
+                            </button>
+                        </div>
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TAT</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- @MAP: reportQueue.map(report => ( -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" data-bind="report.sampleId">PG202508071702</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="report.client">Apollo Hospitals</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="report.testType">WGS - Clinical</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800" data-bind="report.status">Awaiting Approval</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="report.tat">14 days</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button class="text-primary-600 hover:text-primary-900" data-event="click:viewReport">View</button>
+                                        <button class="text-success-600 hover:text-success-900" data-event="click:approveReport">Approve</button>
+                                        <button class="text-error-600 hover:text-error-900" data-event="click:rejectReport">Reject</button>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: ReportsTab -->
+
+                <!-- @COMPONENT: AdminTab -->
+                <div id="adminTab" class="tab-content hidden">
+                    <div class="mb-8 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Admin Panel</h1>
+                            <p class="mt-2 text-sm text-gray-600">Manage users, roles, and system settings</p>
+                        </div>
+                        <button onclick="showModal('userModal')" class="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700">
+                            <i class="fas fa-user-plus mr-2"></i>
+                            Add New User
+                        </button>
+                    </div>
+
+                    <!-- Users Table -->
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900">User Management</h3>
+                        </div>
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <!-- @MAP: users.map(user => ( -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="h-10 w-10 rounded-full bg-primary-500 flex items-center justify-center">
+                                                <span class="text-white font-medium text-sm" data-bind="user.initials">JS</span>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900" data-bind="user.name">John Smith</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="user.email">john.smith@lab.com</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800" data-bind="user.role">Sales Manager</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800" data-bind="user.status">Active</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" data-bind="user.lastLogin">2 hours ago</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button class="text-primary-600 hover:text-primary-900" data-event="click:editUser">Edit</button>
+                                        <button class="text-error-600 hover:text-error-900" data-event="click:deactivateUser">Deactivate</button>
+                                    </td>
+                                </tr>
+                                <!-- @END_MAP )) -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: AdminTab -->
+
+            </div>
+        </main>
+        <!-- @END_COMPONENT: MainContent -->
+    </div>
+    <!-- @END_COMPONENT: MainApplication -->
+
+    <!-- @COMPONENT: Modals -->
+    <!-- Lead Entry Modal -->
+    <div id="leadModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="hideModal('leadModal')"></div>
+            <div class="inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Add New Lead</h3>
+                </div>
+                <form class="p-6 space-y-6" data-event="submit:handleLeadSubmission">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
+                            <input type="text" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="Hospital/Clinic Name" data-bind="leadForm.organization">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Location *</label>
+                            <input type="text" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="City, State" data-bind="leadForm.location">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Referred Doctor *</label>
+                            <input type="text" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="Dr. Name" data-bind="leadForm.referredDoctor">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Phone Number *</label>
+                            <input type="tel" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="+91 9876543210" data-bind="leadForm.phone">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Email *</label>
+                            <input type="email" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="contact@hospital.com" data-bind="leadForm.email">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Client Email *</label>
+                            <input type="email" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="client@hospital.com" data-bind="leadForm.clientEmail">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Test Name *</label>
+                            <select required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" data-bind="leadForm.testName">
+                                <option value="">Select Test</option>
+                                <option value="wgs-clinical">Whole Genome Sequencing - Clinical</option>
+                                <option value="wgs-discovery">Whole Genome Sequencing - Discovery</option>
+                                <option value="rna-seq">RNA Sequencing</option>
+                                <option value="exome-seq">Exome Sequencing</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Sample Type *</label>
+                            <select required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" data-bind="leadForm.sampleType">
+                                <option value="">Select Sample Type</option>
+                                <option value="blood">Blood</option>
+                                <option value="saliva">Saliva</option>
+                                <option value="tissue">Tissue</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Amount Quoted (INR) *</label>
+                            <div class="mt-1 relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 sm:text-sm">₹</span>
+                                </div>
+                                <input type="number" required class="pl-7 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                       placeholder="45000" data-bind="leadForm.amount">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">TAT (Days) *</label>
+                            <input type="number" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                                   placeholder="14" data-bind="leadForm.tat">
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideModal('leadModal')" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-primary-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-primary-700">
+                            Create Lead
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Creation Modal -->
+    <div id="userModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="hideModal('userModal')"></div>
+            <div class="inline-block w-full max-w-lg my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Create New User</h3>
+                </div>
+                <form class="p-6 space-y-6" data-event="submit:handleUserCreation">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Full Name *</label>
+                        <input type="text" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                               placeholder="John Smith" data-bind="userForm.name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email Address *</label>
+                        <input type="email" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                               placeholder="john.smith@lab.com" data-bind="userForm.email">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Role *</label>
+                        <select required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" data-bind="userForm.role">
+                            <option value="">Select Role</option>
+                            <option value="sales">Sales</option>
+                            <option value="operations">Operations</option>
+                            <option value="finance">Finance</option>
+                            <option value="lab">Lab Technician</option>
+                            <option value="bioinformatics">Bioinformatics</option>
+                            <option value="reporting">Reporting</option>
+                            <option value="manager">Manager</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Temporary Password *</label>
+                        <input type="password" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500" 
+                               placeholder="Temp password" data-bind="userForm.password">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideModal('userModal')" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-primary-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-primary-700">
+                            Create User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: Modals -->
+
+    <script>
+        // TODO: Implement business logic, API calls, and state management
+        (function() {
+            // Application state management
+            let currentUser = null;
+            let currentTab = 'dashboard';
+
+            // Show dashboard after login
+            function showDashboard() {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+            }
+
+            // Tab navigation
+            function showTab(tabName) {
+                // Hide all tabs
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.add('hidden');
+                });
+                
+                // Show selected tab
+                document.getElementById(tabName + 'Tab').classList.remove('hidden');
+                
+                // Update navigation
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.remove('active', 'text-primary-600', 'bg-primary-50');
+                    item.classList.add('text-gray-600');
+                });
+                
+                event.target.classList.add('active', 'text-primary-600', 'bg-primary-50');
+                event.target.classList.remove('text-gray-600');
+                
+                currentTab = tabName;
+            }
+
+            // Modal management
+            function showModal(modalId) {
+                document.getElementById(modalId).classList.remove('hidden');
+            }
+
+            function hideModal(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            }
+
+            // Toggle sidebar for mobile
+            function toggleSidebar() {
+                const sidebar = document.querySelector('.fixed.inset-y-0.left-0');
+                sidebar.classList.toggle('-translate-x-full');
+            }
+
+            // Toggle outsource details
+            function toggleOutsourceDetails(select) {
+                const outsourceDetails = document.getElementById('outsourceDetails');
+                if (select.value === 'yes') {
+                    outsourceDetails.classList.remove('hidden');
+                } else {
+                    outsourceDetails.classList.add('hidden');
+                }
+            }
+
+            // Expose functions globally for onclick handlers
+            window.showDashboard = showDashboard;
+            window.showTab = showTab;
+            window.showModal = showModal;
+            window.hideModal = hideModal;
+            window.toggleSidebar = toggleSidebar;
+            window.toggleOutsourceDetails = toggleOutsourceDetails;
+
+            // Initialize application
+            document.addEventListener('DOMContentLoaded', function() {
+                // Set initial state
+                console.log('LIMS Application initialized');
+            });
+        })();
+    </script>
+</body>
+</html>

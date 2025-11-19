@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadLab LIMS</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="active">
+            <div class="sidebar-header">
+                <h3>LeadLab LIMS</h3>
+            </div>
+
+            <ul class="list-unstyled components">
+                <li>
+                    <a href="#" data-page="dashboard" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <!-- Sales & Marketing -->
+                <li>
+                    <a href="#salesSubmenu" data-bs-toggle="collapse" class="nav-link">
+                        <i class="fas fa-chart-line"></i>
+                        Sales & Marketing
+                    </a>
+                    <ul class="collapse list-unstyled" id="salesSubmenu">
+                        <li>
+                            <a href="#" data-page="leads" class="nav-link">
+                                <i class="fas fa-users"></i>
+                                Lead Management
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="inside-sales" class="nav-link">
+                                <i class="fas fa-money-bill-wave"></i>
+                                Inside Sales
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="market-survey" class="nav-link">
+                                <i class="fas fa-poll"></i>
+                                Market Survey
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- Lab Operations -->
+                <li>
+                    <a href="#labSubmenu" data-bs-toggle="collapse" class="nav-link">
+                        <i class="fas fa-flask"></i>
+                        Lab Operations
+                    </a>
+                    <ul class="collapse list-unstyled" id="labSubmenu">
+                        <li>
+                            <a href="#" data-page="clinical-samples" class="nav-link">
+                                <i class="fas fa-vial"></i>
+                                Clinical Samples
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="discovery-samples" class="nav-link">
+                                <i class="fas fa-microscope"></i>
+                                Discovery Samples
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="lab-raw-data" class="nav-link">
+                                <i class="fas fa-database"></i>
+                                Raw Data
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="technical-discovery" class="nav-link">
+                                <i class="fas fa-atom"></i>
+                                Technical Analysis
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- Reports -->
+                <li>
+                    <a href="#reportsSubmenu" data-bs-toggle="collapse" class="nav-link">
+                        <i class="fas fa-file-alt"></i>
+                        Reports
+                    </a>
+                    <ul class="collapse list-unstyled" id="reportsSubmenu">
+                        <li>
+                            <a href="#" data-page="clinical-reports" class="nav-link">
+                                <i class="fas fa-file-medical"></i>
+                                Clinical Reports
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="daily-client-reports" class="nav-link">
+                                <i class="fas fa-calendar-day"></i>
+                                Daily Client Reports
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <!-- Support Functions -->
+                <li>
+                    <a href="#supportSubmenu" data-bs-toggle="collapse" class="nav-link">
+                        <i class="fas fa-cogs"></i>
+                        Support Functions
+                    </a>
+                    <ul class="collapse list-unstyled" id="supportSubmenu">
+                        <li>
+                            <a href="#" data-page="finance" class="nav-link">
+                                <i class="fas fa-dollar-sign"></i>
+                                Finance
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" data-page="logistics" class="nav-link">
+                                <i class="fas fa-truck"></i>
+                                Logistics
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#" id="logout" class="nav-link">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Top Navigation -->
+        <div class="top-nav">
+            <button id="sidebarCollapse" class="btn btn-link">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="user-info">
+                Welcome, <span id="userName">User</span>
+            </span>
+        </div>
+
+    <div class="container mt-4">
+        <div id="mainContent">
+            <!-- Content will be loaded here -->
+            <div id="dashboard" class="page-content">
+                <h2>Dashboard</h2>
+                <div class="row mt-4">
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Leads</h5>
+                                <p class="card-text" id="totalLeads">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Active Samples</h5>
+                                <p class="card-text" id="activeSamples">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Pending Reports</h5>
+                                <p class="card-text" id="pendingReports">Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/js/main.js"></script>
+</body>
+</html>

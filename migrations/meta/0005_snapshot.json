@@ -1,0 +1,8 @@
+{
+  "version": "6",
+  "description": "Extend samples tracking fields",
+  "sql": [
+    "0005_extend_samples_tracking.sql"
+  ],
+  "timestamp": "2025-09-27T06:30:00.000Z"
+}

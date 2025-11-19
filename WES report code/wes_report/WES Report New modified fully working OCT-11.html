@@ -1,0 +1,3570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WES Report - Enhanced Version</title>
+    <!-- Font Loading -->
+    <link href="https://db.onlinewebfonts.com/c/8e89a85b0f66c65c72ef77eb613c707b?family=Calibri" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            font-size: 20px !important;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .main-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .toolbar-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .toolbar button {
+            padding: 10px 15px;
+            border: none;
+            background: linear-gradient(135deg, #0171BA 0%, #0056b3 100%);
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 16;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(1, 113, 186, 0.3);
+        }
+
+        .toolbar button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(1, 113, 186, 0.4);
+            background: linear-gradient(135deg, #0056b3 0%, #004494 100%);
+        }
+
+        .toolbar button:active {
+            transform: translateY(-1px);
+        }
+
+        .password-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(1, 113, 186, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(1, 113, 186, 0.1);
+        }
+
+        .password-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .password-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95em;
+        }
+
+        .password-group input {
+            padding: 10px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 0.95em;
+            transition: border-color 0.3s ease;
+        }
+
+        .password-group input:focus {
+            outline: none;
+            border-color: #0171BA;
+            box-shadow: 0 0 0 3px rgba(1, 113, 186, 0.1);
+        }
+
+        .password-group button {
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .password-group button:hover {
+            background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
+            transform: translateY(-2px);
+        }
+
+        .report-container {
+            width: 100%; /* Fit to screen */
+            max-width: 1200px; /* But not too wide */
+            margin: auto;
+            padding: 10px;
+            background-color: #fff;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #ffffff;
+            border-radius: 8px;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: relative; /* allow pseudo-elements for left rule */
+        }
+
+        /* Header: flat horizontal blue rule under header area */
+        .report-header {
+            padding-bottom: 18px;
+            margin-bottom: 10px;
+            border-bottom: 4px solid #0171ba;
+            border-radius: 8px 8px 0 0; /* keep rounded corners for header box */
+        }
+
+        /* Ensure header does not get a left rule */
+        .report-header::before { display: none !important; }
+
+        /* Reusable left-ruled style: applies a vertical blue bar with rounded ends.
+           We'll add the `left-ruled` class to sections that should show the rule.
+           This avoids a continuous border spanning unrelated sections. */
+        .section.left-ruled {
+            padding-left: 36px; /* space for the vertical rule */
+        }
+
+        .section.left-ruled::before {
+            content: '';
+            position: absolute;
+            left: 10px; /* offset from left edge of section */
+            top: 12px; /* start a little below the section top */
+            bottom: 12px; /* end a little above the section bottom */
+            width: 6px;
+            background: #0171ba;
+            border-radius: 6px; /* rounded caps */
+            box-shadow: 0 1px 0 rgba(1,113,186,0.15);
+        }
+
+        /* Patient section gets an additional horizontal separator above it to meet header */
+        .patient-section.left-ruled::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -8px; /* position slightly above the section to meet header bottom */
+            height: 4px;
+            background: #0171ba;
+        }
+        
+        /* Enhanced page break optimization */
+        .page-break-before {
+            page-break-before: always !important;
+            break-before: always !important;
+            padding-top: 30px;
+        }
+        
+        .bordered-table {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin: 20px 0;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        /* Keep headers with content */
+        h2 {
+            page-break-after: avoid !important;
+            font-size: 24px !important;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        /* Force page breaks for major sections */
+        #phenotypesSection,
+        #CNVsection, 
+        #IncidentialSection,
+        #carrierSection,
+        #secondaryfindingsSection {
+            page-break-before: always !important;
+            break-before: always !important;
+            padding-top: 40px;
+        }
+
+        /* Variant classification needs page break */
+        .variant-classification {
+            page-break-before: always !important;
+            break-before: always !important;
+            padding-top: 30px;
+        }
+
+        .section h2 {
+            color: #0171ba;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            background: #0171ba;
+            border-radius: 50%;
+        }
+
+        .section table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .section th, .section td {
+            padding: 10px;
+            text-align: left;
+            font-size: 20px;
+            font-family: 'Calibri', 'Arial', sans-serif;
+            word-wrap: break-word;
+            min-width: 80px;
+            line-height: 1.4;
+        }
+
+        .section th {
+            background: linear-gradient(135deg, #0171ba 0%, #0056b3 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        .section td {
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .section tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .multiline-input, .content-editable {
+            min-height: 20px;
+            padding: 5px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 20px !important;
+            line-height: 1.3;
+        }
+
+        .multiline-input:focus, .content-editable:focus {
+            outline: none;
+            border-color: #0171ba;
+            background-color: #f0f7ff;
+            box-shadow: 0 0 0 3px rgba(1, 113, 186, 0.1);
+        }
+
+        .bordered-table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 600px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .bordered-table td, .bordered-table th {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+            font-size: 20px !important;
+            font-family: 'Calibri', 'Arial', sans-serif;
+            min-width: 70px;
+            word-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        .bordered-table th {
+            background: linear-gradient(135deg, #0171ba 0%, #0056b3 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Make the Data Statistics table border match blue theme */
+        #datastatistics, #datastatistics td, #datastatistics th {
+            border: 1.5px solid #0171bc;
+        }
+        #datastatistics {
+            border-collapse: collapse;
+            box-shadow: 0 2px 6px rgba(1,113,186,0.06);
+        }
+
+        /* Variant classification tables should use blue borders to match style */
+        .variant-classification .bordered-table,
+        .variant-classification table {
+            border: 1.5px solid #0171bc;
+            border-collapse: collapse;
+            box-shadow: 0 2px 6px rgba(1,113,186,0.06);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .variant-classification .bordered-table th,
+        .variant-classification table th {
+            background: linear-gradient(135deg, #0171bc 80%, #0056b3 100%);
+            color: white;
+            font-weight: 700;
+        }
+
+        /* Ensure cells and header borders are blue (overrides generic bordered-table cell colors) */
+        .variant-classification .bordered-table td,
+        .variant-classification .bordered-table th,
+        .variant-classification table td,
+        .variant-classification table th {
+            border: 1.5px solid #0171bc;
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        .signature-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 40px;
+            padding: 25px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 0%);
+            border-radius: 12px;
+        }
+
+        .signature-section {
+            text-align: center;
+            padding: 25px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .signature-line {
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(90deg, #0171ba, #0056b3);
+            margin: 20px auto;
+            border-radius: 2px;
+        }
+
+        .image-container {
+            min-height: 120px;
+            border: 0px dashed #ffffff;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .image-container:hover {
+            border-color: #0171ba;
+            background: #f0f7ff;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 100px;
+            border-radius: 4px;
+        }
+
+        #reviewer1, #reviewer2 {
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 180px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .btn-fetch {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .action-buttons button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .test-name-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .test-name-container h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        #test_name {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px;
+            border: 2px solid #0171ba;
+            border-radius: 8px;
+            font-size: 1.1em;
+            color: #0171ba;
+            font-weight: 600;
+        }
+
+        .disclaimer {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 1px solid #ffeaa7;
+            border-radius: 10px;
+            padding: 25px;
+            margin-top: 25px;
+        }
+
+        .disclaimer h2 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .disclaimer ul {
+            color: #856404;
+            line-height: 1.7;
+        }
+
+        .disclaimer li {
+            margin-bottom: 8px;
+        }
+
+        /* PDF-specific styles */
+        #pdf-content {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        .pdf-section {
+            margin-bottom: 30px;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .pdf-table-container {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin: 20px 0;
+        }
+
+                /* PDF Footer Styles */
+        .pdf-footer {
+            position: fixed;
+            bottom: 15px;
+            left: 0;
+            right: 0;
+            height: 30px;
+            font-size: 9px;
+            color: #666;
+            text-align: center;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+            background: white;
+        }
+        
+        .pdf-footer .company-name {
+            float: left;
+            margin-left: 20px;
+        }
+        
+        .pdf-footer .page-number {
+            display: inline-block;
+        }
+        
+        .pdf-footer .contact {
+            float: right;
+            margin-right: 20px;
+        }
+
+        @media print {
+            body {
+                font-family: 'Calibri', 'Arial', sans-serif !important;
+                font-size: 12px !important;
+                line-height: 1.2 !important;
+                margin: 0;
+                padding: 10px;
+                background: white !important;
+            }
+            
+            .toolbar-section,
+            .password-controls,
+            .action-buttons {
+                display: none !important;
+            }
+            
+            .report-container {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 5px !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+
+            /* Enhanced page break controls */
+            .section {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                margin-bottom: 15px !important;
+                padding: 10px !important;
+                position: relative;
+                clear: both;
+                background: white !important;
+            }
+            
+            /* Force page breaks before major sections */
+            #phenotypesSection,
+            #CNVsection,
+            #IncidentialSection,
+            #carrierSection,
+            #secondaryfindingsSection,
+            .variant-classification {
+                page-break-before: always !important;
+                break-before: always !important;
+                padding-top: 20px !important;
+            }
+
+            /* Keep tables together */
+            table {
+                page-break-inside: avoid !important;
+                page-break-before: auto !important;
+                page-break-after: auto !important;
+            }
+            
+            /* Keep headers with their content */
+            h2 {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                margin-bottom: 8px !important;
+                font-size: 14px !important;
+                font-weight: 700 !important;
+            }
+
+            table {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                margin: 15px 0;
+            }
+
+            .signature-container {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                margin-top: 40px;
+            }
+
+            h2 {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                margin-bottom: 15px;
+            }
+
+            /* Keep headers with their content */
+            h2 + table,
+            h2 + p,
+            h2 + div {
+                page-break-before: avoid !important;
+                break-before: avoid !important;
+            }
+
+            /* Keep table headers with their content */
+            thead {
+                display: table-header-group;
+            }
+            
+            tbody {
+                page-break-inside: avoid !important;
+            }
+
+            /* Ensure minimum content before page break */
+            p, div {
+                orphans: 4;
+                widows: 4;
+            }
+
+            /* Specific section breaks */
+            #phenotypesSection,
+            #CNVsection,
+            #IncidentialSection,
+            #carrierSection,
+            #secondaryfindingsSection {
+                page-break-before: always !important;
+                padding-top: 20px;
+            }
+
+            .signature-container {
+                page-break-before: always !important;
+            }
+
+            .disclaimer {
+                page-break-before: auto !important;
+            }
+
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            /* Enhanced font consistency for PDF */
+            * {
+                font-family: 'Calibri', 'Arial', sans-serif !important;
+            }
+            
+            th, td {
+                font-size: 10px !important;
+                padding: 4px !important;
+                line-height: 1.2 !important;
+            }
+            
+            .content-editable, .multiline-input {
+                font-size: 11px !important;
+                line-height: 1.2 !important;
+                padding: 3px !important;
+            }
+            
+            /* Footer for each page */
+            @page {
+                margin: 20mm;
+                size: A4;
+                @bottom-center {
+                    content: "Page " counter(page) " of " counter(pages);
+                    font-family: 'Calibri', 'Arial', sans-serif;
+                    font-size: 8px;
+                    color: #0171bc;
+                }
+                @bottom-left {
+                    content: "Progenics Laboratories Private Limited";
+                    font-family: 'Calibri', 'Arial', sans-serif;
+                    font-size: 9px;
+                    color: #0171bc;
+                }
+                @bottom-right {
+                    content: "connect@progenicslabs.com";
+                    font-family: 'Calibri', 'Arial', sans-serif;
+                    font-size: 9px;
+                    color: #0171bc;
+                }
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-wrapper {
+                padding: 10px;
+            }
+            
+            .report-container {
+                width: 100%;
+                padding: 15px;
+                border-radius: 10px;
+            }
+
+            .report-header {
+                margin: -15px -15px 20px -15px;
+                padding: 20px;
+            }
+            
+            .toolbar {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 8px;
+            }
+            
+            .toolbar button {
+                padding: 8px 10px;
+                font-size: 0.8em;
+            }
+            
+            .signature-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .action-buttons button {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .password-controls {
+                grid-template-columns: 1fr;
+            }
+
+            .section h2 {
+                font-size: 12px;
+            }
+
+            .section th, .section td {
+                padding: 6px;
+                font-size: 9px;
+            }
+
+            .bordered-table th, .bordered-table td {
+                padding: 4px;
+                font-size: 8px;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .bordered-table {
+                min-width: 500px;
+            }
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #0171ba;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #c3e6cb;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #f5c6cb;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- Enhanced Toolbar Section -->
+        <div class="toolbar-section">
+            <div class="section-title">🧬 WES Report Editor - Enhanced Version 3.0</div>
+            
+            <div class="toolbar">
+                <!-- Text Formatting -->
+                <button onclick="formatText('bold')" title="Make text bold">📝 Bold</button>
+                <button onclick="formatText('italic')" title="Make text italic">📝 Italic</button>
+                <button onclick="formatText('underline')" title="Underline text">📝 Underline</button>
+                
+                <!-- Text Colors -->
+                <button onclick="changeColor('red')" title="Change text color to red">🔴 Red Text</button>
+                <button onclick="changeColor('green')" title="Change text color to green">🟢 Green Text</button>
+                <button onclick="changeColor('black')" title="Change text color to black">⚫ Black Text</button>
+                
+                <!-- Text Alignment -->
+                <button onclick="alignText('left')" title="Align text to left">⬅️ Align Left</button>
+                <button onclick="alignText('center')" title="Center align text">↔️ Center</button>
+                <button onclick="alignText('right')" title="Align text to right">➡️ Align Right</button>
+                <button onclick="alignText('justify')" title="Justify text">📐 Justify</button>
+                
+                <!-- Lists -->
+                <button onclick="insertBulletPoints()" title="Insert bullet points">• Bullet Points</button>
+                <button onclick="insertNumberedList()" title="Insert numbered list">1️⃣ Numbered List</button>
+                
+                <!-- Table Row Management -->
+                <button onclick="addRow()" title="Add row to phenotype table">➕ Add Row Main</button>
+                <button onclick="removeRow()" title="Remove row from phenotype table">➖ Remove Row Main</button>
+                <button onclick="addRow1()" title="Add row to CNV table">➕ Add Row CNV</button>
+                <button onclick="removeRow1()" title="Remove row from CNV table">➖ Remove Row CNV</button>
+                <button onclick="addRow2()" title="Add row to incidental table">➕ Add Row I</button>
+                <button onclick="removeRow2()" title="Remove row from incidental table">➖ Remove Row I</button>
+                <button onclick="addRow3()" title="Add row to carrier status table">➕ Add Row CS</button>
+                <button onclick="removeRow3()" title="Remove row from carrier status table">➖ Remove Row CS</button>
+                <button onclick="addRow4()" title="Add row to secondary findings table">➕ Add Row SF</button>
+                <button onclick="removeRow4()" title="Remove row from secondary findings table">➖ Remove Row SF</button>
+                
+                <!-- Text Replacement -->
+                <button onclick="replaceUnderscoresWithDots()" title/* KEEP SECTION CONTENT TOGETHER */
+.section * {
+    page-break-before: avoid !important;
+}
+
+/* Section overflow fix */
+.section {
+    overflow: visible !important;
+}place underscores with dots">🔄 Replace _ with .</button>
+                <button onclick="replaceUnderscoresWithDotsT()" title="Replace underscores with dots in tables">🔄 Replace _ with . T</button>
+                
+                <!-- Section Visibility Toggles -->
+                <button onclick="toggleTableWithNotification('phenotypesSection', 'Phenotype Table')" title="Show/Hide phenotype table">👁️ Show/Hide PhenoTable</button>
+                <button onclick="toggleTableWithNotification('interpretationSection', 'Phenotype Interpretation')" title="Show/Hide phenotype interpretation">👁️ Show/Hide PhenoInterpretation</button>
+                <button onclick="toggleTableWithNotification('CNVsection', 'CNV Table')" title="Show/Hide CNV table">👁️ Show/Hide cnvTable</button>
+                <button onclick="toggleTableWithNotification('interpretationcnvSection', 'CNV Interpretation')" title="Show/Hide CNV interpretation">👁️ Show/Hide cnvInterpretation</button>
+                <button onclick="toggleTableWithNotification('IncidentialSection', 'Incidental Table')" title="Show/Hide incidental table">👁️ Show/Hide IncidentialTable</button>
+                <button onclick="toggleTableWithNotification('interpretationiSection', 'Incidental Interpretation')" title="Show/Hide incidental interpretation">👁️ Show/Hide IncidentialInterpretation</button>
+                <button onclick="toggleTableWithNotification('carrierSection', 'Carrier Table')" title="Show/Hide carrier table">👁️ Show/Hide CarrierTable</button>
+                <button onclick="toggleTableWithNotification('interpretationcsSection', 'Carrier Interpretation')" title="Show/Hide carrier interpretation">👁️ Show/Hide CarrierInterpretation</button>
+                <button onclick="toggleTableWithNotification('secondaryfindingsSection', 'Secondary Table')" title="Show/Hide secondary table">👁️ Show/Hide secondaryTable</button>
+                <button onclick="toggleTableWithNotification('interpretationsSection', 'Secondary Interpretation')" title="Show/Hide secondary interpretation">👁️ Show/Hide secondaryInterpretation</button>
+                
+                <!-- Hyperlink -->
+                <button onclick="makeHyperlink()" title="Create hyperlink">🔗 Hyperlink</button>
+            </div>
+
+            <!-- Password and Image Upload Controls -->
+            <div class="password-controls">
+                <div class="password-group">
+                    <label for="password1">🔒 Enter Password for Signature Image 1:</label>
+                    <input type="password" id="password1" placeholder="Enter Password">
+                    <button onclick="window.checkPassword('password1', 'imageUpload1')">Submit Password</button>
+                    <input type="file" id="imageUpload1" accept="image/*" onchange="window.uploadImage(event, 'imageUpload1', 'imageContainer1')" disabled>
+                    <button onclick="window.fetchImage('imageUpload1', 'imageContainer1')">Fetch Image 1</button>
+                </div>
+
+                <div class="password-group">
+                    <label for="password2">🔒 Enter Password for Signature Image 2:</label>
+                    <input type="password" id="password2" placeholder="Enter Password">
+                    <button onclick="window.checkPassword('password2', 'imageUpload2')">Submit Password</button>
+                    <input type="file" id="imageUpload2" accept="image/*" onchange="window.uploadImage(event, 'imageUpload2', 'imageContainer2')" disabled>
+                    <button onclick="window.fetchImage('imageUpload2', 'imageContainer2')">Fetch Image 2</button>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 15px;">
+                <button type="button" id="fetchDataButton" class="btn-fetch" style="padding: 15px 25px; border: none; background: linear-gradient(135deg, #0171BA 0%, #0056b3 100%); color: white; cursor: pointer; border-radius: 8px; font-size: 20px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(1, 113, 186, 0.3);">🔄 FETCH DATA</button>
+            </div>
+        </div>
+
+        <!-- Main Report Content -->
+        <main>    
+            <div class="report-container" id="pdf-content">
+                <!-- Header Section -->
+                <div class="section report-header">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                        <div style="flex: 1;">
+                            <img src="/wes_report/Images/Blue logo progenics.png" alt="Progenics Logo" style="height: 120px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                            <div style="width: 200px; height: 120px; border: 2px solid #0171ba; border-radius: 8px; display: none; align-items: center; justify-content: center; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                                 <div style="text-align: center; color: #0171ba; font-weight: bold;">
+                                    <div style="font-size: 20px; margin-bottom: 5px;">PROGENICS</div>
+                                    <div style="font-size: 14px;">LABORATORIES</div>
+                                    <div style="font-size: 10px; margin-top: 5px;">Private Limited</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex: 1; text-align: right;">
+                            <p style="line-height: 1.6; color: #333; margin-top: 20px; font-size: 18px;">
+                                308, Jain Friends Square,<br>
+                                Sy No. 85, Suchitra Junction,<br>
+                                Suchitra, Padmanagar Phase II,<br>
+                                Hyderabad, Telangana - 500055
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <table width="100%" style="margin-bottom: 20px;">
+                        <tr>
+                           
+                    </table>
+
+            <!-- DNA Test Performed -->
+            <div class="section" style="margin-top:10px;">
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <h2 style="margin:0;">DNA Test Performed:</h2>
+                    <div id="dna_test_performed" class="multiline-input" contenteditable="true" placeholder="Enter DNA Test Performed" style="flex:1; min-width:300px;"></div>
+                </div>
+            </div>
+
+            <!-- Patient Information -->
+            <div class="section patient-section left-ruled">
+                <h2>Patient Information</h2>
+                <table id="sampleinfoTable">
+                    <tr>
+                        <th>Sample ID</th>
+                        <td><div id="sample_id" class="multiline-input" contenteditable="true"></div></td>
+                        <th>Clinician Name</th>
+                        <td><div id="sample_clinical" class="multiline-input" contenteditable="true"></div></td>
+                    </tr>
+                    <tr>
+                        <th>Patient Name</th>
+                        <td><div id="sample_patient" class="multiline-input" contenteditable="true"></div></td>
+                        <th>Sample Type</th>
+                        <td><div id="sample_type" class="multiline-input" contenteditable="true"></div></td>
+                    </tr>
+                    <tr>
+                        <th>Age/DOB</th>
+                        <td><div id="sample_age" class="multiline-input" contenteditable="true"></td>
+                        <th>Collection Date</th>
+                        <td><div id="sample_collection" class="multiline-input" contenteditable="true"></div></td>
+                    </tr>
+                    <tr>
+                        <th>Gender</th>
+                        <td><div id="sample_gender" class="multiline-input" contenteditable="true"></div></td>
+                        <th>Receipt Date</th>
+                        <td><div id="sample_receipt" class="multiline-input" contenteditable="true"></div></td>
+                    </tr>
+                    <tr>
+                        <th>Report Date</th>
+                        <td><div id="sample_report" class="multiline-input" contenteditable="true"></div></td>
+                    </tr>
+                </table>
+            </div>
+
+
+            <!--clinical information-->
+            <div class="section left-ruled">
+                <div class="container mt-4 mb-4" style="min-height: 50px;">
+                    <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Clinical Information</h2>
+                    <div id="clinical_info" contenteditable="true" class="content-editable enhanced-content" 
+                        style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                </div>
+            </div>
+
+            <!--Results summary-->
+            <div class="section left-ruled">
+                <div class="container mt-4 mb-4" style="min-height: 50px;">
+                    <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Results Summary</h2>
+                    <div id="results_summary" class="content-editable enhanced-content" contenteditable="true" 
+                        style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                </div>
+            </div>
+            
+            <!--Phenotypes table-->
+            <div class="section left-ruled" id="phenotypesSection">
+                <h2>Findings Related to Phenotypes</h2>
+                <table border="1" id="phenotypeTable" class="bordered-table">
+                    <thead>
+                        <tr>
+                            <th>Gene (Transcript ID)</th>
+                            <th>Location</th>
+                            <th>Variant</th>
+                            <th>Zygosity</th>
+                            <th>OMIM Phenotype</th>
+                            <th>Inheritance</th>
+                            <th>Clinical Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+       
+                <!--Interpretation-->
+                <div class="section left-ruled" id="interpretationSection">
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                        <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Interpretation</h2>
+                        <div id="interpretationM" class="content-editable enhanced-content" contenteditable="true" 
+                            style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+
+
+            <!--CNVs table-->
+            <div class="section left-ruled" id = "CNVsection">
+                <h2>Copy Number Variations (CNVs):</h2>
+                <table border="1" id="CNVTable" class="bordered-table">
+                    <thead>
+                        <tr>
+                            <th>Gene (Transcript ID)</th>
+                            <th>Location</th>
+                            <th>Variant</th>
+                            <th>Zygosity</th>
+                            <th>OMIM Phenotype</th>
+                            <th>Inheritance</th>
+                            <th>Clinical Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+                <!--Interpretation cnvs-->
+                <div class="section left-ruled" id="interpretationcnvSection">
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                        <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Interpretation</h2>
+                        <div id="interpretationc" class="content-editable enhanced-content" contenteditable="true" 
+                            style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+
+
+            <!--Incidential table-->
+            <div class="section left-ruled" id="IncidentialSection">
+                <h2>Incidential Findings:</h2>
+                <table border="1" id="ITable" class="bordered-table">
+                    <thead>
+                        <tr>
+                            <th>Gene (Transcript ID)</th>
+                            <th>Location</th>
+                            <th>Variant</th>
+                            <th>Zygosity</th>
+                            <th>OMIM Phenotype</th>
+                            <th>Inheritance</th>
+                            <th>Clinical Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+
+                <!--Interpretation incidential-->
+                <div class="section left-ruled" id="interpretationiSection">
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                        <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Interpretation</h2>
+                        <div id="interpretationi" class="content-editable enhanced-content" contenteditable="true" 
+                            style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+
+            <!--Carrier Status table-->
+            <div class="section left-ruled" id="carrierSection">
+                <h2>Carrier Status:</h2>
+                <table border="1" id="CSTable" class="bordered-table">
+                    <thead>
+                        <tr>
+                            <th>Gene (Transcript ID)</th>
+                            <th>Location</th>
+                            <th>Variant</th>
+                            <th>Zygosity</th>
+                            <th>OMIM Phenotype</th>
+                            <th>Inheritance</th>
+                            <th>Clinical Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+                <!--Interpretation carrier status-->
+                <div class="section left-ruled" id="interpretationcsSection">
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                        <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Interpretation</h2>
+                        <div id="interpretationcs" class="content-editable enhanced-content" contenteditable="true" 
+                            style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+
+
+            <!--Secondary Findings table-->
+            <div class="section left-ruled" id="secondaryfindingsSection">
+                <h2>Secondary Findings:</h2>
+                <table border="1" id="SFTable" class="bordered-table">
+                    <thead>
+                        <tr>
+                            <th>Gene (Transcript ID)</th>
+                            <th>Location</th>
+                            <th>Variant</th>
+                            <th>Zygosity</th>
+                            <th>OMIM Phenotype</th>
+                            <th>Inheritance</th>
+                            <th>Clinical Significance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                            <td><div class="multiline-input" contenteditable="true"></div></td>
+                        </tr> 
+                    </tbody>
+                </table>
+            </div>
+
+                <!--Interpretation Secondary-->
+                <div class="section left-ruled" id='interpretationsSection'>
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                        <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Interpretation</h2>
+                        <div id="interpretations" class="content-editable enhanced-content" contenteditable="true" 
+                            style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+    
+                <!--Recommendations-->
+                <div class="section left-ruled">
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                        <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Recommendations</h2>
+                        <div id="recommendations" class="content-editable enhanced-content" contenteditable="true" 
+                            style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+        
+                <div class="section left-ruled">
+                    <h2>Data Statistics</h2>
+                    <table id = datastatistics class="bordered-table">
+                        <tr>
+                            <td style="width: 50%;">Total data generated(Gb):</th>
+                            <td><div id = "total" class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                        <tr>
+                            <td style="width: 50%;">Reads aligned(%):</th>
+                            <td><div id = "reads" class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                        <tr>
+                            <td style="width: 50%;">Q30 data(%):</th>
+                            <td><div id = "q30" class="multiline-input" contenteditable="true"></div></td>
+                        </tr>
+                    </table>
+                </div>
+    
+                <div class="section left-ruled">
+                    <div class="container mt-4 mb-4" style="min-height: 50px;">
+                            <h2 style="font-size: 24px !important; font-weight: bold !important; margin-bottom: 10px; color: #0171ba;">Test Methodology</h2>
+                            <div id="test_methodology" class="content-editable enhanced-content" contenteditable="true" 
+                                style="border: 2px solid #0171ba; padding: 20px; border-radius: 8px; background-color: #f8f9fa; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+                    </div>
+                </div>
+                <div class="section left-ruled">
+                    <h2>References</h2>
+                    <p><div id="references" class="content-editable" contenteditable="true"></div></p>
+                </div>
+                
+
+            <div class="section left-ruled variant-classification">
+                <h2>Variant Classification</h2>
+                <p>The classification of variants is performed based on American College of Medical Genetics as described below</p>
+                <table class="bordered-table">
+                    <tr>
+                        <td style="width: 20%;"><p>Variant</p></td>
+                        <td style="font-size: 16; width: 80%;">A change in a gene. This could be disease causing (pathogenic) or not disease causing (benign).</td>
+                    </tr>
+                    <tr>
+                        <td class="left-column" style="font-size: 16; width: 20%;">Pathogenic</td>
+                        <td class="right-column" style="font-size: 16; width: 80%;">A disease-causing variation in a gene which can explain the patient's symptoms has been detected. This usually means that a suspected disorder for which testing had been requested has been confirmed.</td>
+                    </tr>
+                    <tr>
+                        <td class="left-column" style="font-size: 16; width: 20%;">Likely Pathogenic</td>
+                        <td class="right-column" style="font-size: 16; width: 80%;">A variant which is very likely to contribute to the development of disease however, the scientific evidence is currently insufficient to prove this conclusively. Additional evidence is expected to confirm this assertion of pathogenicity</td>
+                    </tr>
+                    <tr>
+                        <td class="left-column" style="font-size: 16; width: 20%;">Variant of Uncertain<br>Significance (VOUS)</td>
+                        <td class="right-column" style="font-size: 16; width: 80%;">A variant has been detected, but it is difficult to classify it as either pathogenic (disease causing) or benign (non-disease causing) based on current available scientific evidence. Further testing of the patient or family members as recommended by your clinician may be needed. It is probable that their significance can be assessed only with time, subject to availability of scientific evidence.</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="section left-ruled">
+                <h2>ACMG CRITERIA FOR VARIANT CLASSIFICATION</h2>
+                <table class="bordered-table">
+                    <tr>
+                        <td class="left-column">PVS1</td>
+                        <td class="right-column">Null variant (nonsense, frameshift, canonical +-1 or 2 splice sites, initiation codon, single or multiexon deletion) in a gene where LOF is a known mechanism of disease</td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PS1</td>
+                        <td class="right-column">Same amino acid change as a previously established pathogenic variant regardless of nucleotide change</td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PVS2</td>
+                        <td class="right-column">De novo (both maternity and paternity confirmed) in a patient with the disease and no family history</td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PVS3</td>
+                        <td class="right-column">PS3 Well-established in vitro or in vivo functional studies supportive of a damaging effect on the gene or gene product </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PVS4</td>
+                        <td class="right-column">The prevalence of the variant in affected individuals is significantly increased compared with the prevalence in controls  </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PM1</td>
+                        <td class="right-column">Located in a mutational hot spot and/or critical and well-established functional domain (e.g., active site of an enzyme) without benign variation  </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PM2</td>
+                        <td class="right-column">Absent from controls (or at extremely low frequency if recessive) in Exome Sequencing Project, 1000 Genomes Project, or Exome Aggregation Consortium </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PM3</td>
+                        <td class="right-column">For recessive disorders, detected in trans with a pathogenic variant  </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PM4</td>
+                        <td class="right-column">Protein length changes because of in-frame deletions/insertions in a nonrepeat region or stop-loss variants </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PM5</td>
+                        <td class="right-column">Novel missense change at an amino acid residue where a different missense change determined to be pathogenic has been seen before </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PM6</td>
+                        <td class="right-column">Assumed de novo, but without confirmation of paternity and maternity  </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PP1</td>
+                        <td class="right-column">Co-segregation with disease in multiple affected family members in a gene definitively known to cause the disease   </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PP2</td>
+                        <td class="right-column">Missense variant in a gene that has a low rate of benign missense variation and in which missense variants are a common mechanism of disease    </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PP3</td>
+                        <td class="right-column">Multiple lines of computational evidence support a deleterious effect on the gene or gene product (conservation, evolutionary, splicing impact, etc.)    </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PP4</td>
+                        <td class="right-column">Patient's phenotype or family history is highly specific for a disease with a single genetic etiology     </td>
+                    </tr>
+                    <tr>
+                        <td class="left-column">PP5</td>
+                        <td class="right-column">Reputable source recently reports variant as pathogenic, but the evidence is not available to the laboratory to perform an independent evaluation       </td>
+                    </tr>
+                </table>
+            </div>
+            <!-- removed duplicated 'Reviewed and Approved by' signature boxes per user request -->
+            
+            <!-- Signature Section -->
+            <div class="signature-container">
+                <div class="signature-section">
+                    <div class="image-container" id="imageContainer1"></div>
+                    <div class="signature-line"></div>
+                    <div contenteditable="true" class="content-editable" id="reviewer1"><b>Reviewed by:</b> Dr. Swapnil Kajale, PhD<br> Senior Scientist & Lab Head</div>
+                </div>
+                <div class="signature-section">
+                    <div class="image-container" id="imageContainer2"></div>
+                    <div class="signature-line"></div>
+                    <div contenteditable="true" class="content-editable" id="reviewer2"><b>Reviewed by:</b> Dr Aruna Priya, PhD<br> Senior Genomic Scientist<br>Board certified Genetic Counselor</div>
+                </div>
+            </div>
+            
+            <div class="section left-ruled">
+                <h2>Disclaimer</h2>
+                <ul>
+                  <li>Currently available data indicate that the technical error rate for all types of Molecular DNA analysis even with best possible precautions is 2%.</li>
+                  <li>This report must be given only in the presence of a medical professional to explain the findings and implications. The company will not be liable for any direct, indirect, consequential, special, exemplary, or any other damages.</li>
+                  <li>Mutations have not been confirmed by Sanger sequencing.</li>
+                  <li>Genes with pseudogenes may have low sensitivity and specificity for variant detection and interpretation due to the inability of data and analysis tools to unambiguously determine the origin of the sequence data in such regions.</li>
+                  <li>Insufficient clinical details may lead to missing causative pathogenic variants from reporting.</li>
+                  <li>This report is solely based on the genetic makeup of individuals and can develop new genetic changes based on environmental factors that can alter the risk for different diseases.</li>
+                </ul>
+              </div>
+
+              <div style="color: red; text-align: center; font-weight: bold; margin: 20px 0;">*** END OF THE REPORT ***</div>
+        </main>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button type="button" id="saveDataButton" class="btn-save">💾 Save Data</button>
+            <button id="downloadTextBtn" class="btn-download" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);">📄 Generate Text PDF</button>
+            <button id="downloadImageBtn" class="btn-download">📄 Generate Image PDF</button>
+        </div>
+
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <script>
+        /**
+         * Toggle visibility of a DOM element by id.
+         * Shows or hides the element by toggling inline `display`.
+         * @param {string} elementId - The id of the element to toggle.
+         */
+        function toggleVisibility(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                if (element.style.display === 'none') {
+                    element.style.display = '';
+                } else {
+                    element.style.display = 'none';
+                }
+            }
+        }
+        /**
+         * Toggle a table/section and show a small notification describing the new state.
+         * Uses `showNotification` to display a short message.
+         * @param {string} elementId - The id of the element to toggle.
+         * @param {string} sectionName - Friendly name used in the notification.
+         */
+        function toggleTableWithNotification(elementId, sectionName) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                const isHidden = element.style.display === 'none';
+                element.style.display = isHidden ? '' : 'none';
+                
+                // Show notification
+                const status = isHidden ? 'VISIBLE' : 'HIDDEN';
+                showNotification(`${sectionName}: ${status}`, status === 'VISIBLE' ? 'success' : 'info');
+            }
+        }
+
+    /**
+     * Show a transient notification in the top-right corner.
+     * Creates a styled notification element and auto-removes it after 3s.
+     * @param {string} message - Message text to display.
+     * @param {'info'|'success'|'error'} [type='info'] - Visual style of the notification.
+     */
+    function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(n => n.remove());
+
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <span class="notification-icon">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'i'}</span>
+                <span class="notification-text">${message}</span>
+                <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            // Add styles if not already added
+            if (!document.querySelector('#notification-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'notification-styles';
+                styles.textContent = `
+                    .notification {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        z-index: 10000;
+                        padding: 15px 20px;
+                        border-radius: 8px;
+                        color: white;
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+                        animation: slideIn 0.3s ease;
+                        min-width: 300px;
+                    }
+                    .notification-success { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+                    .notification-error { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+                    .notification-info { background: linear-gradient(135deg, #3498db, #2980b9); }
+                    .notification-icon { font-size: 18px; }
+                    .notification-text { flex: 1; }
+                    .notification-close {
+                        background: none;
+                        border: none;
+                        color: white;
+                        font-size: 18px;
+                        cursor: pointer;
+                        padding: 0;
+                        width: 20px;
+                        height: 20px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+    /** Legacy alias: Toggle phenotype table (kept for older code). */
+    function toggleTable() { toggleTableWithNotification('phenotypesSection', 'Phenotype Table'); }
+        function toggleInterpretation() { toggleTableWithNotification('interpretationSection', 'Phenotype Interpretation'); }
+        function toggleTable1() { toggleTableWithNotification('CNVsection', 'CNV Table'); }
+        function toggleInterpretation1() { toggleTableWithNotification('interpretationcnvSection', 'CNV Interpretation'); }
+        function toggleTable2() { toggleTableWithNotification('IncidentialSection', 'Incidental Table'); }
+        function toggleInterpretation2() { toggleTableWithNotification('interpretationiSection', 'Incidental Interpretation'); }
+        function toggleTable3() { toggleTableWithNotification('carrierSection', 'Carrier Table'); }
+        function toggleInterpretation3() { toggleTableWithNotification('interpretationcsSection', 'Carrier Interpretation'); }
+        function toggleTable4() { toggleTableWithNotification('secondaryfindingsSection', 'Secondary Table'); }
+        function toggleInterpretation4() { toggleTableWithNotification('interpretationsSection', 'Secondary Interpretation'); }
+    </script>
+
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4En-Zim7E3-lE0BksOhB0kW024F85cgY",
+            authDomain: "wesprogenics.firebaseapp.com",
+            databaseURL: "https://wesprogenics-default-rtdb.firebaseio.com",
+            projectId: "wesprogenics",
+            storageBucket: "wesprogenics.firebasestorage.app",
+            messagingSenderId: "451043511889",
+            appId: "1:451043511889:web:c88ccee1aeea9d351ef270",
+            measurementId: "G-ZWDF4Y7K29"
+        };
+
+        // Initialize Firebase only if not already initialized
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const database = firebase.database();
+        console.log('Firebase initialized successfully');
+    </script>
+
+    <script>
+        // --- Toolbar Functionality ---
+
+        /** Execute a formatting command (bold/italic/underline etc.) on the current selection. */
+        function formatText(command, value = null) { document.execCommand(command, false, value); }
+
+        /** Change the foreground color of the selection. @param {string} color - CSS color value. */
+        function changeColor(color) { document.execCommand('foreColor', false, color); }
+
+        /** Align the current block. @param {'left'|'center'|'right'|'justify'} align */
+    // NOTE: alignText was enhanced to apply CSS 'text-align' to the nearest
+    // content-editable or block element when possible. If that fails it falls
+    // back to document.execCommand. The function shows success or error
+    // notifications via showNotification so user feedback matches other toolbar
+    // buttons.
+    function alignText(align) {
+            // Normalize
+            align = (align || '').toLowerCase();
+
+            // Try to apply alignment to the most relevant element:
+            // 1) If there's a selection and its common ancestor is contentEditable, apply style to that ancestor paragraph/div
+            // 2) Else apply to the focused contentEditable element
+            // 3) Fallback to execCommand for legacy support
+            try {
+                const sel = window.getSelection();
+                let applied = false;
+
+                function applyToElement(elem) {
+                    if (!elem) return false;
+                    // If element or an ancestor is contentEditable, find the nearest editable block
+                    let node = elem;
+                    while (node && node !== document.body) {
+                        if (node.isContentEditable) {
+                            node.style.textAlign = align;
+                            return true;
+                        }
+                        // treat block-level elements as paragraph containers
+                        const display = window.getComputedStyle(node).display;
+                        if (display === 'block' || node.tagName === 'P' || node.tagName === 'DIV' || node.tagName === 'TD') {
+                            // set alignment on this node
+                            node.style.textAlign = align;
+                            return true;
+                        }
+                        node = node.parentElement;
+                    }
+                    return false;
+                }
+
+                if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+                    const range = sel.getRangeAt(0);
+                    const common = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentElement;
+                    applied = applyToElement(common);
+                }
+
+                if (!applied) {
+                    const active = document.activeElement;
+                    if (active && (active.isContentEditable || active.tagName === 'DIV' || active.tagName === 'P' || active.tagName === 'TD')) {
+                        applied = applyToElement(active);
+                    }
+                }
+
+                // Last resort: use execCommand mapping for alignment
+                if (!applied) {
+                    const mapping = { left: 'justifyLeft', center: 'justifyCenter', right: 'justifyRight', justify: 'justifyFull' };
+                    const cmd = mapping[align] || 'justifyLeft';
+                    applied = document.execCommand(cmd);
+                }
+
+                if (applied) {
+                    showNotification(`Text ${align} applied successfully`, 'success');
+                } else {
+                    showNotification('Unable to apply alignment to the selection', 'error');
+                }
+            } catch (err) {
+                console.error('alignText error:', err);
+                showNotification('Error applying alignment: ' + err.message, 'error');
+            }
+        }
+
+        /** Insert an unordered list at the selection/caret. */
+        function insertBulletPoints() { document.execCommand('insertUnorderedList', false, null); }
+
+        /** Insert an ordered list at the selection/caret. */
+        function insertNumberedList() { document.execCommand('insertOrderedList', false, null); }
+
+        /** Prompt for a URL and create a link around the selection. */
+        function makeHyperlink() {
+            const url = prompt("Enter the URL:");
+            if (url) document.execCommand('createLink', false, url);
+        }
+
+        // Table Row Management
+    /** Add an empty row to the phenotype table. */
+    function addRow() {
+            const table = document.getElementById("phenotypeTable").getElementsByTagName("tbody")[0];
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+            `;
+        }
+
+    /** Remove the last row from the phenotype table (keeps at least one row). */
+    function removeRow() {
+            const table = document.getElementById('phenotypeTable');
+            const rowCount = table.rows.length;
+
+            // Ensure at least one row remains in the table
+            if (rowCount > 1) {
+                table.deleteRow(rowCount - 1);
+            } else {
+                alert('Cannot remove the last row!');
+            }
+        }
+
+    /** Add an empty row to the CNV table. */
+    function addRow1() {
+            const table = document.getElementById("CNVTable").getElementsByTagName("tbody")[0];
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+            `;
+        }
+
+    /** Remove the last row from the CNV table (keeps at least one row). */
+    function removeRow1() {
+            const table = document.getElementById('CNVTable');
+            const rowCount = table.rows.length;
+
+            // Ensure at least one row remains in the table
+            if (rowCount > 1) {
+                table.deleteRow(rowCount - 1);
+            } else {
+                alert('Cannot remove the last row!');
+            }
+        }
+
+    /** Add an empty row to the incidental findings table. */
+    function addRow2() {
+            const table = document.getElementById("ITable").getElementsByTagName("tbody")[0];
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+            `;
+        }
+
+    /** Remove the last row from the incidental findings table. */
+    function removeRow2() {
+            const table = document.getElementById('ITable');
+            const rowCount = table.rows.length;
+
+            // Ensure at least one row remains in the table
+            if (rowCount > 1) {
+                table.deleteRow(rowCount - 1);
+            } else {
+                alert('Cannot remove the last row!');
+            }
+        }
+
+    /** Add an empty row to the carrier status table. */
+    function addRow3() {
+            const table = document.getElementById("CSTable").getElementsByTagName("tbody")[0];
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+            `;
+        }
+
+    /** Remove the last row from the carrier status table. */
+    function removeRow3() {
+            const table = document.getElementById('CSTable');
+            const rowCount = table.rows.length;
+
+            // Ensure at least one row remains in the table
+            if (rowCount > 1) {
+                table.deleteRow(rowCount - 1);
+            } else {
+                alert('Cannot remove the last row!');
+            }
+        }
+
+    /** Add an empty row to the secondary findings table. */
+    function addRow4() {
+            const table = document.getElementById("SFTable").getElementsByTagName("tbody")[0];
+            const newRow = table.insertRow();
+            newRow.innerHTML = `
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+                <td><div class="multiline-input" contenteditable="true"></div></td>
+            `;
+        }
+
+    /** Remove the last row from the secondary findings table. */
+    function removeRow4() {
+            const table = document.getElementById('SFTable');
+            const rowCount = table.rows.length;
+
+            // Ensure at least one row remains in the table
+            if (rowCount > 1) {
+                table.deleteRow(rowCount - 1);
+            } else {
+                alert('Cannot remove the last row!');
+            }
+        }
+
+        // Section Visibility Toggles
+        /** Toggle a section's hidden state by toggling the `hidden-section` class. */
+        function toggleVisibility(sectionId) {
+            document.getElementById(sectionId)?.classList.toggle('hidden-section');
+        }
+
+        // Specific toggle actions
+        function toggleTable() { toggleVisibility('phenotype-table-section'); }
+        function toggleInterpretation() { toggleVisibility('phenotype-interpretation-section'); }
+        function toggleTable2() { toggleVisibility('incidental-findings-table-section'); }
+        function toggleInterpretation2() { toggleVisibility('incidental-findings-interpretation-section'); }
+        function toggleTable3() { toggleVisibility('carrier-status-table-section'); }
+        function toggleInterpretation3() { toggleVisibility('carrier-status-interpretation-section'); }
+        function toggleTable4() { toggleVisibility('secondary-findings-table-section'); }
+        function toggleInterpretation4() { toggleVisibility('secondary-findings-interpretation-section'); }
+        // CNV toggles are placeholders
+        function toggleTable1() { console.warn('CNV Section not implemented.'); }
+        function toggleInterpretation1() { console.warn('CNV Section not implemented.'); }
+
+        // Text Replacement
+        /**
+         * Replace text within a DOM node recursively.
+         * @param {Node} node - DOM node to search.
+         * @param {string} find - String or regex pattern to find.
+         * @param {string} replace - Replacement text.
+         */
+        function replaceTextInNode(node, find, replace) {
+            if (node.nodeType === 3) { // Text node
+                node.nodeValue = node.nodeValue.replace(new RegExp(find, 'g'), replace);
+            } else if (node.nodeType === 1 && node.hasChildNodes()) { // Element node
+                node.childNodes.forEach(child => replaceTextInNode(child, find, replace));
+            }
+        }
+
+    /**
+     * Replace underscores with dots in the current selection or focused editable field.
+     * Shows a notification indicating how many replacements were performed.
+     */
+    function replaceUnderscoresWithDots() {
+            const selection = window.getSelection();
+            
+            // Check if user has selected text
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                const selectedText = range.toString();
+                
+                if (selectedText.includes('_')) {
+                    const replacedText = selectedText.replace(/_/g, '.');
+                    const underscoreCount = (selectedText.match(/_/g) || []).length;
+                    
+                    // Replace the selected text
+                    range.deleteContents();
+                    range.insertNode(document.createTextNode(replacedText));
+                    
+                    // Clear selection
+                    selection.removeAllRanges();
+                    
+                    showNotification(`Replaced ${underscoreCount} underscore(s) with dots in selected text`, 'success');
+                } else {
+                    showNotification('No underscores found in selected text', 'info');
+                }
+            } else {
+                // Fallback: work on focused element if no text is selected
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement.isContentEditable) {
+                    const originalText = activeElement.textContent || activeElement.innerText || '';
+                    const underscoreCount = (originalText.match(/_/g) || []).length;
+                    
+                    if (underscoreCount > 0) {
+                        replaceTextInNode(activeElement, '_', '.');
+                        showNotification(`Replaced ${underscoreCount} underscore(s) with dots in focused element`, 'success');
+                    } else {
+                        showNotification('No underscores found in focused element', 'info');
+                    }
+                } else {
+                    showNotification('Please select text with underscores or click in an editable field', 'info');
+                }
+            }
+        }
+
+    /**
+     * Replace underscores with dots across all table cells when no selection is present.
+     * Useful for bulk-fixing table data.
+     */
+    function replaceUnderscoresWithDotsT() {
+            const selection = window.getSelection();
+            
+            // Check if user has selected text
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                const range = selection.getRangeAt(0);
+                const selectedText = range.toString();
+                
+                if (selectedText.includes('_')) {
+                    const replacedText = selectedText.replace(/_/g, '.');
+                    const underscoreCount = (selectedText.match(/_/g) || []).length;
+                    
+                    // Replace the selected text
+                    range.deleteContents();
+                    range.insertNode(document.createTextNode(replacedText));
+                    
+                    // Clear selection
+                    selection.removeAllRanges();
+                    
+                    showNotification(`Replaced ${underscoreCount} underscore(s) with dots in selected text`, 'success');
+                } else {
+                    showNotification('No underscores found in selected text', 'info');
+                }
+            } else {
+                // Fallback: work on all table cells if no text is selected
+                let replacementCount = 0;
+                const tables = document.querySelectorAll('.bordered-table, table');
+                
+                if (tables.length === 0) {
+                    showNotification('No tables found in the document', 'info');
+                    return;
+                }
+                
+                tables.forEach(table => {
+                    const cells = table.querySelectorAll('td .multiline-input, td .content-editable, th .multiline-input, th .content-editable');
+                    cells.forEach(cell => {
+                        const originalText = cell.textContent || cell.innerText || '';
+                        const underscoreCount = (originalText.match(/_/g) || []).length;
+                        if (underscoreCount > 0) {
+                            replaceTextInNode(cell, '_', '.');
+                            replacementCount += underscoreCount;
+                        }
+                    });
+                });
+                
+                if (replacementCount > 0) {
+                    showNotification(`Replaced ${replacementCount} underscore(s) with dots in ${tables.length} table(s)`, 'success');
+                } else {
+                    showNotification(`No underscores found in any of the ${tables.length} table(s)`, 'info');
+                }
+            }
+        }
+
+        // --- Firebase Data Persistence ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // Firebase config (already loaded via compat scripts in <head>)
+            const firebaseConfig = {
+                apiKey: "AIzaSyA4En-Zim7E3-lE0BksOhB0kW024F85cgY",
+                authDomain: "wesprogenics.firebaseapp.com",
+                databaseURL: "https://wesprogenics-default-rtdb.firebaseio.com",
+                projectId: "wesprogenics",
+                storageBucket: "wesprogenics.firebasestorage.app",
+                messagingSenderId: "451043511889",
+                appId: "1:451043511889:web:c88ccee1aeea9d351ef270",
+                measurementId: "G-ZWDF4Y7K29"
+            };
+            const app = window.firebase && window.firebase.apps && window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
+            const database = window.firebase.database();
+
+            // List of editable field ids (should match those in wes_updated(2).html)
+            const editableIds = [
+                'test_name','dna_test_performed','sample_id','sample_clinical','sample_patient','sample_gender','sample_age','sample_collection','sample_receipt','sample_report','sample_type',
+                'clinical_info', 'results_summary', 'interpretationM','interpretationc','interpretationi','interpretationcs','interpretations',
+                'test_methodology','recommendations','references','reviewer1','reviewer2','total','reads','q30'
+            ];
+
+            // Helper to sanitize Firebase keys
+            /**
+             * Sanitize a string to be safe as a Firebase key by replacing forbidden characters.
+             * @param {string} value
+             * @returns {string}
+             */
+            function sanitizeKey(value) {
+                return (value || '').replace(/[.#$\[\]]/g, '_');
+            }
+
+            // Save Data (robust for all main tables)
+            document.getElementById('saveDataButton').addEventListener('click', () => {
+                try {
+                    const sampleIdDiv = document.getElementById('sample_id');
+                    const rawSampleId = sampleIdDiv ? sampleIdDiv.innerText.trim() : '';
+                    if (!rawSampleId) {
+                        alert('Please enter a Sample ID before saving.');
+                        return;
+                    }
+                    const sampleId = sanitizeKey(rawSampleId);
+
+                    const editableData = editableIds.reduce((acc, id) => {
+                        const el = document.getElementById(id);
+                        if (el) acc[`editableData_${id}`] = el.innerHTML || '';
+                        return acc;
+                    }, {});
+
+                    /**
+                     * Extract table data from a table element and return an array of row objects.
+                     * @param {string} tableId - id of the table to extract data from.
+                     * @returns {Array<Object>}
+                     */
+                    function extractTableData(tableId) {
+                        const rows = Array.from(document.querySelectorAll(`#${tableId} tbody tr`));
+                        return rows.map(row => {
+                            const cells = row.querySelectorAll('td div.multiline-input');
+                            return {
+                                gene: cells[0]?.innerHTML || '',
+                                location: cells[1]?.innerHTML || '',
+                                variant: cells[2]?.innerHTML || '',
+                                zygosity: cells[3]?.innerHTML || '',
+                                omim_phenotype: cells[4]?.innerHTML || '',
+                                inheritance: cells[5]?.innerHTML || '',
+                                clinical_significance: cells[6]?.innerHTML || ''
+                            };
+                        });
+                    }
+
+                    const tableData = extractTableData('phenotypeTable');
+                    const secondaryData = extractTableData('SFTable');
+                    const carrierData = extractTableData('CSTable');
+                    const incidentalData = extractTableData('ITable');
+
+                    // Prepare data to save (editable fields + tables). Signatures are stored under a separate path
+                    const dataToSave = {
+                        sampleId: rawSampleId,
+                        editableData,
+                        tableData,
+                        secondaryData,
+                        carrierData,
+                        incidentalData
+                    };
+
+                    // Persist visibility state for sections that can be toggled so hidden sections remain hidden
+                    try {
+                        const sectionIds = [
+                            'phenotypesSection','interpretationSection','CNVsection','interpretationcnvSection',
+                            'IncidentialSection','interpretationiSection','carrierSection','interpretationcsSection',
+                            'secondaryfindingsSection','interpretationsSection'
+                        ];
+                        const visibilityState = {};
+                        sectionIds.forEach(id => {
+                            const el = document.getElementById(id);
+                            if (el) {
+                                // Consider element hidden if its inline style or computed style reports display: none
+                                const isInlineHidden = el.style && el.style.display === 'none';
+                                const isComputedHidden = window.getComputedStyle ? (window.getComputedStyle(el).display === 'none') : false;
+                                visibilityState[id] = !!(isInlineHidden || isComputedHidden);
+                            }
+                        });
+                        dataToSave.visibilityState = visibilityState;
+                    } catch (err) {
+                        console.warn('Could not capture visibility state:', err);
+                    }
+
+                    // Write main report object first
+                    database.ref('draftData/' + sampleId).set(dataToSave)
+                        .then(() => {
+                            // Signatures are expected to be saved separately under draftData/<sampleId>/signatures
+                            // If the page currently has signatures displayed, persist them as well.
+                            const sigRef = database.ref('draftData/' + sampleId + '/signatures');
+                            // Try to read currently displayed images from DOM containers
+                            const currentSigs = {};
+                            try {
+                                const img1 = document.querySelector('#imageContainer1 img');
+                                const img2 = document.querySelector('#imageContainer2 img');
+                                if (img1 && img1.src && img1.src.startsWith('data:image/')) currentSigs['imageUpload1'] = img1.src;
+                                if (img2 && img2.src && img2.src.startsWith('data:image/')) currentSigs['imageUpload2'] = img2.src;
+                            } catch (e) {
+                                console.warn('Error reading displayed signatures for persistence', e);
+                            }
+
+                            // If there are any signature images currently on the page, save them and mark verified
+                            if (Object.keys(currentSigs).length > 0) {
+                                const updates = {};
+                                Object.keys(currentSigs).forEach(k => {
+                                    updates[k] = currentSigs[k];
+                                    updates[k + '_verified'] = true;
+                                });
+                                sigRef.update(updates).catch(err => console.warn('Could not update signatures in firebase', err));
+                            }
+
+                            alert('Data saved to draft successfully!');
+                        })
+                        .catch(err => {
+                            console.error('Error saving data to draft:', err);
+                            alert('Error saving data to draft. See console.');
+                        });
+                } catch (error) {
+                    console.error(error);
+                    alert('Error saving data to cloud.');
+                }
+            });
+
+            // Fetch Data (checks both 'wesReports' and legacy 'draftData', normalizes shapes)
+                function fetchData() {
+                const sampleIdDiv = document.getElementById('sample_id');
+                let sampleIdRaw = sampleIdDiv ? sampleIdDiv.innerText.trim() : '';
+
+                // If no sample id provided, list available ids from draftData only
+                if (!sampleIdRaw) {
+                    database.ref('draftData').once('value')
+                        .then(function(snapshot) {
+                            if (snapshot.exists()) {
+                                const ids = Object.keys(snapshot.val());
+                                alert('Available Sample IDs:\n' + ids.join('\n'));
+                            } else {
+                                alert('No data found in database.');
+                            }
+                        })
+                        .catch(function(err) {
+                            console.error('Error listing IDs:', err);
+                            alert('Error listing sample IDs: ' + err.message);
+                        });
+                    return;
+                }                const sampleKey = sampleIdRaw.replace(/[.#$[\]]/g, '_');
+
+                /**
+                 * Apply normalized data fetched from Firebase to the DOM.
+                 * Only overwrites fields that contain non-empty fetched content.
+                 * @param {Object} normalized
+                 */
+                function applyDataToDOM(normalized) {
+                    if (normalized.editableData) {
+                        for (var k in normalized.editableData) {
+                            if (!Object.prototype.hasOwnProperty.call(normalized.editableData, k)) continue;
+                            var fieldId = k.replace('editableData_', '');
+                            var el = document.getElementById(fieldId);
+                            var value = normalized.editableData[k];
+                            // Only overwrite DOM if fetched value contains non-empty text (strip HTML tags first)
+                            if (el && value != null) {
+                                try {
+                                    var textOnly = String(value).replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+                                } catch (e) {
+                                    var textOnly = '';
+                                }
+                                if (textOnly.length) {
+                                    el.innerHTML = value;
+                                } // else: skip empty values to avoid clearing existing content like default 'Reviewed by: Name'
+                            }
+                        }
+                    }
+
+                    /**
+                     * Restore rows into a given table id using the page's expected column structure.
+                     * Handles legacy shapes by mapping fields.
+                     */
+                    function restoreTable(tableId, rows) {
+                        var body = document.querySelector('#' + tableId + ' tbody');
+                        if (!body) return;
+                        body.innerHTML = '';
+                        
+                        // Define the fixed column structure that matches our table headers
+                        const columnStructure = [
+                            { field: 'gene', header: 'Gene (Transcript ID)' },
+                            { field: 'location', header: 'Location' },
+                            { field: 'variant', header: 'Variant' },
+                            { field: 'zygosity', header: 'Zygosity' },
+                            { field: 'omim_phenotype', header: 'OMIM Phenotype' },
+                            { field: 'inheritance', header: 'Inheritance' },
+                            { field: 'clinical_significance', header: 'Clinical Significance' }
+                        ];
+
+                        (rows || []).forEach(function(rowData) {
+                            var tr = document.createElement('tr');
+                            
+                            // Create cells based on our fixed column structure
+                            columnStructure.forEach(function(column) {
+                                var td = document.createElement('td');
+                                var div = document.createElement('div');
+                                div.className = 'multiline-input';
+                                div.contentEditable = true;
+                                
+                                // Handle legacy data format
+                                let value = '';
+                                if (column.field === 'gene' && rowData.transcript) {
+                                    value = rowData.gene + ' (' + rowData.transcript + ')';
+                                } else if (column.field === 'variant' && rowData.nucleotide_change) {
+                                    value = rowData.nucleotide_change + 
+                                           (rowData.amino_acid_change ? ' / ' + rowData.amino_acid_change : '');
+                                } else {
+                                    value = rowData[column.field] || 
+                                           rowData[column.field.replace(/_/g,'')] || 
+                                           rowData[column.field.replace(/_/g,' ')] || 
+                                           '';
+                                }
+                                
+                                div.innerHTML = value;
+                                td.appendChild(div);
+                                tr.appendChild(td);
+                            });
+                            
+                            body.appendChild(tr);
+                        });
+                    }
+
+                    restoreTable('phenotypeTable', normalized.tableData || []);
+                    restoreTable('SFTable', normalized.secondaryData || []);
+                    restoreTable('CSTable', normalized.carrierData || []);
+                    restoreTable('ITable', normalized.incidentalData || []);
+
+                    // Restore visibility state if present
+                    try {
+                        const vis = normalized.visibilityState || {};
+                        Object.keys(vis).forEach(id => {
+                            try {
+                                const el = document.getElementById(id);
+                                if (el) {
+                                    if (vis[id]) {
+                                        el.style.display = 'none';
+                                    } else {
+                                        // Clear inline display so CSS/computed rules take effect
+                                        el.style.display = '';
+                                    }
+                                }
+                            } catch (e) { /* ignore per-element errors */ }
+                        });
+                    } catch (e) {
+                        console.warn('Error restoring visibility state:', e);
+                    }
+
+                    // Restore signature images if present in fetched data (validate and avoid accidental duplication)
+                    try {
+                        const sigs = normalized.signatures || {};
+                        const s1 = sigs.imageUpload1;
+                        const s2 = sigs.imageUpload2;
+
+                        // We have the sample key available via sampleIdRaw above
+                        const sampleKey = (sampleIdRaw || '').replace(/[.#$[\]]/g, '_');
+
+                        if (isValidImageData(s1)) {
+                            displayImage('imageContainer1', s1);
+                            // Persist to firebase signatures path to ensure single source of truth
+                            try {
+                                database.ref('draftData/' + sampleKey + '/signatures/imageUpload1').set(s1).catch(() => {});
+                                database.ref('draftData/' + sampleKey + '/signatures/imageUpload1_verified').set(true).catch(() => {});
+                            } catch (err) { console.warn('Could not persist signature1 to firebase', err); }
+                        }
+
+                        if (isValidImageData(s2)) {
+                            if (s2 === s1) {
+                                console.warn('Fetched signature2 is identical to signature1 — skipping to avoid duplication');
+                            } else {
+                                displayImage('imageContainer2', s2);
+                                try {
+                                    database.ref('draftData/' + sampleKey + '/signatures/imageUpload2').set(s2).catch(() => {});
+                                    database.ref('draftData/' + sampleKey + '/signatures/imageUpload2_verified').set(true).catch(() => {});
+                                } catch (err) { console.warn('Could not persist signature2 to firebase', err); }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Error restoring signatures from fetched data', e);
+                    }
+                }
+
+                // Try multiple candidate keys (raw and sanitized) and both paths
+                const candidates = [sampleIdRaw, sampleKey];
+                console.log('Fetch: trying keys', candidates);
+
+                function findInPath(path) {
+                    // Try all candidates in parallel and return the first existing snapshot
+                    return Promise.all(candidates.map(k =>
+                        database.ref(path + '/' + k).once('value').then(snap => ({ key: k, snap }))
+                    )).then(results => results.find(r => r.snap && r.snap.exists()) || null);
+                }
+
+                // Only try draftData path
+                database.ref('draftData/' + sampleKey).once('value')
+                    .then(snapshot => {
+                        if (!snapshot.exists()) {
+                            console.log('No record in draftData for key', sampleKey);
+                            alert('No data found for sample ID: ' + sampleIdRaw);
+                            return;
+                        }
+
+                        console.log('Found in draftData');
+                        const old = snapshot.val();
+                        const normalized = {
+                            editableData: old.editableData || {},
+                            tableData: old.tableData || [],
+                            secondaryData: old.tableData4 || old.secondaryData || [],
+                            carrierData: old.tableData3 || old.carrierData || [],
+                            incidentalData: old.tableData2 || old.incidentalData || [],
+                            visibilityState: old.visibilityState || {},
+                            // Normalize legacy signature storage shapes
+                            signatures: old.signatures || old.signatureImages || old.images || {}
+                        };
+
+                        applyDataToDOM(normalized);
+                        alert('Data fetched successfully from draftData for Sample ID: ' + sampleIdRaw);
+                    })
+                    .catch(function(err) {
+                        console.error('Fetch error:', err);
+                        alert('Error fetching data: ' + err.message);
+                    });
+            }
+
+            document.getElementById('fetchDataButton').onclick = fetchData;
+        });
+
+    // --- Signature Image Handling ---
+    /** In-memory mapping of upload input IDs to required passwords. */
+    const SIGNATURE_PASSWORDS = {
+            password1: "Swapnil@123",
+            password2: "Aruna@456"
+        };
+
+    /** Simple validator for data-URL image strings. */
+    function isValidImageData(val) {
+        return val && typeof val === 'string' && val.indexOf('data:image/') === 0;
+    }
+
+    /**
+     * Verify a password and enable the corresponding image upload input when correct.
+     * Stores a verification flag in localStorage for subsequent fetches.
+     * @param {string} passwordId - id of the password input element.
+     * @param {string} uploadId - id of the file input to enable.
+     */
+    window.checkPassword = (passwordId, uploadId) => {
+            const password = document.getElementById(passwordId).value;
+            const sampleIdDiv = document.getElementById('sample_id');
+            const rawSampleId = sampleIdDiv ? sampleIdDiv.innerText.trim() : '';
+            if (!rawSampleId) {
+                alert('Please enter a Sample ID before verifying password.');
+                return;
+            }
+            const sampleKey = rawSampleId.replace(/[.#$[\]]/g, '_');
+
+            if (password === SIGNATURE_PASSWORDS[passwordId]) {
+                document.getElementById(uploadId).disabled = false;
+                // Persist verification flag to Firebase under draftData/<sampleId>/signatures
+                try {
+                    const sigRef = database.ref('draftData/' + sampleKey + '/signatures/' + uploadId + '_verified');
+                    sigRef.set(true).catch(err => console.warn('Could not persist verification flag:', err));
+                } catch (err) {
+                    console.warn('Error setting verification flag in firebase', err);
+                }
+                alert('Password correct. You can now upload an image.');
+            } else {
+                alert('Incorrect password.');
+                // Remove verification flag in Firebase if it exists
+                try {
+                    const sigRef = database.ref('draftData/' + sampleKey + '/signatures/' + uploadId + '_verified');
+                    sigRef.remove().catch(err => console.warn('Could not remove verification flag:', err));
+                } catch (err) {
+                    console.warn('Error removing verification flag in firebase', err);
+                }
+            }
+        };
+
+    /**
+     * Handle a file input change event and save the uploaded image as a data URL to localStorage.
+     * Performs basic validation and then calls `displayImage`.
+     * @param {Event} event
+     * @param {string} uploadId
+     * @param {string} containerId
+     */
+    window.uploadImage = (event, uploadId, containerId) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            // Ensure sample id is present
+            const sampleIdDiv = document.getElementById('sample_id');
+            const rawSampleId = sampleIdDiv ? sampleIdDiv.innerText.trim() : '';
+            if (!rawSampleId) {
+                alert('Please enter a Sample ID before uploading an image.');
+                return;
+            }
+            const sampleKey = rawSampleId.replace(/[.#$[\]]/g, '_');
+
+            // Check verification flag from Firebase
+            database.ref('draftData/' + sampleKey + '/signatures/' + uploadId + '_verified').once('value')
+                .then(snap => {
+                    const verified = snap.exists() && snap.val() === true;
+                    if (!verified) {
+                        alert('Please verify password first before uploading image.');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const imageData = e.target.result;
+                            if (!imageData || typeof imageData !== 'string' || !imageData.startsWith('data:image/')) {
+                                console.error('Upload failed: invalid image data');
+                                alert('Upload failed: invalid image data');
+                                return;
+                            }
+
+                            // Persist image data to Firebase under draftData/<sampleId>/signatures/<uploadId>
+                            database.ref('draftData/' + sampleKey + '/signatures/' + uploadId).set(imageData)
+                                .then(() => {
+                                    // Also ensure verified flag is true
+                                    database.ref('draftData/' + sampleKey + '/signatures/' + uploadId + '_verified').set(true).catch(() => {});
+                                    displayImage(containerId, imageData);
+                                    alert('Image uploaded and saved to cloud.');
+                                })
+                                .catch(err => {
+                                    console.error('Error saving image to firebase:', err);
+                                    alert('Error saving image to cloud. See console.');
+                                });
+                        } catch (err) {
+                            console.error('Error processing uploaded image:', err);
+                            alert('Error processing uploaded image. See console for details.');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                })
+                .catch(err => {
+                    console.error('Error checking verification flag in firebase:', err);
+                    alert('Error checking verification flag. See console.');
+                });
+        };
+
+    /**
+     * Fetch a previously uploaded image from localStorage and display it in the given container.
+     * Only returns images if the upload was previously verified by password.
+     * @param {string} uploadId
+     * @param {string} containerId
+     */
+    window.fetchImage = (uploadId, containerId) => {
+            try {
+                const sampleIdDiv = document.getElementById('sample_id');
+                const rawSampleId = sampleIdDiv ? sampleIdDiv.innerText.trim() : '';
+                if (!rawSampleId) {
+                    showNotification('Please enter a Sample ID before fetching images', 'info');
+                    return;
+                }
+                const sampleKey = rawSampleId.replace(/[.#$[\]]/g, '_');
+
+                // Read verification flag and image from Firebase
+                database.ref('draftData/' + sampleKey + '/signatures').once('value')
+                    .then(snap => {
+                        const obj = snap.exists() ? snap.val() : {};
+                        const verified = obj && obj[uploadId + '_verified'];
+                        const imageData = obj && obj[uploadId];
+
+                        if (!verified) {
+                            console.info('Password not verified for', uploadId);
+                            showNotification('Password not verified for ' + uploadId, 'info');
+                            return;
+                        }
+
+                        if (imageData && typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+                            displayImage(containerId, imageData);
+                            showNotification('Image loaded for ' + uploadId, 'success');
+                        } else if (imageData) {
+                            console.warn('Stored image data is invalid for', uploadId);
+                            showNotification('Stored image data is invalid for ' + uploadId, 'error');
+                        } else {
+                            console.info('No saved image found for', uploadId);
+                            showNotification('No saved image found for ' + uploadId, 'info');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Error fetching signatures from firebase:', err);
+                        showNotification('Error fetching image: ' + err.message, 'error');
+                    });
+            } catch (err) {
+                console.error('Error fetching image from storage:', err);
+                showNotification('Error fetching image: ' + err.message, 'error');
+            }
+        };
+
+    /**
+     * Render an image data URL into a container element. Shows a placeholder when image is invalid.
+     * @param {string} containerId
+     * @param {string} imageData - data URL (data:image/...)
+     */
+    function displayImage(containerId, imageData) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            if (!imageData || typeof imageData !== 'string' || !imageData.startsWith('data:image/')) {
+                const warn = document.createElement('div');
+                warn.textContent = 'No valid image to display';
+                warn.style.color = '#666';
+                container.appendChild(warn);
+                return;
+            }
+
+            const img = document.createElement('img');
+            img.alt = 'Signature';
+            // set src in a try/catch to avoid uncaught errors for malformed urls
+            try {
+                img.src = imageData;
+            } catch (err) {
+                console.error('Invalid image data, cannot set src:', err);
+                const warn = document.createElement('div');
+                warn.textContent = 'Invalid image data';
+                warn.style.color = '#666';
+                container.appendChild(warn);
+                return;
+            }
+            container.appendChild(img);
+        }
+
+        // Images will only be fetched when password is verified and fetch button is clicked
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize signature containers as empty
+            const container1 = document.getElementById('imageContainer1');
+            const container2 = document.getElementById('imageContainer2');
+            if (container1) {
+                container1.innerHTML = '<div style="color: #666; padding: 20px; text-align: center;">Enter password and upload image</div>';
+            }
+            if (container2) {
+                container2.innerHTML = '<div style="color: #666; padding: 20px; text-align: center;">Enter password and upload image</div>';
+            }
+        });
+
+    </script>
+    <!-- Debugging: check fetch function exists -->
+    <script>
+        console.log(typeof fetchData === 'function');
+    </script>
+    <script>
+    // Initialize jsPDF
+    window.jsPDF = window.jspdf.jsPDF;
+
+    /**
+     * PDFGenerator: provides both text-based and image-based PDF exports for the report.
+     * Methods inside this class read content from the DOM and build paginated PDFs.
+     */
+    class PDFGenerator {
+            constructor() {
+                this.A4_WIDTH = 210;
+                this.A4_HEIGHT = 297;
+                this.MARGIN = 15;
+                this.FOOTER_HEIGHT = 20;
+                this.currentY = this.MARGIN;
+                this.pageNumber = 1;
+                this.textBasedPDF = null;
+                this.doc = null;
+            }
+
+            /** Add a simple footer with company name, page number, and email. */
+            addFooter(doc, pageNum) {
+                const footerY = this.A4_HEIGHT - 10;
+                doc.setFontSize(9);
+                doc.setTextColor(100);
+                
+                // Company name on the left
+                doc.text('Progenics Laboratories Private Limited', this.MARGIN, footerY);
+                
+                // Page number in the center
+                const pageText = `Page ${pageNum}`;
+                const pageTextWidth = doc.getStringUnitWidth(pageText) * 9 / doc.internal.scaleFactor;
+                doc.text(pageText, (this.A4_WIDTH - pageTextWidth) / 2, footerY);
+                
+                // Email on the right
+                const email = 'connect@progenicslabs.com';
+                const emailWidth = doc.getStringUnitWidth(email) * 9 / doc.internal.scaleFactor;
+                doc.text(email, this.A4_WIDTH - this.MARGIN - emailWidth, footerY);
+                
+                // Add horizontal line above footer
+                doc.setDrawColor(200);
+                doc.line(this.MARGIN, footerY - 5, this.A4_WIDTH - this.MARGIN, footerY - 5);
+            }
+
+            /** Add a new page and initialize footer/page tracking. */
+            addNewPage(doc) {
+                doc.addPage();
+                this.pageNumber++;
+                this.currentY = this.MARGIN + 10;
+                this.addFooter(doc, this.pageNumber);
+            }
+
+            /** Ensure the next content block fits on the current page, otherwise start a new page. */
+            checkPageFit(doc, contentHeight) {
+                const availableHeight = this.A4_HEIGHT - this.currentY - this.FOOTER_HEIGHT;
+                if (contentHeight > availableHeight) {
+                    this.addNewPage(doc);
+                    return true; // New page was added
+                }
+                return false; // Content fits on current page
+            }
+
+            /** Generate a fully text-based PDF using jsPDF for better searchability. */
+            async generateTextBasedPDF() {
+                try {
+                    showNotification('Creating comprehensive text-based PDF...', 'info');
+                    
+                    const doc = new jsPDF('p', 'mm', 'a4');
+                    doc.setFont('helvetica');
+                    
+                    this.currentY = this.MARGIN + 10;
+                    this.pageNumber = 1;
+                    this.addFooter(doc, this.pageNumber);
+                    
+                    // Complete PDF generation with all sections
+                    await this.generateAllSections(doc);
+                    
+                    // Save text-based PDF
+                    this.textBasedPDF = doc;
+                    doc.save(`WES_Report_TextBased_${this.pageNumber}pages_${new Date().toISOString().split('T')[0]}.pdf`);
+                    
+                    showNotification(`Complete text-based PDF created successfully! (${this.pageNumber} pages)`, 'success');
+                    return doc;
+                    
+                } catch (error) {
+                    console.error('Error generating text-based PDF:', error);
+                    showNotification('Error generating text-based PDF: ' + error.message, 'error');
+                    throw error;
+                }
+            }
+
+            /** Build all report sections into the supplied jsPDF document. */
+            async generateAllSections(doc) {
+                // Header
+                doc.setFontSize(18);
+                doc.setTextColor(1, 113, 186);
+                doc.text('WES REPORT - WHOLE EXOME SEQUENCING', this.MARGIN, this.currentY);
+                this.currentY += 15;
+                
+                // Company Info
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                const companyInfo = ['Progenics Laboratories Private Limited', '308, Jain Friends Square,', 'Hyderabad, Telangana - 500055'];
+                companyInfo.forEach(line => {
+                    doc.text(line, this.A4_WIDTH - 80, this.currentY);
+                    this.currentY += 5;
+                });
+                this.currentY += 10;
+                
+                // All sections
+                this.addSectionHeader(doc, 'PATIENT INFORMATION');
+                this.addPatientInfo(doc);
+                this.addSectionHeader(doc, 'CLINICAL INFORMATION');
+                this.addTextContent(doc, 'clinical_info');
+                this.addSectionHeader(doc, 'RESULTS SUMMARY');
+                this.addTextContent(doc, 'results_summary');
+                
+                // Tables
+                await this.addTableSection(doc, 'Findings Related to Phenotypes', 'phenotypeTable', 'interpretationM');
+                await this.addTableSection(doc, 'Copy Number Variations (CNVs)', 'CNVTable', 'interpretationc');
+                await this.addTableSection(doc, 'Incidental Findings', 'ITable', 'interpretationi');
+                await this.addTableSection(doc, 'Carrier Status', 'CSTable', 'interpretationcs');
+                await this.addTableSection(doc, 'Secondary Findings', 'SFTable', 'interpretations');
+                
+                // Other sections
+                this.addSectionHeader(doc, 'RECOMMENDATIONS');
+                this.addTextContent(doc, 'recommendations');
+                this.addSectionHeader(doc, 'DATA STATISTICS');
+                this.addDataStatistics(doc);
+                this.addSectionHeader(doc, 'TEST METHODOLOGY');
+                this.addTextContent(doc, 'test_methodology');
+                this.addSectionHeader(doc, 'REFERENCES');
+                this.addTextContent(doc, 'references');
+                
+                // New pages for classification sections
+                this.addNewPage(doc);
+                this.addVariantClassification(doc);
+                this.addNewPage(doc);
+                this.addACMGCriteria(doc);
+                this.addNewPage(doc);
+                this.addDisclaimer(doc);
+                this.addSignatureSection(doc);
+            }
+
+            /** Insert a styled section header into the PDF. */
+            addSectionHeader(doc, title) {
+                this.checkPageFit(doc, 20);
+                doc.setFontSize(12);
+                doc.setTextColor(1, 113, 186);
+                doc.text(title, this.MARGIN, this.currentY);
+                this.currentY += 10;
+            }
+
+            /** Add patient information fields into the PDF. */
+            addPatientInfo(doc) {
+                const patientFields = [
+                    { label: 'Sample ID:', id: 'sample_id' },
+                    { label: 'Patient Name:', id: 'sample_patient' },
+                    { label: 'Age/DOB:', id: 'sample_age' },
+                    { label: 'Gender:', id: 'sample_gender' },
+                    { label: 'Clinician Name:', id: 'sample_clinical' },
+                    { label: 'Sample Type:', id: 'sample_type' },
+                    { label: 'Collection Date:', id: 'sample_collection' },
+                    { label: 'Receipt Date:', id: 'sample_receipt' },
+                    { label: 'Report Date:', id: 'sample_report' }
+                ];
+
+                doc.setFontSize(9);
+                doc.setTextColor(0, 0, 0);
+                
+                const rowHeight = 8;
+                patientFields.forEach(field => {
+                    this.checkPageFit(doc, rowHeight);
+                    
+                    const element = document.getElementById(field.id);
+                    const value = element ? element.textContent.trim() || 'N/A' : 'N/A';
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(field.label, this.MARGIN, this.currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(value, this.MARGIN + 40, this.currentY);
+                    
+                    this.currentY += rowHeight;
+                });
+                
+                this.currentY += 5;
+            }
+
+            /** Pull text content from an editable DOM element and write it into the PDF. */
+            addTextContent(doc, elementId) {
+                const element = document.getElementById(elementId);
+                if (!element) return;
+                
+                const text = element.textContent.trim();
+                if (!text) return;
+                
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                
+                const lines = doc.splitTextToSize(text, this.A4_WIDTH - (2 * this.MARGIN));
+                lines.forEach(line => {
+                    this.checkPageFit(doc, 6);
+                    doc.text(line, this.MARGIN, this.currentY);
+                    this.currentY += 6;
+                });
+                
+                this.currentY += 10;
+            }
+
+            /** Add a table section to the PDF. Pulls rows from the DOM tableId supplied. */
+            async addTableSection(doc, sectionTitle, tableId, interpretationId) {
+                const table = document.getElementById(tableId);
+                if (!table || table.style.display === 'none') return;
+                
+                // Check if table has any data
+                const rows = table.querySelectorAll('tbody tr');
+                let hasData = false;
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td div.multiline-input');
+                    cells.forEach(cell => {
+                        if (cell.textContent.trim()) {
+                            hasData = true;
+                        }
+                    });
+                });
+                
+                if (!hasData) return;
+                
+                // Add section on new page
+                this.addNewPage(doc);
+                this.addSectionHeader(doc, sectionTitle);
+                
+                // Add table headers
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(255, 255, 255);
+                doc.setFillColor(1, 113, 186);
+                
+                const headers = ['Gene', 'Location', 'Variant', 'Zygosity', 'OMIM Phenotype', 'Inheritance', 'Clinical Significance'];
+                const colWidth = (this.A4_WIDTH - 2 * this.MARGIN) / headers.length;
+                
+                this.checkPageFit(doc, 15);
+                
+                // Draw header row
+                let x = this.MARGIN;
+                headers.forEach(header => {
+                    doc.rect(x, this.currentY - 5, colWidth, 8, 'F');
+                    doc.text(header, x + 1, this.currentY);
+                    x += colWidth;
+                });
+                
+                this.currentY += 8;
+                
+                // Add data rows
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(0, 0, 0);
+                
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td div.multiline-input');
+                    const rowData = Array.from(cells).map(cell => cell.textContent.trim() || '-');
+                    
+                    this.checkPageFit(doc, 12);
+                    
+                    x = this.MARGIN;
+                    rowData.forEach(cellData => {
+                        // Wrap text if too long
+                        const wrappedText = doc.splitTextToSize(cellData, colWidth - 2);
+                        doc.text(wrappedText[0] || '-', x + 1, this.currentY);
+                        x += colWidth;
+                    });
+                    
+                    this.currentY += 8;
+                });
+                
+                this.currentY += 10;
+                
+                // Add interpretation if exists
+                if (interpretationId) {
+                    this.addSectionHeader(doc, 'Interpretation');
+                    this.addTextContent(doc, interpretationId);
+                }
+            }
+
+            /** Add the 'Variant Classification' explanatory section to the PDF. */
+            addVariantClassification(doc) {
+                this.addSectionHeader(doc, 'VARIANT CLASSIFICATION');
+                
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.text('The classification of variants is performed based on American College of Medical Genetics as described below:', this.MARGIN, this.currentY);
+                this.currentY += 15;
+                
+                const classifications = [
+                    { term: 'Variant', description: 'A change in a gene. This could be disease causing (pathogenic) or not disease causing (benign).' },
+                    { term: 'Pathogenic', description: 'A disease-causing variation in a gene which can explain the patient\'s symptoms has been detected.' },
+                    { term: 'Likely Pathogenic', description: 'A variant which is very likely to contribute to the development of disease however, the scientific evidence is currently insufficient to prove this conclusively.' },
+                    { term: 'Variant of Uncertain Significance (VOUS)', description: 'A variant has been detected, but it is difficult to classify it as either pathogenic or benign based on current available scientific evidence.' }
+                ];
+                
+                classifications.forEach(item => {
+                    this.checkPageFit(doc, 20);
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(item.term + ':', this.MARGIN, this.currentY);
+                    
+                    doc.setFont('helvetica', 'normal');
+                    const descLines = doc.splitTextToSize(item.description, this.A4_WIDTH - this.MARGIN - 40);
+                    descLines.forEach((line, index) => {
+                        if (index === 0) {
+                            doc.text(line, this.MARGIN + 40, this.currentY);
+                        } else {
+                            this.currentY += 5;
+                            doc.text(line, this.MARGIN + 40, this.currentY);
+                        }
+                    });
+                    
+                    this.currentY += 12;
+                });
+            }
+
+            /** Generate an image-based PDF by rendering the DOM to canvas and slicing pages. */
+            async generateImageBasedPDF() {
+                try {
+                    showNotification('Creating optimized image-based PDF...', 'info');
+                    
+                    // Apply CSS optimizations to reduce excessive spacing
+                    this.applySpacingOptimizations();
+                    
+                    // Hide toolbar and controls
+                    const toolbar = document.querySelector('.toolbar-section');
+                    const buttons = document.querySelector('.action-buttons');
+                    const originalToolbar = toolbar.style.display;
+                    const originalButtons = buttons.style.display;
+                    
+                    toolbar.style.display = 'none';
+                    buttons.style.display = 'none';
+
+                    // Generate optimized canvas with maximum quality
+                    const content = document.getElementById('pdf-content');
+                    // Capture at maximum scale for highest clarity
+                    let canvas = await html2canvas(content, {
+                        scale: 2.5, // maximum scale for highest image quality (was 2.0)
+                        useCORS: true,
+                        logging: false,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        imageTimeout: 0, // prevent timeout for large images
+                        letterRendering: true, // enable letter rendering for sharper text
+                        onclone: (clonedDoc) => {
+                            this.optimizeClonedDocument(clonedDoc);
+                        }
+                    });
+
+                    // Downscale the captured canvas to further reduce image size while keeping readable quality
+                    try {
+                        const compressFactor = 0.98; // minimal downscale for maximum quality (was 0.95)
+                        const compressedCanvas = document.createElement('canvas');
+                        compressedCanvas.width = Math.max(1, Math.round(canvas.width * compressFactor));
+                        compressedCanvas.height = Math.max(1, Math.round(canvas.height * compressFactor));
+                        const cctx = compressedCanvas.getContext('2d');
+                        // White background to avoid transparency overhead
+                        cctx.fillStyle = '#FFFFFF';
+                        cctx.fillRect(0, 0, compressedCanvas.width, compressedCanvas.height);
+                        cctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, compressedCanvas.width, compressedCanvas.height);
+
+                        // Replace the large canvas with compressed version for subsequent slicing
+                        canvas = compressedCanvas;
+                    } catch (err) {
+                        console.warn('Canvas downscaling failed, continuing with original canvas:', err);
+                    }
+
+                    // Create PDF with reduced margins
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+                    const margin = 8;
+                    
+                    const contentWidth = pageWidth - (2 * margin);
+                    const contentHeight = pageHeight - (2 * margin) - 12;
+                    
+                    const imgWidth = contentWidth;
+                    const pageHeightInPx = contentHeight * canvas.width / pageWidth;
+                    
+                    let position = 0;
+                    let pageNum = 1;
+
+                    while (position < canvas.height) {
+                        const remainingHeight = Math.min(pageHeightInPx, canvas.height - position);
+                        
+                        if (pageNum > 1) pdf.addPage();
+                        
+                        // Create page section
+                        const pageCanvas = document.createElement('canvas');
+                        const ctx = pageCanvas.getContext('2d');
+                        pageCanvas.width = canvas.width;
+                        pageCanvas.height = remainingHeight;
+                        
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, remainingHeight);
+                        ctx.drawImage(canvas, 0, position, canvas.width, remainingHeight, 0, 0, canvas.width, remainingHeight);
+                        
+                        // Export as JPEG at reduced quality to shrink PDF size
+                        const imgData = pageCanvas.toDataURL('image/jpeg', 0.95); // maximum quality JPEG for crystal clear output (was 0.92)
+                        const sectionHeight = remainingHeight * imgWidth / canvas.width;
+                        
+                        pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, sectionHeight);
+                        this.addFooter(pdf, pageNum);
+                        
+                        position += pageHeightInPx;
+                        pageNum++;
+                    }
+
+                    // Restore original display
+                    toolbar.style.display = originalToolbar;
+                    buttons.style.display = originalButtons;
+                    this.restoreOriginalSpacing();
+
+                    pdf.save(`WES_Report_ImageBased_${pageNum-1}pages_${new Date().toISOString().split('T')[0]}.pdf`);
+                    showNotification(`Optimized image-based PDF generated! (${pageNum-1} pages)`, 'success');
+                    
+                } catch (error) {
+                    console.error('Error generating image-based PDF:', error);
+                    showNotification('Error generating image-based PDF: ' + error.message, 'error');
+                    throw error;
+                }
+            }
+
+            /** Temporarily tighten spacing on the document to improve PDF density during capture. */
+            applySpacingOptimizations() {
+                // Store original values for restoration
+                this.originalStyles = new Map();
+                
+                // Reduce clinical information section spacing
+                const clinicalSection = document.querySelector('#clinical_info');
+                if (clinicalSection) {
+                    const section = clinicalSection.closest('.section');
+                    if (section) {
+                        this.originalStyles.set(section, {
+                            marginBottom: section.style.marginBottom,
+                            paddingBottom: section.style.paddingBottom,
+                            padding: section.style.padding
+                        });
+                        section.style.marginBottom = '8px';
+                        section.style.paddingBottom = '3px';
+                        section.style.padding = '8px';
+                    }
+                }
+                
+                // Reduce interpretation sections spacing
+                const interpretationSections = [
+                    '#interpretationSection', '#interpretationcnvSection', 
+                    '#interpretationiSection', '#interpretationcsSection', 
+                    '#interpretationsSection'
+                ];
+                
+                interpretationSections.forEach(selector => {
+                    const section = document.querySelector(selector);
+                    if (section) {
+                        this.originalStyles.set(section, {
+                            marginBottom: section.style.marginBottom,
+                            paddingBottom: section.style.paddingBottom,
+                            padding: section.style.padding
+                        });
+                        section.style.marginBottom = '6px';
+                        section.style.paddingBottom = '3px';
+                        section.style.padding = '8px';
+                    }
+                });
+                
+                // Significantly reduce recommendations section spacing
+                const recommendationsSection = document.querySelector('#recommendations');
+                if (recommendationsSection) {
+                    const section = recommendationsSection.closest('.section');
+                    if (section) {
+                        this.originalStyles.set(section, {
+                            marginBottom: section.style.marginBottom,
+                            paddingBottom: section.style.paddingBottom,
+                            padding: section.style.padding
+                        });
+                        section.style.marginBottom = '5px';
+                        section.style.paddingBottom = '2px';
+                        section.style.padding = '6px';
+                    }
+                    // Also optimize the content div itself
+                    this.originalStyles.set(recommendationsSection, {
+                        minHeight: recommendationsSection.style.minHeight,
+                        padding: recommendationsSection.style.padding
+                    });
+                    recommendationsSection.style.minHeight = 'auto';
+                    recommendationsSection.style.padding = '2px';
+                }
+                
+                // Significantly reduce test methodology section spacing
+                const testMethodologySection = document.querySelector('#test_methodology');
+                if (testMethodologySection) {
+                    const section = testMethodologySection.closest('.section');
+                    if (section) {
+                        this.originalStyles.set(section, {
+                            marginBottom: section.style.marginBottom,
+                            paddingBottom: section.style.paddingBottom,
+                            padding: section.style.padding
+                        });
+                        section.style.marginBottom = '5px';
+                        section.style.paddingBottom = '2px';
+                        section.style.padding = '6px';
+                    }
+                    // Also optimize the content div itself
+                    this.originalStyles.set(testMethodologySection, {
+                        minHeight: testMethodologySection.style.minHeight,
+                        padding: testMethodologySection.style.padding
+                    });
+                    testMethodologySection.style.minHeight = 'auto';
+                    testMethodologySection.style.padding = '2px';
+                }
+                
+                // Optimize references section to prevent character breaking
+                const referencesSection = document.querySelector('#references');
+                if (referencesSection) {
+                    const section = referencesSection.closest('.section');
+                    if (section) {
+                        this.originalStyles.set(section, {
+                            marginBottom: section.style.marginBottom,
+                            paddingBottom: section.style.paddingBottom,
+                            padding: section.style.padding
+                        });
+                        section.style.marginBottom = '8px';
+                        section.style.paddingBottom = '5px';
+                        section.style.padding = '8px';
+                    }
+                    // Prevent character breaking in references
+                    this.originalStyles.set(referencesSection, {
+                        wordBreak: referencesSection.style.wordBreak,
+                        overflowWrap: referencesSection.style.overflowWrap,
+                        whiteSpace: referencesSection.style.whiteSpace,
+                        padding: referencesSection.style.padding
+                    });
+                    referencesSection.style.wordBreak = 'keep-all';
+                    referencesSection.style.overflowWrap = 'break-word';
+                    referencesSection.style.whiteSpace = 'normal';
+                    referencesSection.style.padding = '3px';
+                }
+                
+                // Optimize all content-editable elements to prevent character breaking
+                const contentEditables = document.querySelectorAll('.content-editable, .multiline-input');
+                contentEditables.forEach(elem => {
+                    if (!this.originalStyles.has(elem)) {
+                        this.originalStyles.set(elem, {
+                            wordBreak: elem.style.wordBreak,
+                            overflowWrap: elem.style.overflowWrap,
+                            whiteSpace: elem.style.whiteSpace,
+                            minHeight: elem.style.minHeight,
+                            padding: elem.style.padding
+                        });
+                        elem.style.wordBreak = 'keep-all';
+                        elem.style.overflowWrap = 'break-word';
+                        elem.style.whiteSpace = 'normal';
+                        elem.style.minHeight = 'auto';
+                        elem.style.padding = '2px';
+                    }
+                });
+                
+                // Optimize all sections generally with tighter spacing
+                const allSections = document.querySelectorAll('.section');
+                allSections.forEach(section => {
+                    if (!this.originalStyles.has(section)) {
+                        this.originalStyles.set(section, {
+                            marginBottom: section.style.marginBottom,
+                            padding: section.style.padding
+                        });
+                        section.style.marginBottom = '8px';
+                        section.style.padding = '8px';
+                    }
+                });
+            }
+
+            /** Adjust styles on the cloned document used by html2canvas to improve rendering. */
+            optimizeClonedDocument(clonedDoc) {
+                // Hide toolbar and buttons in cloned document
+                const clonedToolbar = clonedDoc.querySelector('.toolbar-section');
+                const clonedButtons = clonedDoc.querySelector('.action-buttons');
+                if (clonedToolbar) clonedToolbar.style.display = 'none';
+                if (clonedButtons) clonedButtons.style.display = 'none';
+                
+                // Apply font consistency and text rendering optimization
+                clonedDoc.body.style.fontFamily = 'Calibri, Arial, sans-serif';
+                clonedDoc.body.style.fontSmooth = 'always';
+                clonedDoc.body.style.webkitFontSmoothing = 'antialiased';
+                clonedDoc.body.style.mozOsxFontSmoothing = 'grayscale';
+                
+                // Reduce spacing in cloned sections with tighter controls
+                const clonedSections = clonedDoc.querySelectorAll('.section');
+                clonedSections.forEach(section => {
+                    section.style.marginBottom = '8px';
+                    section.style.padding = '6px';
+                    section.style.pageBreakInside = 'avoid';
+                    section.style.breakInside = 'avoid';
+                });
+                
+                // Optimize content editables and prevent character breaking
+                const contentEditables = clonedDoc.querySelectorAll('.content-editable, .multiline-input');
+                contentEditables.forEach(elem => {
+                    elem.style.minHeight = 'auto';
+                    elem.style.padding = '2px';
+                    elem.style.wordBreak = 'keep-all';
+                    elem.style.overflowWrap = 'break-word';
+                    elem.style.whiteSpace = 'normal';
+                    elem.style.hyphens = 'none';
+                    elem.style.wordWrap = 'break-word';
+                });
+                
+                // Special optimization for recommendations section in cloned doc
+                const clonedRecommendations = clonedDoc.querySelector('#recommendations');
+                if (clonedRecommendations) {
+                    const section = clonedRecommendations.closest('.section');
+                    if (section) {
+                        section.style.marginBottom = '5px';
+                        section.style.padding = '1px';
+                        section.style.paddingBottom = '2px';
+                    }
+                    clonedRecommendations.style.padding = '1px';
+                    clonedRecommendations.style.minHeight = 'auto';
+                }
+                
+                // Special optimization for test methodology section in cloned doc
+                const clonedTestMethodology = clonedDoc.querySelector('#test_methodology');
+                if (clonedTestMethodology) {
+                    const section = clonedTestMethodology.closest('.section');
+                    if (section) {
+                        section.style.marginBottom = '5px';
+                        section.style.padding = '4px';
+                        section.style.paddingBottom = '2px';
+                    }
+                    clonedTestMethodology.style.padding = '1px';
+                    clonedTestMethodology.style.minHeight = 'auto';
+                }
+                
+                // Optimize references section to prevent character breaking
+                const clonedReferences = clonedDoc.querySelector('#references');
+                if (clonedReferences) {
+                    clonedReferences.style.wordBreak = 'keep-all';
+                    clonedReferences.style.overflowWrap = 'break-word';
+                    clonedReferences.style.whiteSpace = 'normal';
+                    clonedReferences.style.hyphens = 'none';
+                    clonedReferences.style.textAlign = 'justify';
+                    clonedReferences.style.lineHeight = '1.4';
+                }
+                
+                // Optimize tables with better spacing
+                const tables = clonedDoc.querySelectorAll('table');
+                tables.forEach(table => {
+                    table.style.pageBreakInside = 'avoid';
+                    table.style.breakInside = 'avoid';
+                    table.style.marginBottom = '8px';
+                    table.style.borderCollapse = 'collapse';
+                    
+                    // Optimize table cells
+                    const cells = table.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.wordBreak = 'keep-all';
+                        cell.style.overflowWrap = 'break-word';
+                        cell.style.padding = '4px';
+                        cell.style.verticalAlign = 'top';
+                    });
+                });
+                
+                // Optimize headers to prevent orphaning
+                const headers = clonedDoc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                headers.forEach(header => {
+                    header.style.pageBreakAfter = 'avoid';
+                    header.style.breakAfter = 'avoid';
+                    header.style.orphans = '3';
+                    header.style.widows = '3';
+                });
+            }
+
+            /** Restore any styles changed by `applySpacingOptimizations`. */
+            restoreOriginalSpacing() {
+                this.originalStyles.forEach((styles, element) => {
+                    Object.keys(styles).forEach(property => {
+                        if (styles[property]) {
+                            element.style[property] = styles[property];
+                        } else {
+                            element.style.removeProperty(property.replace(/([A-Z])/g, '-$1').toLowerCase());
+                        }
+                    });
+                });
+                this.originalStyles.clear();
+            }
+
+            // Add section header
+            addSectionHeader(doc, title) {
+                this.checkPageFit(doc, 20);
+                doc.setFontSize(12);
+                doc.setTextColor(1, 113, 186);
+                doc.text(title, this.MARGIN, this.currentY);
+                this.currentY += 10;
+            }
+
+            // Add patient information
+            addPatientInfo(doc) {
+                const fields = [['Sample ID:', 'sample_id'], ['Patient Name:', 'sample_patient'], ['Age/DOB:', 'sample_age'], ['Gender:', 'sample_gender']];
+                doc.setFontSize(9);
+                fields.forEach(([label, id]) => {
+                    this.checkPageFit(doc, 8);
+                    const element = document.getElementById(id);
+                    const value = element ? (element.textContent || element.innerText).trim() || 'N/A' : 'N/A';
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(label, this.MARGIN, this.currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(value, this.MARGIN + 40, this.currentY);
+                    this.currentY += 8;
+                });
+                this.currentY += 5;
+            }
+
+            // Add text content
+            addTextContent(doc, elementId) {
+                const element = document.getElementById(elementId);
+                if (!element) return;
+                const text = (element.textContent || element.innerText || '').trim();
+                if (!text) return;
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                const lines = doc.splitTextToSize(text, this.A4_WIDTH - (2 * this.MARGIN));
+                lines.forEach(line => {
+                    this.checkPageFit(doc, 6);
+                    doc.text(line, this.MARGIN, this.currentY);
+                    this.currentY += 6;
+                });
+                this.currentY += 8;
+            }
+
+            // Add data statistics
+            addDataStatistics(doc) {
+                const fields = [['Total data generated(Gb):', 'total'], ['Reads aligned(%):', 'reads'], ['Q30 data(%):', 'q30']];
+                doc.setFontSize(9);
+                fields.forEach(([label, id]) => {
+                    this.checkPageFit(doc, 8);
+                    const element = document.getElementById(id);
+                    const value = element ? (element.textContent || element.innerText).trim() || 'N/A' : 'N/A';
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(label, this.MARGIN, this.currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(value, this.MARGIN + 60, this.currentY);
+                    this.currentY += 8;
+                });
+                this.currentY += 8;
+            }
+
+            // Add table section
+            async addTableSection(doc, sectionTitle, tableId, interpretationId) {
+                const table = document.getElementById(tableId);
+                if (!table || table.style.display === 'none') return;
+                const rows = table.querySelectorAll('tbody tr');
+                let hasData = false;
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td div.multiline-input');
+                    cells.forEach(cell => {
+                        if ((cell.textContent || cell.innerText || '').trim()) hasData = true;
+                    });
+                });
+                if (!hasData) return;
+                
+                this.addNewPage(doc);
+                this.addSectionHeader(doc, sectionTitle);
+                
+                doc.setFontSize(8);
+                const headers = ['Gene', 'Location', 'Variant', 'Zygosity', 'OMIM', 'Inheritance', 'Significance'];
+                doc.setFont('helvetica', 'bold');
+                let x = this.MARGIN;
+                headers.forEach(header => {
+                    doc.text(header, x, this.currentY);
+                    x += 25;
+                });
+                this.currentY += 8;
+                
+                doc.setFont('helvetica', 'normal');
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td div.multiline-input');
+                    const rowData = Array.from(cells).map(cell => (cell.textContent || cell.innerText || '').trim() || '-');
+                    if (rowData.some(data => data !== '-')) {
+                        this.checkPageFit(doc, 10);
+                        x = this.MARGIN;
+                        rowData.forEach(data => {
+                            const shortData = data.length > 20 ? data.substring(0, 20) + '...' : data;
+                            doc.text(shortData, x, this.currentY);
+                            x += 25;
+                        });
+                        this.currentY += 8;
+                    }
+                });
+                this.currentY += 10;
+                
+                if (interpretationId) {
+                    this.addSectionHeader(doc, 'Interpretation');
+                    this.addTextContent(doc, interpretationId);
+                }
+            }
+
+            // Add variant classification
+            addVariantClassification(doc) {
+                this.addSectionHeader(doc, 'VARIANT CLASSIFICATION');
+                doc.setFontSize(10);
+                const text = 'The classification of variants is performed based on American College of Medical Genetics.';
+                doc.text(text, this.MARGIN, this.currentY);
+                this.currentY += 10;
+                
+                const classifications = [
+                    ['Variant', 'A change in a gene. This could be disease causing (pathogenic) or not disease causing (benign).'],
+                    ['Pathogenic', 'A disease-causing variation in a gene which can explain the patient\'s symptoms.'],
+                    ['Likely Pathogenic', 'A variant which is very likely to contribute to disease development.'],
+                    ['VOUS', 'A variant of uncertain significance that requires further evaluation.']
+                ];
+                
+                classifications.forEach(([term, desc]) => {
+                    this.checkPageFit(doc, 15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(term + ':', this.MARGIN, this.currentY);
+                    doc.setFont('helvetica', 'normal');
+                    const lines = doc.splitTextToSize(desc, this.A4_WIDTH - this.MARGIN - 30);
+                    lines.forEach((line, i) => {
+                        doc.text(line, this.MARGIN + 30, this.currentY + (i * 5));
+                    });
+                    this.currentY += Math.max(10, lines.length * 5);
+                });
+            }
+
+            // Add ACMG criteria
+            addACMGCriteria(doc) {
+                this.addSectionHeader(doc, 'ACMG CRITERIA FOR VARIANT CLASSIFICATION');
+                doc.setFontSize(8);
+                const criteria = [['PVS1', 'Null variant in a gene where LOF is a known mechanism'], ['PS1', 'Same amino acid change as established pathogenic variant']];
+                criteria.forEach(([code, desc]) => {
+                    this.checkPageFit(doc, 10);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(code, this.MARGIN, this.currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(desc, this.MARGIN + 15, this.currentY);
+                    this.currentY += 8;
+                });
+            }
+
+            // Add disclaimer
+            addDisclaimer(doc) {
+                this.addSectionHeader(doc, 'DISCLAIMER');
+                const items = [
+                    'Technical error rate for DNA analysis is 2%.',
+                    'Report must be given in presence of medical professional.',
+                    'Mutations have not been confirmed by Sanger sequencing.'
+                ];
+                doc.setFontSize(9);
+                items.forEach((item, i) => {
+                    this.checkPageFit(doc, 8);
+                    doc.text(`${i + 1}. ${item}`, this.MARGIN, this.currentY);
+                    this.currentY += 8;
+                });
+            }
+
+            // Add signature section
+            addSignatureSection(doc) {
+                this.checkPageFit(doc, 30);
+                doc.setFontSize(12);
+                doc.setTextColor(1, 113, 186);
+                doc.text('REVIEWED AND APPROVED BY:', this.MARGIN, this.currentY);
+                this.currentY += 15;
+                
+                const reviewer1 = document.getElementById('reviewer1');
+                const reviewer2 = document.getElementById('reviewer2');
+                const r1Text = reviewer1 ? (reviewer1.textContent || reviewer1.innerText).trim() : 'Reviewed by: Name';
+                const r2Text = reviewer2 ? (reviewer2.textContent || reviewer2.innerText).trim() : 'Reviewed by: Name';
+                
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.line(this.MARGIN, this.currentY, this.MARGIN + 60, this.currentY);
+                doc.text(r1Text, this.MARGIN, this.currentY + 8);
+                doc.line(this.MARGIN + 80, this.currentY, this.MARGIN + 140, this.currentY);
+                doc.text(r2Text, this.MARGIN + 80, this.currentY + 8);
+            }
+
+            // Generate simple image-based PDF without page breaks cutting content
+            async generateSimpleImagePDF() {
+                try {
+                    showNotification('Generating complete image-based PDF...', 'info');
+
+                    // Hide toolbar and controls
+                    const toolbar = document.querySelector('.toolbar-section');
+                    const buttons = document.querySelector('.action-buttons');
+                    const originalToolbar = toolbar ? toolbar.style.display : '';
+                    const originalButtons = buttons ? buttons.style.display : '';
+                    
+                    if (toolbar) toolbar.style.display = 'none';
+                    if (buttons) buttons.style.display = 'none';
+
+                    const content = document.getElementById('pdf-content');
+                    if (!content) {
+                        throw new Error('PDF content element not found');
+                    }
+
+                    // Get all tables and sections to avoid breaking them
+                    const protectedElements = content.querySelectorAll('table, .section, .bordered-table, .signature-container, .variant-classification');
+                    const elementPositions = Array.from(protectedElements).map(el => {
+                        const rect = el.getBoundingClientRect();
+                        const contentRect = content.getBoundingClientRect();
+                        return {
+                            element: el,
+                            top: rect.top - contentRect.top,
+                            bottom: rect.bottom - contentRect.top,
+                            height: rect.height
+                        };
+                    });
+
+                    // Capture full content as high-resolution canvas
+                    // Capture at a lower scale to reduce raw pixel size
+                    let canvas = await html2canvas(content, { 
+                        scale: 1.6, 
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: '#ffffff',
+                        logging: false,
+                        letterRendering: true,
+                        foreignObjectRendering: false
+                    });
+
+                    // Downscale captured canvas to reduce final image footprint
+                    try {
+                        const compressFactor = 0.9; // keep more pixels for clarity
+                        const compressedCanvas = document.createElement('canvas');
+                        compressedCanvas.width = Math.max(1, Math.round(canvas.width * compressFactor));
+                        compressedCanvas.height = Math.max(1, Math.round(canvas.height * compressFactor));
+                        const cctx = compressedCanvas.getContext('2d');
+                        cctx.fillStyle = '#FFFFFF';
+                        cctx.fillRect(0, 0, compressedCanvas.width, compressedCanvas.height);
+                        cctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, compressedCanvas.width, compressedCanvas.height);
+                        canvas = compressedCanvas;
+                    } catch (err) {
+                        console.warn('Canvas downscaling failed, continuing with original canvas:', err);
+                    }
+
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const margin = 10;
+                    const footerHeight = 15;
+                    
+                    // Available content area per page
+                    const availableWidth = pdfWidth - (2 * margin);
+                    const availableHeight = pdfHeight - (2 * margin) - footerHeight;
+                    
+                    // Scale canvas to fit PDF width
+                    const scaleRatio = availableWidth / (canvas.width / (canvas.width / availableWidth));
+                    const scaledCanvasHeight = canvas.height * (availableWidth / canvas.width);
+                    
+                    // How much scaled canvas height fits in one page
+                    const heightPerPage = availableHeight;
+                    
+                    let currentY = 0;
+                    let pageNumber = 1;
+                    
+                    // Function to check if an element would be broken at a given position
+                    const wouldBreakElement = (yPosition) => {
+                        const canvasYPosition = (yPosition / scaledCanvasHeight) * canvas.height;
+                        const scaleFactor = canvas.height / content.scrollHeight;
+                        const actualYPosition = canvasYPosition / scaleFactor;
+                        
+                        for (const pos of elementPositions) {
+                            // Check if page break would occur in middle of protected element
+                            if (actualYPosition > pos.top && actualYPosition < pos.bottom) {
+                                // If element is small enough to fit on one page, move it to next page
+                                if (pos.height * (scaledCanvasHeight / content.scrollHeight) < heightPerPage * 0.8) {
+                                    return {
+                                        shouldBreak: true,
+                                        moveToY: pos.top * (scaledCanvasHeight / content.scrollHeight)
+                                    };
+                                }
+                            }
+                        }
+                        return { shouldBreak: false };
+                    };
+                    
+                    while (currentY < scaledCanvasHeight) {
+                        if (pageNumber > 1) {
+                            pdf.addPage();
+                        }
+                        
+                        // Calculate how much content to show on this page
+                        let remainingHeight = Math.min(heightPerPage, scaledCanvasHeight - currentY);
+                        let nextPageY = currentY + remainingHeight;
+                        
+                        // Check if we would break a protected element
+                        if (nextPageY < scaledCanvasHeight) {
+                            const breakCheck = wouldBreakElement(nextPageY);
+                            if (breakCheck.shouldBreak) {
+                                // Adjust to end before the protected element
+                                remainingHeight = breakCheck.moveToY - currentY;
+                                if (remainingHeight < heightPerPage * 0.2) {
+                                    // If remaining space is too small, move entire element to next page
+                                    remainingHeight = heightPerPage;
+                                }
+                            }
+                        }
+                        
+                        // Calculate corresponding canvas portion
+                        const canvasY = (currentY / scaledCanvasHeight) * canvas.height;
+                        const canvasHeight = (remainingHeight / scaledCanvasHeight) * canvas.height;
+                        
+                        // Create canvas for this page
+                        const pageCanvas = document.createElement('canvas');
+                        pageCanvas.width = canvas.width;
+                        pageCanvas.height = canvasHeight;
+                        
+                        const ctx = pageCanvas.getContext('2d');
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+                        
+                        // Draw the portion of original canvas
+                        ctx.drawImage(
+                            canvas,
+                            0, canvasY,
+                            canvas.width, canvasHeight,
+                            0, 0,
+                            pageCanvas.width, pageCanvas.height
+                        );
+                        
+                        // Convert to image and add to PDF
+                        // Use JPEG with reduced quality to minimize PDF size (readable but compressed)
+                        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.88);
+                        pdf.addImage(pageImgData, 'JPEG', margin, margin, availableWidth, remainingHeight);
+                        
+                        // Add footer
+                        this.addFooter(pdf, pageNumber);
+                        
+                        currentY += remainingHeight;
+                        pageNumber++;
+                    }
+
+                    // Restore original display
+                    if (toolbar) toolbar.style.display = originalToolbar;
+                    if (buttons) buttons.style.display = originalButtons;
+
+                    const timestamp = new Date().toISOString().split('T')[0];
+                    pdf.save(`WES_Report_Complete_${pageNumber}pages_${timestamp}.pdf`);
+                    
+                    showNotification(`Complete PDF generated successfully! (${pageNumber} pages)`, 'success');
+                    
+                } catch (error) {
+                    console.error('Error generating simple image PDF:', error);
+                    showNotification('Error generating PDF: ' + error.message, 'error');
+                    throw error;
+                }
+            }
+        }
+
+        // Initialize PDF Generator
+        const pdfGenerator = new PDFGenerator();
+
+        // Event listeners for PDF generation buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const textBtn = document.getElementById('downloadTextBtn');
+            const imageBtn = document.getElementById('downloadImageBtn');
+            
+            if (textBtn) {
+                textBtn.addEventListener('click', async () => {
+                    try {
+                        await pdfGenerator.generateTextBasedPDF();
+                    } catch (error) {
+                        console.error('Text PDF generation failed:', error);
+                    }
+                });
+            }
+            
+            if (imageBtn) {
+                imageBtn.addEventListener('click', async () => {
+                    try {
+                        await pdfGenerator.generateSimpleImagePDF();
+                    } catch (error) {
+                        console.error('Image PDF generation failed:', error);
+                    }
+                });
+            }
+        });
+    </script>
+
+
+</body>
+</html>

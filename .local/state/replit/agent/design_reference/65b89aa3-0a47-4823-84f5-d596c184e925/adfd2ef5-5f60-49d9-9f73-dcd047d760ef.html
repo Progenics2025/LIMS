@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIMS - Laboratory Information Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#E3F2FD',
+                            100: '#BBDEFB',
+                            200: '#90CAF9',
+                            300: '#64B5F6',
+                            400: '#42A5F5',
+                            500: '#1565C0',
+                            600: '#1E88E5',
+                            700: '#1976D2',
+                            800: '#1565C0',
+                            900: '#0D47A1'
+                        },
+                        success: {
+                            50: '#F1F8E9',
+                            500: '#558B2F',
+                            600: '#4CAF50'
+                        },
+                        warning: {
+                            50: '#FFF3E0',
+                            500: '#FF9800'
+                        },
+                        error: {
+                            50: '#FFEBEE',
+                            500: '#FF5722'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-transition { transition: transform 0.3s ease-in-out; }
+        .card-hover { transition: all 0.2s ease-in-out; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter">
+    <!-- @COMPONENT: AuthenticationWrapper -->
+    <div id="authWrapper" class="min-h-screen">
+        <!-- LOGIN PAGE -->
+        <div id="loginPage" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
+                        <i class="fas fa-flask text-2xl text-primary-600"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-900">LIMS Login</h1>
+                    <p class="text-gray-600 mt-2">Laboratory Information Management System</p>
+                </div>
+                
+                <form class="space-y-6" data-mock="true">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                        <div class="relative">
+                            <input type="email" class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter your email" data-mock="true">
+                            <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <div class="relative">
+                            <input type="password" class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter your password" data-mock="true">
+                            <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                        <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" data-mock="true">
+                            <option>Select your role</option>
+                            <option>Sales</option>
+                            <option>Operations</option>
+                            <option>Finance</option>
+                            <option>Lab Technician</option>
+                            <option>Bioinformatics</option>
+                            <option>Reporting</option>
+                            <option>Manager</option>
+                            <option>Admin</option>
+                        </select>
+                    </div>
+                    
+                    <button type="button" onclick="showDashboard()" class="w-full bg-primary-600 text-white py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors duration-200">
+                        Sign In
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center">
+                    <a href="#" class="text-sm text-primary-600 hover:text-primary-700">Forgot your password?</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN APPLICATION -->
+        <div id="mainApp" class="hidden">
+            <!-- @COMPONENT: TopNavigation -->
+            <nav class="bg-white border-b border-gray-200 px-4 py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="toggleSidebar()" class="text-gray-600 hover:text-gray-900 lg:hidden">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-flask text-primary-600"></i>
+                            </div>
+                            <span class="font-bold text-xl text-gray-900">LIMS</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Notifications -->
+                        <div class="relative">
+                            <button class="text-gray-600 hover:text-gray-900 relative">
+                                <i class="fas fa-bell text-xl"></i>
+                                <span class="absolute -top-2 -right-2 bg-error-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center" data-mock="true">3</span>
+                            </button>
+                        </div>
+                        
+                        <!-- User Menu -->
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-primary-600"></i>
+                            </div>
+                            <div class="hidden md:block">
+                                <p class="text-sm font-medium text-gray-900" data-mock="true">John Doe</p>
+                                <p class="text-xs text-gray-600" data-mock="true">Sales Manager</p>
+                            </div>
+                            <button class="text-gray-600 hover:text-gray-900">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <div class="flex">
+                <!-- @COMPONENT: SidebarNavigation -->
+                <aside id="sidebar" class="bg-white w-64 min-h-screen border-r border-gray-200 sidebar-transition">
+                    <nav class="p-4 space-y-2">
+                        <button onclick="showSection('dashboard')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-primary-600 bg-primary-50">
+                            <i class="fas fa-tachometer-alt mr-3"></i>
+                            <span>Dashboard</span>
+                        </button>
+                        
+                        <button onclick="showSection('leads')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                            <i class="fas fa-user-plus mr-3"></i>
+                            <span>Lead Management</span>
+                        </button>
+                        
+                        <button onclick="showSection('samples')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                            <i class="fas fa-vial mr-3"></i>
+                            <span>Sample Tracking</span>
+                        </button>
+                        
+                        <button onclick="showSection('lab')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                            <i class="fas fa-microscope mr-3"></i>
+                            <span>Lab Processing</span>
+                        </button>
+                        
+                        <button onclick="showSection('bioinformatics')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                            <i class="fas fa-dna mr-3"></i>
+                            <span>Bioinformatics</span>
+                        </button>
+                        
+                        <button onclick="showSection('reports')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                            <i class="fas fa-file-alt mr-3"></i>
+                            <span>Reports</span>
+                        </button>
+                        
+                        <button onclick="showSection('finance')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                            <i class="fas fa-rupee-sign mr-3"></i>
+                            <span>Finance</span>
+                        </button>
+                        
+                        <div class="border-t pt-4 mt-4">
+                            <button onclick="showSection('users')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-users mr-3"></i>
+                                <span>User Management</span>
+                            </button>
+                            
+                            <button onclick="showSection('settings')" class="nav-item w-full flex items-center px-4 py-3 text-left rounded-lg hover:bg-gray-100 text-gray-700">
+                                <i class="fas fa-cog mr-3"></i>
+                                <span>Settings</span>
+                            </button>
+                        </div>
+                    </nav>
+                </aside>
+
+                <!-- @COMPONENT: MainContent -->
+                <main class="flex-1 p-6">
+                    <!-- DASHBOARD SECTION -->
+                    <div id="dashboard" class="section">
+                        <div class="mb-8">
+                            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+                            <p class="text-gray-600 mt-2">Welcome to your LIMS dashboard. Here's an overview of your laboratory operations.</p>
+                        </div>
+
+                        <!-- Stats Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">Active Leads</p>
+                                        <p class="text-3xl font-bold text-gray-900 mt-2" data-mock="true">142</p>
+                                        <p class="text-sm text-success-600 mt-1">+12% from last month</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-user-plus text-primary-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">Samples in Process</p>
+                                        <p class="text-3xl font-bold text-gray-900 mt-2" data-mock="true">89</p>
+                                        <p class="text-sm text-warning-500 mt-1">3 urgent samples</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-warning-50 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-vial text-warning-500"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                                        <p class="text-3xl font-bold text-gray-900 mt-2" data-mock="true">₹8,45,000</p>
+                                        <p class="text-sm text-success-600 mt-1">+18% from last month</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-success-50 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-rupee-sign text-success-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">Reports Pending</p>
+                                        <p class="text-3xl font-bold text-gray-900 mt-2" data-mock="true">23</p>
+                                        <p class="text-sm text-error-500 mt-1">5 overdue reports</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-error-50 rounded-full flex items-center justify-center">
+                                        <i class="fas fa-file-alt text-error-500"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts and Recent Activity -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Lead Conversion Trends</h3>
+                                <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                                    <!-- Chart placeholder - in real implementation, use Chart.js or similar -->
+                                    <div class="text-center">
+                                        <i class="fas fa-chart-line text-4xl text-gray-400 mb-2"></i>
+                                        <p class="text-gray-500">Chart visualization would be here</p>
+                                        <p class="text-sm text-gray-400"data-implementation="Implement with Chart.js or similar library">Lead conversion data over time</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Activities</h3>
+                                <div class="space-y-4">
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-2 h-2 bg-success-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-gray-900">Sample PG202508071702 completed lab processing</p>
+                                            <p class="text-xs text-gray-500">2 hours ago</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-2 h-2 bg-warning-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-gray-900">New lead created: Apollo Hospital</p>
+                                            <p class="text-xs text-gray-500">4 hours ago</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-2 h-2 bg-primary-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-gray-900">Report approved for DG202508071455</p>
+                                            <p class="text-xs text-gray-500">6 hours ago</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-2 h-2 bg-error-500 rounded-full mt-2"></div>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-medium text-gray-900">Payment overdue for sample PG202507261122</p>
+                                            <p class="text-xs text-gray-500">1 day ago</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LEAD MANAGEMENT SECTION -->
+                    <div id="leads" class="section hidden">
+                        <div class="mb-8 flex items-center justify-between">
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-900">Lead Management</h1>
+                                <p class="text-gray-600 mt-2">Manage and track sales leads and conversions</p>
+                            </div>
+                            <button onclick="showModal('newLeadModal')" class="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>
+                                Add New Lead
+                            </button>
+                        </div>
+
+                        <!-- Lead Statistics -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Total Leads</p>
+                                        <p class="text-2xl font-bold text-gray-900" data-mock="true">1,247</p>
+                                    </div>
+                                    <i class="fas fa-users text-gray-400 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Converted</p>
+                                        <p class="text-2xl font-bold text-success-600" data-mock="true">856</p>
+                                    </div>
+                                    <i class="fas fa-check-circle text-success-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">In Progress</p>
+                                        <p class="text-2xl font-bold text-warning-500" data-mock="true">234</p>
+                                    </div>
+                                    <i class="fas fa-clock text-warning-500 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Lost</p>
+                                        <p class="text-2xl font-bold text-error-500" data-mock="true">157</p>
+                                    </div>
+                                    <i class="fas fa-times-circle text-error-500 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Leads Table -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-lg font-semibold text-gray-900">Recent Leads</h3>
+                                    <div class="flex space-x-4">
+                                        <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                            <option>All Status</option>
+                                            <option>New</option>
+                                            <option>Contacted</option>
+                                            <option>Converted</option>
+                                            <option>Lost</option>
+                                        </select>
+                                        <input type="search" placeholder="Search leads..." class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead ID</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Type</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₹)</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <!-- @MAP: leads.map(lead => ( -->
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">L001247</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Apollo Hospital</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <div>Dr. Rajesh Kumar</div>
+                                                <div class="text-gray-500">+91 98765 43210</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Clinical Genomics</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹25,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">In Progress</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Edit</button>
+                                                <button class="text-success-600 hover:text-success-900 mr-3">Convert</button>
+                                                <button class="text-error-600 hover:text-error-900">Delete</button>
+                                            </td>
+                                        </tr>
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">L001248</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Max Healthcare</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <div>Dr. Priya Sharma</div>
+                                                <div class="text-gray-500">+91 98765 43211</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Discovery Research</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹45,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">Converted</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">View</button>
+                                                <button class="text-primary-600 hover:text-primary-900">Track</button>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-sm text-gray-700">
+                                        Showing <span class="font-medium" data-mock="true">1</span> to <span class="font-medium" data-mock="true">10</span> of <span class="font-medium" data-mock="true">247</span> results
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50">Previous</button>
+                                        <button class="px-3 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700">1</button>
+                                        <button class="px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">2</button>
+                                        <button class="px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">3</button>
+                                        <button class="px-3 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg hover:bg-gray-50">Next</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SAMPLE TRACKING SECTION -->
+                    <div id="samples" class="section hidden">
+                        <div class="mb-8 flex items-center justify-between">
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-900">Sample Tracking</h1>
+                                <p class="text-gray-600 mt-2">Track sample progress through the laboratory workflow</p>
+                            </div>
+                            <button onclick="showModal('sampleDetailsModal')" class="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>
+                                Add Sample Details
+                            </button>
+                        </div>
+
+                        <!-- Sample Workflow Status -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Sample Workflow Overview</h3>
+                            <div class="flex flex-wrap items-center justify-between space-y-4 md:space-y-0">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-12 h-12 bg-success-500 rounded-full flex items-center justify-center text-white mb-2">
+                                        <i class="fas fa-clipboard-check"></i>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-sm font-medium text-gray-900">Lead Converted</p>
+                                        <p class="text-xs text-gray-500" data-mock="true">156 samples</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="hidden md:block w-16 h-1 bg-gray-300 rounded"></div>
+                                
+                                <div class="flex flex-col items-center">
+                                    <div class="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white mb-2">
+                                        <i class="fas fa-truck"></i>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-sm font-medium text-gray-900">Sample Pickup</p>
+                                        <p class="text-xs text-gray-500" data-mock="true">89 samples</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="hidden md:block w-16 h-1 bg-gray-300 rounded"></div>
+                                
+                                <div class="flex flex-col items-center">
+                                    <div class="w-12 h-12 bg-warning-500 rounded-full flex items-center justify-center text-white mb-2">
+                                        <i class="fas fa-microscope"></i>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-sm font-medium text-gray-900">Lab Processing</p>
+                                        <p class="text-xs text-gray-500" data-mock="true">67 samples</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="hidden md:block w-16 h-1 bg-gray-300 rounded"></div>
+                                
+                                <div class="flex flex-col items-center">
+                                    <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white mb-2">
+                                        <i class="fas fa-dna"></i>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-sm font-medium text-gray-900">Bioinformatics</p>
+                                        <p class="text-xs text-gray-500" data-mock="true">34 samples</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="hidden md:block w-16 h-1 bg-gray-300 rounded"></div>
+                                
+                                <div class="flex flex-col items-center">
+                                    <div class="w-12 h-12 bg-success-600 rounded-full flex items-center justify-center text-white mb-2">
+                                        <i class="fas fa-file-alt"></i>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-sm font-medium text-gray-900">Report Ready</p>
+                                        <p class="text-xs text-gray-500" data-mock="true">23 reports</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sample Tracking Table -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-lg font-semibold text-gray-900">Sample Tracking</h3>
+                                    <div class="flex space-x-4">
+                                        <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                            <option>All Samples</option>
+                                            <option>Clinical (PG)</option>
+                                            <option>Discovery (DG)</option>
+                                        </select>
+                                        <input type="search" placeholder="Search by Sample ID..." class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Type</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₹)</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TAT</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <!-- @MAP: samples.map(sample => ( -->
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="w-2 h-2 bg-success-500 rounded-full mr-2"></div>
+                                                    <span class="text-sm font-medium text-gray-900">PG202508071702</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Apollo Hospital</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Whole Exome Sequencing</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹35,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">Bioinformatics</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <div class="flex items-center">
+                                                    <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                                        <div class="bg-success-600 h-2 rounded-full" style="width: 75%"></div>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">15 days</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Track</button>
+                                                <button class="text-primary-600 hover:text-primary-900">Update</button>
+                                            </td>
+                                        </tr>
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="w-2 h-2 bg-warning-500 rounded-full mr-2"></div>
+                                                    <span class="text-sm font-medium text-gray-900">DG202508071455</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Max Healthcare</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">RNA Sequencing</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹28,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">Lab Processing</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <div class="flex items-center">
+                                                    <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                                        <div class="bg-warning-500 h-2 rounded-full" style="width: 45%"></div>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">12 days</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Track</button>
+                                                <button class="text-primary-600 hover:text-primary-900">Update</button>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LAB PROCESSING SECTION -->
+                    <div id="lab" class="section hidden">
+                        <div class="mb-8">
+                            <h1 class="text-3xl font-bold text-gray-900">Lab Processing</h1>
+                            <p class="text-gray-600 mt-2">Manage laboratory processing workflow and quality control</p>
+                        </div>
+
+                        <!-- Lab Stats -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Samples Received</p>
+                                        <p class="text-2xl font-bold text-gray-900" data-mock="true">89</p>
+                                    </div>
+                                    <i class="fas fa-inbox text-primary-500 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">QC Passed</p>
+                                        <p class="text-2xl font-bold text-success-600" data-mock="true">76</p>
+                                    </div>
+                                    <i class="fas fa-check-circle text-success-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">QC Failed</p>
+                                        <p class="text-2xl font-bold text-error-500" data-mock="true">8</p>
+                                    </div>
+                                    <i class="fas fa-times-circle text-error-500 text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Processing</p>
+                                        <p class="text-2xl font-bold text-warning-500" data-mock="true">23</p>
+                                    </div>
+                                    <i class="fas fa-cogs text-warning-500 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lab Processing Form -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Lab Processing Form</h3>
+                            <form class="grid grid-cols-1 md:grid-cols-2 gap-6" data-mock="true">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Sample ID</label>
+                                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter sample ID">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Lab ID</label>
+                                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Auto-generated lab ID" readonly>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">QC Status</label>
+                                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option>Select QC status</option>
+                                        <option>Passed</option>
+                                        <option>Failed</option>
+                                        <option>Pending</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">DNA/RNA Quantity (ng/μL)</label>
+                                    <input type="number" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter quantity">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Run ID</label>
+                                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter run ID">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Library Prepared</label>
+                                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option>Select status</option>
+                                        <option>Yes</option>
+                                        <option>No</option>
+                                        <option>In Progress</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Sequencing ID</label>
+                                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter sequencing ID">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Processing Notes</label>
+                                    <textarea class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" rows="3" placeholder="Enter processing notes"></textarea>
+                                </div>
+                                
+                                <div class="md:col-span-2">
+                                    <div class="flex space-x-4">
+                                        <button type="submit" class="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                                            Update Processing Status
+                                        </button>
+                                        <button type="button" class="bg-success-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-success-700 transition-colors">
+                                            Send to Bioinformatics
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Outsourcing Section -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Sample Outsourcing</h3>
+                            <form class="grid grid-cols-1 md:grid-cols-2 gap-6" data-mock="true">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Outsourcing Partner</label>
+                                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter partner name">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Date of Dispatch</label>
+                                    <input type="date" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Sample Type</label>
+                                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option>Select sample type</option>
+                                        <option>DNA</option>
+                                        <option>RNA</option>
+                                        <option>Blood</option>
+                                        <option>Tissue</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Courier Tracking</label>
+                                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter tracking number">
+                                </div>
+                                
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">TRF Document</label>
+                                    <div class="flex items-center space-x-4">
+                                        <input type="file" class="hidden" id="trfUpload" accept=".pdf,.jpg,.png">
+                                        <button type="button" onclick="document.getElementById('trfUpload').click()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center">
+                                            <i class="fas fa-upload mr-2"></i>
+                                            Upload TRF Document
+                                        </button>
+                                        <span class="text-sm text-gray-500">PDF, JPG, PNG (Max 5MB)</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="md:col-span-2">
+                                    <button type="submit" class="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                                        Submit Outsourcing Details
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- BIOINFORMATICS SECTION -->
+                    <div id="bioinformatics" class="section hidden">
+                        <div class="mb-8">
+                            <h1 class="text-3xl font-bold text-gray-900">Bioinformatics Processing</h1>
+                            <p class="text-gray-600 mt-2">Manage bioinformatics data processing and analysis</p>
+                        </div>
+
+                        <!-- Processing Queue -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Processing Queue</h3>
+                            <div class="space-y-4">
+                                <!-- @MAP: processingQueue.map(item => ( -->
+                                <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors" data-mock="true">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-4">
+                                            <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-dna text-primary-600"></i>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-medium text-gray-900">PG202508071702</h4>
+                                                <p class="text-xs text-gray-500">Whole Exome Sequencing - Apollo Hospital</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-4">
+                                            <span class="px-2 py-1 bg-warning-100 text-warning-800 text-xs font-medium rounded-full">In Queue</span>
+                                            <button class="text-primary-600 hover:text-primary-700 text-sm font-medium">Start Processing</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+
+                        <!-- Analysis Dashboard -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Pipeline Status</h3>
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-success-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-check text-success-600 text-sm"></i>
+                                            </div>
+                                            <span class="text-sm font-medium text-gray-900">Quality Control</span>
+                                        </div>
+                                        <span class="text-xs text-success-600 bg-success-100 px-2 py-1 rounded-full">Complete</span>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-cogs text-primary-600 text-sm"></i>
+                                            </div>
+                                            <span class="text-sm font-medium text-gray-900">Alignment</span>
+                                        </div>
+                                        <span class="text-xs text-primary-600 bg-primary-100 px-2 py-1 rounded-full">Processing</span>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-search text-gray-400 text-sm"></i>
+                                            </div>
+                                            <span class="text-sm font-medium text-gray-500">Variant Calling</span>
+                                        </div>
+                                        <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Pending</span>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-file-alt text-gray-400 text-sm"></i>
+                                            </div>
+                                            <span class="text-sm font-medium text-gray-500">Annotation</span>
+                                        </div>
+                                        <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Pending</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-4">Sample Processing Form</h3>
+                                <form class="space-y-4" data-mock="true">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Sample ID</label>
+                                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" value="PG202508071702" readonly>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Analysis Type</label>
+                                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                            <option>Whole Exome Sequencing</option>
+                                            <option>Whole Genome Sequencing</option>
+                                            <option>RNA Sequencing</option>
+                                            <option>Targeted Panel</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Processing Status</label>
+                                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                            <option>Started</option>
+                                            <option>In Progress</option>
+                                            <option>Quality Check</option>
+                                            <option>Completed</option>
+                                            <option>Failed</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                                        <textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" rows="3" placeholder="Enter processing notes"></textarea>
+                                    </div>
+                                    
+                                    <button type="submit" class="w-full bg-primary-600 text-white py-2 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                                        Update Status
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REPORTS SECTION -->
+                    <div id="reports" class="section hidden">
+                        <div class="mb-8 flex items-center justify-between">
+                            <div>
+                                <h1 class="text-3xl font-bold text-gray-900">Report Management</h1>
+                                <p class="text-gray-600 mt-2">Manage report generation and delivery</p>
+                            </div>
+                            <button class="bg-primary-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>
+                                Generate Report
+                            </button>
+                        </div>
+
+                        <!-- Report Status Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Draft Reports</p>
+                                        <p class="text-2xl font-bold text-gray-900" data-mock="true">12</p>
+                                    </div>
+                                    <i class="fas fa-edit text-gray-400 text-xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Pending Approval</p>
+                                        <p class="text-2xl font-bold text-warning-500" data-mock="true">8</p>
+                                    </div>
+                                    <i class="fas fa-clock text-warning-500 text-xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Approved</p>
+                                        <p class="text-2xl font-bold text-success-600" data-mock="true">45</p>
+                                    </div>
+                                    <i class="fas fa-check-circle text-success-600 text-xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Delivered</p>
+                                        <p class="text-2xl font-bold text-primary-600" data-mock="true">234</p>
+                                    </div>
+                                    <i class="fas fa-paper-plane text-primary-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reports Table -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Recent Reports</h3>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report Type</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Generated Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <!-- @MAP: reports.map(report => ( -->
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">PG202508071702</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Apollo Hospital</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Clinical Report</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">Approved</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2024-08-07</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Download</button>
+                                                <button class="text-success-600 hover:text-success-900 mr-3">Send</button>
+                                                <button class="text-gray-600 hover:text-gray-900">Preview</button>
+                                            </td>
+                                        </tr>
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">DG202508071455</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Max Healthcare</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Research Report</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">Pending Approval</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2024-08-07</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Review</button>
+                                                <button class="text-success-600 hover:text-success-900 mr-3">Approve</button>
+                                                <button class="text-gray-600 hover:text-gray-900">Preview</button>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FINANCE SECTION -->
+                    <div id="finance" class="section hidden">
+                        <div class="mb-8">
+                            <h1 class="text-3xl font-bold text-gray-900">Finance Management</h1>
+                            <p class="text-gray-600 mt-2">Track payments, invoicing, and financial reports</p>
+                        </div>
+
+                        <!-- Financial Overview -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Total Revenue</p>
+                                        <p class="text-2xl font-bold text-gray-900" data-mock="true">₹12,45,000</p>
+                                    </div>
+                                    <i class="fas fa-chart-line text-success-600 text-xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Outstanding</p>
+                                        <p class="text-2xl font-bold text-error-500" data-mock="true">₹2,34,000</p>
+                                    </div>
+                                    <i class="fas fa-exclamation-triangle text-error-500 text-xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">This Month</p>
+                                        <p class="text-2xl font-bold text-primary-600" data-mock="true">₹3,45,000</p>
+                                    </div>
+                                    <i class="fas fa-calendar text-primary-600 text-xl"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Collected</p>
+                                        <p class="text-2xl font-bold text-success-600" data-mock="true">₹10,11,000</p>
+                                    </div>
+                                    <i class="fas fa-check-circle text-success-600 text-xl"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Tracking Table -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Payment Tracking</h3>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice ID</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample ID</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₹)</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid (₹)</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance (₹)</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <!-- @MAP: invoices.map(invoice => ( -->
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">INV-2024-001247</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">PG202508071702</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Apollo Hospital</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹35,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹35,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹0</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-success-100 text-success-800">Paid</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-primary-600 hover:text-primary-900 mr-3">Receipt</button>
+                                                <button class="text-primary-600 hover:text-primary-900">Invoice</button>
+                                            </td>
+                                        </tr>
+                                        <tr data-mock="true">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">INV-2024-001248</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">DG202508071455</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Max Healthcare</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹28,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹15,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-error-500 font-medium">₹13,000</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-warning-100 text-warning-800">Partial</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button class="text-error-600 hover:text-error-900 mr-3">Remind</button>
+                                                <button class="text-primary-600 hover:text-primary-900">Invoice</button>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: AuthenticationWrapper -->
+
+    <!-- MODAL: New Lead -->
+    <div id="newLeadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900">Add New Lead</h2>
+                    <button onclick="hideModal('newLeadModal')" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6" data-mock="true">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Organization Name *</label>
+                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter organization name" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter location" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Clinic/Hospital Name</label>
+                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter clinic/hospital name">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Referred Doctor *</label>
+                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter doctor name" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                    <input type="tel" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="+91 98765 43210" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                    <input type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="doctor@hospital.com" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Client Email</label>
+                    <input type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="client@domain.com">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Name *</label>
+                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                        <option value="">Select test type</option>
+                        <option>Whole Exome Sequencing</option>
+                        <option>Whole Genome Sequencing</option>
+                        <option>RNA Sequencing</option>
+                        <option>Targeted Panel</option>
+                        <option>Clinical Genomics</option>
+                        <option>Discovery Research</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sample Type *</label>
+                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                        <option value="">Select sample type</option>
+                        <option>Blood</option>
+                        <option>Saliva</option>
+                        <option>Tissue</option>
+                        <option>DNA</option>
+                        <option>RNA</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount Quoted (₹) *</label>
+                    <input type="number" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="25000" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">TAT (Days) *</label>
+                    <input type="number" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="15" required>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
+                    <textarea class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" rows="3" placeholder="Enter any additional notes"></textarea>
+                </div>
+                
+                <div class="md:col-span-2 flex justify-end space-x-4">
+                    <button type="button" onclick="hideModal('newLeadModal')" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                        Add Lead
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Sample Details -->
+    <div id="sampleDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-900">Sample Collection & Courier Details</h2>
+                    <button onclick="hideModal('sampleDetailsModal')" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <form class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6" data-mock="true">
+                <div class="md:col-span-2">
+                    <div class="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-4">
+                        <h3 class="text-lg font-semibold text-primary-800">Sample ID Generated</h3>
+                        <p class="text-primary-600 mt-1">Your sample ID: <span class="font-mono font-bold" data-mock="true">PG202508071702</span></p>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Date *</label>
+                    <input type="date" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Time *</label>
+                    <input type="time" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Courier Service *</label>
+                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                        <option value="">Select courier service</option>
+                        <option>Blue Dart</option>
+                        <option>DHL</option>
+                        <option>FedEx</option>
+                        <option>Professional Couriers</option>
+                        <option>DTDC</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tracking Number</label>
+                    <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="Enter tracking number">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Test Amount (₹) *</label>
+                    <input type="number" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" placeholder="35000" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option>Pending</option>
+                        <option>Partial Payment</option>
+                        <option>Paid</option>
+                        <option>Advance Payment</option>
+                    </select>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Address *</label>
+                    <textarea class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" rows="3" placeholder="Enter complete pickup address" required></textarea>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Special Instructions</label>
+                    <textarea class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" rows="2" placeholder="Any special handling instructions"></textarea>
+                </div>
+                
+                <div class="md:col-span-2 flex justify-end space-x-4">
+                    <button type="button" onclick="hideModal('sampleDetailsModal')" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors">
+                        Schedule Pickup
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="hidden fixed top-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-success-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-check text-success-600"></i>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-900">Success!</p>
+                <p class="text-xs text-gray-500">Action completed successfully</p>
+            </div>
+            <button onclick="hideToast()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // TODO: Implement business logic, API calls, and state management
+        (function() {
+            // Navigation functions
+            window.showDashboard = function() {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+            };
+
+            window.toggleSidebar = function() {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('-translate-x-full');
+            };
+
+            window.showSection = function(sectionName) {
+                // Hide all sections
+                const sections = document.querySelectorAll('.section');
+                sections.forEach(section => section.classList.add('hidden'));
+                
+                // Show selected section
+                document.getElementById(sectionName).classList.remove('hidden');
+                
+                // Update navigation active state
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    item.classList.remove('text-primary-600', 'bg-primary-50');
+                    item.classList.add('text-gray-700');
+                });
+                
+                // Set active nav item (this is simplified, in real app would match by section)
+                event.target.classList.add('text-primary-600', 'bg-primary-50');
+                event.target.classList.remove('text-gray-700');
+            };
+
+            // Modal functions
+            window.showModal = function(modalId) {
+                document.getElementById(modalId).classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            };
+
+            window.hideModal = function(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            };
+
+            // Toast functions
+            window.showToast = function(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 3000);
+            };
+
+            window.hideToast = function() {
+                document.getElementById('toast').classList.add('hidden');
+            };
+
+            // Close modals when clicking outside
+            document.addEventListener('click', function(event) {
+                if (event.target.classList.contains('fixed') && event.target.classList.contains('inset-0')) {
+                    const modal = event.target;
+                    modal.classList.add('hidden');
+                    document.body.classList.remove('overflow-hidden');
+                }
+            });
+
+            // Initialize dashboard by default
+            document.addEventListener('DOMContentLoaded', function() {
+                // Set default active section
+                showSection('dashboard');
+            });
+        })();
+    </script>
+</body>
+</html>

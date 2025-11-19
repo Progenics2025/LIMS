@@ -1,0 +1,182 @@
+Database config: {
+  host: 'localhost',
+  port: 3306,
+  user: 'remote_user',
+  password: '***',
+  database: 'leadlab_lims',
+  ssl: false,
+  connectTimeout: 60000,
+  charset: 'utf8mb4'
+}
+Testing database connection...
+🚀 Starting LIMS server with modular architecture...
+🚀 Initializing LIMS modules...
+Initializing module: authentication
+✅ Database connection pool initialized successfully
+✅ Database connection successful
+Authentication Schema Check: ✅
+✅ Module initialized: authentication
+✅ Module authentication initialized successfully
+Initializing module: lead-management
+Lead Management Schema Check: ✅
+✅ Module initialized: lead-management
+✅ Module lead-management initialized successfully
+Initializing module: sample-tracking
+Sample Tracking Schema Check: ✅
+✅ Module initialized: sample-tracking
+✅ Module sample-tracking initialized successfully
+Initializing module: finance
+Finance Schema Check: ✅
+✅ Module initialized: finance
+✅ Module finance initialized successfully
+Initializing module: dashboard
+Dashboard Schema Check: ✅
+✅ Module initialized: dashboard
+✅ Module dashboard initialized successfully
+🎉 Module initialization complete. 5/5 modules enabled
+🔗 Registering module routes...
+🔗 Registering Authentication routes...
+✅ Authentication routes registered
+🔗 Registering Lead Management routes...
+✅ Lead Management routes registered
+🔗 Registering Sample Tracking routes...
+✅ Sample Tracking routes registered
+🔗 Registering Finance routes...
+✅ Finance routes registered
+🔗 Registering Dashboard routes...
+✅ Dashboard routes registered
+✅ Module routes registered
+✅ Modular routes registered successfully
+6:43:20 PM [express] serving on port 4000
+6:43:20 PM [express] 📊 Module status available at: http://0.0.0.0:4000/api/modules/status
+6:43:20 PM [express] 🌐 Health check available at: http://0.0.0.0:4000/api/modules/health
+✅ Ensured recycle_bin table exists
+6:43:22 PM [express] GET /api/notifications/system 304 in 5ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:43:22 PM [express] GET /api/recycle 304 in 5ms :: [{"id":"75544173-0678-41b4-9099-0efe650a1ad8","e…
+6:43:22 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:43:22 PM [express] GET /api/recycle 304 in 3ms :: [{"id":"75544173-0678-41b4-9099-0efe650a1ad8","e…
+6:43:22 PM [express] GET /api/dashboard/recent-activities 200 in 5ms
+6:43:22 PM [express] GET /api/dashboard/performance-metrics 200 in 4ms
+6:43:22 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:22 PM [express] GET /api/dashboard/stats 200 in 15ms :: {"activeLeads":9,"samplesProcessing":9,…
+6:43:22 PM [express] GET /api/dashboard/recent-activities 200 in 4ms
+6:43:22 PM [express] GET /api/dashboard/performance-metrics 200 in 5ms
+6:43:22 PM [express] GET /api/dashboard/stats 200 in 16ms :: {"activeLeads":9,"samplesProcessing":9,…
+6:43:23 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:43:23 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:27 PM [express] GET /api/project-samples 304 in 4ms :: [{"project_id":"PRJ-1762941316","sample_…
+6:43:32 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:43:32 PM [express] GET /api/recycle 304 in 2ms :: [{"id":"75544173-0678-41b4-9099-0efe650a1ad8","e…
+6:43:32 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:32 PM [express] GET /api/dashboard/recent-activities 200 in 4ms
+6:43:32 PM [express] GET /api/dashboard/performance-metrics 200 in 4ms
+6:43:32 PM [express] GET /api/dashboard/stats 304 in 15ms :: {"activeLeads":9,"samplesProcessing":9,…
+6:43:35 PM [express] GET /api/project-samples 304 in 2ms :: [{"project_id":"PRJ-1762941316","sample_…
+6:43:44 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 3ms :: {"id":"e8300c…
+6:43:44 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:44 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:43:44 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:52 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:43:52 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:43:52 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:02 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:44:02 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:12 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 200 in 1ms :: {"id":"e8300c…
+6:44:22 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:44:22 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:23 PM [express] GET /api/dashboard/recent-activities 200 in 4ms
+6:44:23 PM [express] GET /api/dashboard/performance-metrics 200 in 5ms
+6:44:23 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 3ms :: {"id":"e8300c…
+6:44:23 PM [express] GET /api/notifications/system 304 in 3ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:33 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:33 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 3ms :: {"id":"e8300c…
+6:44:38 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:44:40 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:44:40 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:40 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:44:40 PM [express] GET /api/recycle 304 in 3ms :: [{"id":"75544173-0678-41b4-9099-0efe650a1ad8","e…
+6:44:40 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:41 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:44:41 PM [express] GET /api/dashboard/performance-metrics 200 in 4ms
+6:44:41 PM [express] GET /api/dashboard/stats 200 in 14ms :: {"activeLeads":9,"samplesProcessing":9,…
+6:44:42 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 200 in 2ms :: {"id":"e8300c…
+6:44:44 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:44:44 PM [express] GET /api/notifications/system 304 in 5ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:48 PM [express] GET /api/project-samples 304 in 2ms :: [{"project_id":"PRJ-1762941316","sample_…
+6:44:52 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:52 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:44:52 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:44:53 PM [express] GET /api/dashboard/stats 304 in 7ms :: {"activeLeads":9,"samplesProcessing":9,"…
+6:44:53 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:45:03 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:45:03 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:08 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:45:11 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:45:11 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:12 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 200 in 1ms :: {"id":"e8300c…
+6:45:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:45:22 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:23 PM [express] GET /api/dashboard/stats 304 in 7ms :: {"activeLeads":9,"samplesProcessing":9,"…
+6:45:23 PM [express] GET /api/dashboard/performance-metrics 200 in 3ms
+6:45:23 PM [express] GET /api/dashboard/recent-activities 200 in 2ms
+6:45:23 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:45:23 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:33 PM [express] GET /api/notifications/system 304 in 3ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:33 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 3ms :: {"id":"e8300c…
+6:45:38 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:45:41 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:45:41 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:44 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:45:44 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:52 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:45:52 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:45:53 PM [express] GET /api/dashboard/stats 304 in 6ms :: {"activeLeads":9,"samplesProcessing":9,"…
+6:45:53 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:46:03 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:03 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:46:06 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:08 PM [express] GET /api/dashboard/recent-activities 200 in 3ms
+6:46:11 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:46:11 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:46:22 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:23 PM [express] GET /api/dashboard/performance-metrics 200 in 3ms
+6:46:23 PM [express] GET /api/dashboard/stats 304 in 12ms :: {"activeLeads":9,"samplesProcessing":9,…
+6:46:23 PM [express] GET /api/dashboard/recent-activities 200 in 1ms
+6:46:23 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:46:23 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:26 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 200 in 2ms :: {"id":"e8300c…
+6:46:33 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:46:33 PM [express] GET /api/notifications/system 304 in 3ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:41 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:46:41 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:44 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:46:44 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:46:52 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:46:52 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:06 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:11 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:47:11 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:47:22 PM [express] GET /api/notifications/system 304 in 5ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:23 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:47:23 PM [express] GET /api/notifications/system 304 in 3ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:26 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 200 in 1ms :: {"id":"e8300c…
+6:47:32 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:47:32 PM [express] GET /api/notifications/system 304 in 3ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:41 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:47:41 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:44 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:47:44 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:47:52 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:47:52 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:48:06 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:48:11 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:48:11 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:48:22 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 1ms :: {"id":"e8300c…
+6:48:22 PM [express] GET /api/notifications/system 304 in 1ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
+6:48:23 PM [express] GET /api/users/e8300c2f-05bb-42f6-b3f9-99e26f3e001a 304 in 2ms :: {"id":"e8300c…
+6:48:23 PM [express] GET /api/notifications/system 304 in 2ms :: [{"id":"eb87f90c-851d-4cc0-a2fd-4a3…
