@@ -11,6 +11,7 @@ import {
   Users,
   Cpu,
   Trash2,
+  Dna
 } from "lucide-react";
 
 // Define navigation items with ids so we can filter by role-specific allowed pages.
@@ -51,7 +52,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   lab: ['dashboard','leads','samples','lab'],
   genetic_counselling: ['dashboard','leads','samples'],
   genetic: ['dashboard','leads','samples'],
-  
+  sales: ['dashboard','leads','process_master','samples','reports'],
   bioinformatics: ['dashboard','leads','samples','lab'],
   };
 
@@ -71,46 +72,52 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        "fixed inset-y-0 left-0 z-50 w-72 bg-[#0B1139] text-white shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex items-center justify-center h-16 bg-primary-600 dark:bg-primary-700">
-          <div className="flex items-center">
-            <TestTube className="h-8 w-8 text-white mr-3" />
-            <span className="text-white text-xl font-semibold">LIMS</span>
+        {/* Header / Logo Area */}
+        <div className="p-6 border-b border-slate-800/50 flex items-center gap-3">
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg relative overflow-hidden">
+             <Dna className="text-[#0085CA]" size={26} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white leading-none">Progenics</h1>
+            <p className="text-[10px] text-slate-400 font-medium tracking-wide mt-1">GENOMICS EXPERTISE</p>
           </div>
         </div>
         
-        <nav className="mt-8 px-4">
-          <div className="space-y-2">
-            {filteredNavigation.map((item) => {
-              const isActive = location === item.href;
-              const Icon = item.icon;
-              
-              return (
-                <Link key={item.name} href={item.href}>
-                  <div
-                    className={cn(
-                      "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer",
-                      isActive
-                        ? "text-primary-600 bg-primary-50 dark:text-primary-400 dark:bg-primary-900/50"
-                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
-                    )}
-                    onClick={() => onClose()}
-                  >
-                    <Icon className={cn(
-                      "mr-3 h-5 w-5 flex-shrink-0",
-                      isActive
-                        ? "text-primary-500 dark:text-primary-400"
-                        : "text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400"
-                    )} />
-                    {item.name}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+        <nav className="flex-1 px-7 py-4 space-y-4 mt-4 overflow-y-auto">
+          <p className="pl-1 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Module Access</p>
+          {filteredNavigation.map((item) => {
+            const isActive = location === item.href;
+            const Icon = item.icon;
+            
+            return (
+              <Link key={item.name} href={item.href}>
+                <div
+                  className={cn(
+                    "w-full flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all duration-200 group cursor-pointer",
+                    isActive
+                      ? "bg-[#0085CA] text-white shadow-lg shadow-blue-900/20"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+                  )}
+                  onClick={() => onClose()}
+                >
+                  <Icon size={20} className={cn(isActive ? "text-white" : "text-slate-500 group-hover:text-white")} />
+                  <span className="font-medium">{item.name}</span>
+                </div>
+              </Link>
+            );
+          })}
         </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-800/50 bg-[#090E32]">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+            <span className="text-xs text-slate-400 font-medium">Powered by Progenics</span>
+          </div>
+        </div>
       </div>
     </>
   );

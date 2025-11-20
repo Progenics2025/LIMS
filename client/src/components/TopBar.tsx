@@ -41,21 +41,12 @@ export function TopBar({ onToggleSidebar }: TopBarProps) {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    const colors = {
-      admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-      manager: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-      sales: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      operations: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      finance: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      lab: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
-      bioinformatics: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300",
-      reporting: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
-    };
-    return colors[role as keyof typeof colors] || colors.reporting;
+    // Unified Progenics branding for all roles
+    return "bg-[#E6F6FD] text-[#0B1139] border border-blue-100";
   };
 
   return (
-    <div className="sticky top-0 z-40 bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="relative flex h-16 justify-between items-center">
           {/* Mobile menu button */}
@@ -63,7 +54,7 @@ export function TopBar({ onToggleSidebar }: TopBarProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="lg:hidden"
+              className="lg:hidden text-slate-500 hover:text-[#0085CA]"
               onClick={onToggleSidebar}
             >
               <Menu className="h-5 w-5" />
@@ -73,12 +64,12 @@ export function TopBar({ onToggleSidebar }: TopBarProps) {
           {/* Search */}
           <div className="flex-1 flex justify-center px-2 lg:ml-6 lg:justify-end">
             <div className="max-w-lg w-full lg:max-w-xs">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-[#0085CA] transition-colors" />
                 <Input
                   type="search"
                   placeholder="Search samples, leads..."
-                  className="pl-10"
+                  className="pl-10 bg-slate-100/50 border-slate-200 focus:bg-white focus:border-[#0085CA] focus:ring-2 focus:ring-blue-100 rounded-xl transition-all duration-200"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -93,6 +84,7 @@ export function TopBar({ onToggleSidebar }: TopBarProps) {
               variant="ghost"
               size="sm"
               onClick={toggleTheme}
+              className="text-slate-500 hover:text-[#0085CA] hover:bg-blue-50 rounded-full"
             >
               {theme === 'light' ? (
                 <Moon className="h-5 w-5" />
@@ -107,32 +99,32 @@ export function TopBar({ onToggleSidebar }: TopBarProps) {
             {/* User menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-3 p-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary-500 text-white text-sm">
+                <Button variant="ghost" className="flex items-center space-x-3 p-2 hover:bg-blue-50 rounded-xl transition-colors">
+                  <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                    <AvatarFallback className="bg-[#0085CA] text-white text-sm font-bold">
                       {user ? getInitials(user.name) : 'U'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden sm:block text-left">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    <div className="text-sm font-bold text-[#0B1139] dark:text-white">
                       {user?.name}
                     </div>
                     <Badge 
                       variant="secondary" 
-                      className={cn("text-xs mt-1", getRoleBadgeColor(user?.role || ''))}
+                      className={cn("text-[10px] px-2 py-0.5 mt-0.5 font-medium rounded-md", getRoleBadgeColor(user?.role || ''))}
                     >
                       {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Unknown"}
                     </Badge>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56 rounded-xl border-slate-200 shadow-xl">
+                <DropdownMenuItem className="focus:bg-blue-50 focus:text-[#0085CA] cursor-pointer rounded-lg m-1">
                   <User className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-red-600 dark:text-red-400">
+                <DropdownMenuSeparator className="bg-slate-100" />
+                <DropdownMenuItem onClick={logout} className="text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer rounded-lg m-1">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>

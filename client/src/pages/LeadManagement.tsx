@@ -427,6 +427,28 @@ export default function LeadManagement() {
   const queryClient = useQueryClient();
   // All fields in Lead Management Add & Edit modals are editable per user instruction
 
+  // Role-based permissions helper
+  const canCreate = () => ['admin', 'manager', 'sales'].includes((user?.role || '').toLowerCase());
+  const canEdit = (lead: any) => {
+    const userRole = (user?.role || '').toLowerCase();
+    // Admin and Manager can edit all leads
+    if (['admin', 'manager'].includes(userRole)) return true;
+    // Sales can edit leads they created
+    if (userRole === 'sales' && lead?.createdBy === user?.id) return true;
+    return false;
+  };
+  const canDelete = () => ['admin', 'manager'].includes((user?.role || '').toLowerCase());
+  const canView = () => true; // All authenticated users can view
+  
+  // Filter leads based on user role
+  const filterLeadsByRole = (allLeads: any[]) => {
+    const userRole = (user?.role || '').toLowerCase();
+    if (['admin', 'manager'].includes(userRole)) return allLeads; // Show all leads
+    if (userRole === 'sales') return allLeads; // Sales see all but can only edit own (UI restricts this)
+    // Other roles see only their own leads
+    return allLeads.filter(l => l.createdBy === user?.id);
+  };
+
   const { data: leads = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/leads'],
   });
@@ -447,8 +469,11 @@ export default function LeadManagement() {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // Derived filtered leads (apply search + status)
-  const filteredLeads = normalizedLeads.filter((l) => {
+  // Apply role-based filtering first
+  const roleFilteredLeads = filterLeadsByRole(normalizedLeads);
+
+  // Derived filtered leads (apply role filter + search + status)
+  const filteredLeads = roleFilteredLeads.filter((l) => {
     // if statusFilter is 'all' or falsy, don't filter by status
     if (statusFilter && statusFilter !== 'all' && String(l.status) !== String(statusFilter)) return false;
     if (!searchQuery) return true;
@@ -1082,7 +1107,8 @@ export default function LeadManagement() {
           </p>
         </div>
         
-        {/* Create Lead Dialog */}
+        {/* Create Lead Dialog - Only visible to Admin, Manager, Sales */}
+        {canCreate() && (
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" />Add New Lead</Button>
@@ -1102,13 +1128,6 @@ export default function LeadManagement() {
                     <Input {...form.register('organization')} placeholder="Hospital/Clinic Name" />
                     {form.formState.errors.organization && (
                       <p className="text-sm text-red-600 mt-1">{form.formState.errors.organization.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Organization / Hospital Location <span className="text-red-500">*</span></Label>
-                    <Input {...form.register('location')} placeholder="City, State" />
-                    {form.formState.errors.location && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.location.message}</p>
                     )}
                   </div>
                   <div>
@@ -1152,7 +1171,7 @@ export default function LeadManagement() {
                     )}
                   </div>
                   <div>
-                    <Label>Clinician / Researcher Contact Number <span className="text-red-500">*</span></Label>
+                    <Label>Clinician / Researcher Phone <span className="text-red-500">*</span></Label>
                     <div className="phone-input-wrapper">
                       <PhoneInput
                         international
@@ -1275,7 +1294,7 @@ export default function LeadManagement() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Status</Label>
+                    <Label>Lead Status</Label>
                     <Select onValueChange={(value) => form.setValue('status', value)} defaultValue={form.getValues('status') || 'quoted'}>
                       <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
                       <SelectContent>
@@ -1289,7 +1308,7 @@ export default function LeadManagement() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Created By</Label>
+                    <Label>Lead Created By</Label>
                     <Input value={user?.name || String(user?.id || '')} disabled />
                   </div>
                     <div>
@@ -1342,7 +1361,7 @@ export default function LeadManagement() {
                     <Input {...form.register('tat', { valueAsNumber: true })} type="number" placeholder="14" />
                   </div>
                   <div>
-                    <Label>Sales/Account Manager</Label>
+                    <Label>Sales / Responsible Person</Label>
                     <Select onValueChange={(value) => form.setValue('salesResponsiblePerson', value)} defaultValue={form.getValues('salesResponsiblePerson') || ''}>
                       <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
                       <SelectContent>
@@ -1366,7 +1385,7 @@ export default function LeadManagement() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Nutrition Required </Label>
+                    <Label>Nutrition Counsellor Required </Label>
                     <Select onValueChange={(value) => form.setValue('nutritionRequired', value === 'yes')} defaultValue={form.getValues('nutritionRequired') ? 'yes' : 'no'}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1433,7 +1452,7 @@ export default function LeadManagement() {
                 <h3 className="text-lg font-medium mb-4">Patient Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Date of Sample Collected</Label>
+                    <Label>Sample Collected Date</Label>
                     <Input type="date" {...form.register('dateSampleCollected')} />
                   </div>
                   <div>
@@ -1449,7 +1468,7 @@ export default function LeadManagement() {
                     )}
                   </div>
                   <div>
-                    <Label>Patient / Client Mail ID</Label>
+                    <Label>Patient / Client Email</Label>
                     <Input {...form.register('patientClientEmail')} placeholder="patient@example.com" />
                   </div>
                   <div>
@@ -1457,7 +1476,7 @@ export default function LeadManagement() {
                     <Input {...form.register('patientAddress')} placeholder="Patient address" />
                   </div>
                   <div>
-                    <Label>Patient / Client Phone Number <span className="text-red-500">*</span></Label>
+                    <Label>Patient / Client Phone<span className="text-red-500">*</span></Label>
                     <div className="phone-input-wrapper">
                       <PhoneInput
                         international
@@ -1504,7 +1523,7 @@ export default function LeadManagement() {
                     <Input {...form.register('followUp')} placeholder="Follow up notes / schedule" />
                   </div>
                   <div>
-                    <Label>Pickup From (Address)</Label>
+                    <Label> Sample Pickup From (Address)</Label>
                     <Input {...form.register('pickupFrom')} placeholder="Pickup address" />
                   </div>
                   <div>
@@ -1537,7 +1556,7 @@ export default function LeadManagement() {
                     />
                   </div>
                   <div>
-                    <Label>Shipping Amount (INR)</Label>
+                    <Label>Sample Shipping Amount (INR)</Label>
                     <Input {...form.register('shippingAmount')} type="number" step="0.01" placeholder="e.g., 500" />
                   </div>
                   <div>
@@ -1589,8 +1608,11 @@ export default function LeadManagement() {
             </form>
           </DialogContent>
         </Dialog>
-          {/* Edit Lead Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        )}
+
+        {/* Edit Lead Dialog - Only visible to users who can edit this lead */}
+        {isEditDialogOpen && selectedLead && canEdit(selectedLead) && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Lead</DialogTitle>
@@ -1605,13 +1627,6 @@ export default function LeadManagement() {
                       <Input {...editForm.register('organization')} placeholder="Hospital/Clinic Name" />
                       {editForm.formState.errors.organization && (
                         <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.organization.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Organization / Hospital Location <span className="text-red-500">*</span></Label>
-                      <Input {...editForm.register('location')} placeholder="City, State" defaultValue={editForm.getValues('location')} />
-                      {editForm.formState.errors.location && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.location.message}</p>
                       )}
                     </div>
                     <div>
@@ -1655,7 +1670,7 @@ export default function LeadManagement() {
                       )}
                     </div>
                     <div>
-                      <Label>Clinician / Researcher Contact Number <span className="text-red-500">*</span></Label>
+                      <Label>Clinician / Researcher Phone <span className="text-red-500">*</span></Label>
                       <PhoneInput
                         international
                         countryCallingCodeEditable={false}
@@ -1800,7 +1815,7 @@ export default function LeadManagement() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Sales/Account Manager</Label>
+                      <Label>Sales / Responsible Person</Label>
                       <Select onValueChange={(value) => editForm.setValue('salesResponsiblePerson', value)} defaultValue={editForm.getValues('salesResponsiblePerson') || ''}>
                         <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
                         <SelectContent>
@@ -1822,7 +1837,7 @@ export default function LeadManagement() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Nutrition Required</Label>
+                      <Label>Nutrition Counsellor Required</Label>
                       <Select onValueChange={(value) => editForm.setValue('nutritionRequired', value === 'yes')} defaultValue={editForm.getValues('nutritionRequired') ? 'yes' : 'no'}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -1886,7 +1901,7 @@ export default function LeadManagement() {
                   <h3 className="text-lg font-medium mb-4">Patient Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>Date of Sample Collected</Label>
+                      <Label>Sample Collected Date</Label>
                       <Input type="date" {...editForm.register('dateSampleCollected')} />
                     </div>
                      <div>
@@ -2025,6 +2040,7 @@ export default function LeadManagement() {
               </form>
             </DialogContent>
           </Dialog>
+        )}
       </div>
 
       {/* Top stat tiles: Hot leads and Converted leads (compact style per reference image) */}
@@ -2421,17 +2437,8 @@ export default function LeadManagement() {
                 <TableRow>
                   <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Sample ID{sortKey === 'sampleId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  {/* Test Name column kept removed per requested table columns but headers aligned */}
-                  <TableHead onClick={() => { setSortKey('dateSampleCollected'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[160px]">Sample Collected Date{sortKey === 'dateSampleCollected' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Laed Created{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('leadType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Type{sortKey === 'leadType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('geneticCounsellorRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Genetic Counsellor Required{sortKey === 'geneticCounsellorRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Lead Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Sales / Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('organization'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Organisation / Hospital{sortKey === 'organization' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('referredDoctor'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Clinician / Researcher Name{sortKey === 'referredDoctor' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('specialty'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Speciality{sortKey === 'specialty' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -2443,43 +2450,46 @@ export default function LeadManagement() {
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Gender</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[80px]">Patient / Client Email</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[100px]">Patient / Client Phone</TableHead>
+                  <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Patient / Client Address</TableHead>
+                  <TableHead onClick={() => { setSortKey('geneticCounsellorRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Genetic Counselling Required{sortKey === 'geneticCounsellorRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead className="whitespace-nowrap font-semibold min-w-[200px]">Nutritional Counselling Required</TableHead>
+                  <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Service Name</TableHead>
+                  <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Budget</TableHead>
-                  <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Follow up</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Sample Pick up from</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Delivery upto</TableHead>
+                  <TableHead onClick={() => { setSortKey('dateSampleCollected'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[160px]">Sample Collection Date{sortKey === 'dateSampleCollected' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[140px]">Sample Shipped Date</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Sample Shipment Amount</TableHead>
-                  <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Patient / Client Address</TableHead>
-                  
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Tracking ID</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Courier Company</TableHead>
-                  <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Progenics TRF</TableHead>
+                  <TableHead onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[140px]">Phlebotomist Charges</TableHead>
-                  <TableHead className="whitespace-nowrap font-semibold min-w-[140px]">Patient Address</TableHead>
-                  <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Service Name</TableHead>
-                  <TableHead className="sticky right-36 bg-white dark:bg-gray-900 whitespace-nowrap font-semibold min-w-[200px]">Nutrition Counsellor Required</TableHead>
+                  <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Progenics TRF</TableHead>
+                  <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Follow up</TableHead>
+                  <TableHead onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Lead Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Sales / Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Created{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('updatedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Modified{sortKey === 'updatedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Remark / Comment</TableHead>
                   <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold min-w-[200px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={36} className="text-center py-8">Loading...</TableCell>
+                    <TableCell colSpan={41} className="text-center py-8">Loading...</TableCell>
                   </TableRow>
                 ) : visibleLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={36} className="text-center py-8">No leads found</TableCell>
+                    <TableCell colSpan={41} className="text-center py-8">No leads found</TableCell>
                   </TableRow>
                 ) : (
                   visibleLeads.map((lead) => (
                     <TableRow key={lead.id}>
                       <TableCell className="whitespace-nowrap">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.sampleId ?? (lead as any)?._raw?.sample?.sampleId ?? (lead as any)?._raw?.sample?.sample_id ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.dateSampleCollected ? new Date(lead.dateSampleCollected).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : (lead.convertedAt ? new Date(lead.convertedAt).toLocaleDateString() : (lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'))}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge className={lead.leadType === 'project' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                           {lead.leadType || 'Individual'}
@@ -2490,10 +2500,6 @@ export default function LeadManagement() {
                           {lead.status || 'Quoted'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.geneticCounsellorRequired ? 'Yes' : 'No'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{typeof lead.createdBy === 'object' ? (lead.createdBy as any)?.name ?? '-' : lead.createdBy ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.sampleType ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.organization ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.referredDoctor ? `Dr. ${stripHonorific(lead.referredDoctor)}` : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.specialty ?? '-'}</TableCell>
@@ -2505,17 +2511,22 @@ export default function LeadManagement() {
                       <TableCell className="whitespace-nowrap">{lead.gender ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.patientClientEmail ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.patientClientPhone ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.patientAddress ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.geneticCounsellorRequired ? 'Yes' : 'No'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.nutritionRequired ? 'Yes' : 'No'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.serviceName ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.sampleType ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.noOfSamples != null ? String(lead.noOfSamples) : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.budget != null ? `₹${formatINR(Number(lead.budget))}` : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.followUp ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.pickupFrom ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.pickupUpto ? new Date(lead.pickupUpto).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.dateSampleCollected ? new Date(lead.dateSampleCollected).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.sampleShippedDate ? new Date(lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.shippingAmount != null ? `₹${formatINR(Number(lead.shippingAmount))}` : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.patientAddress ?? '-'}</TableCell>
-                      
                       <TableCell className="whitespace-nowrap">{lead.trackingId ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.courierCompany ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : (lead.convertedAt ? new Date(lead.convertedAt).toLocaleDateString() : (lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'))}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.phlebotomistCharges != null ? `₹${formatINR(Number(lead.phlebotomistCharges))}` : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         {(() => {
                           const v = lead.progenicsTRF;
@@ -2535,17 +2546,20 @@ export default function LeadManagement() {
                           return v;
                         })()}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.phlebotomistCharges != null ? `₹${formatINR(Number(lead.phlebotomistCharges))}` : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.patientAddress ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.serviceName ?? '-'}</TableCell>
-                      <TableCell className="sticky right-36 bg-white dark:bg-gray-900 text-center">
-                        {lead.nutritionRequired ? 'Yes' : 'No'}
-                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.followUp ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{typeof lead.createdBy === 'object' ? (lead.createdBy as any)?.name ?? '-' : lead.createdBy ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{(lead as any).remark ?? (lead as any).remarks ?? '-'}</TableCell>
                       <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2">
                         <div className="flex space-x-2">
+                          {canEdit(lead) && (
                           <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)}>
                             <Edit className="h-4 w-4" />
                           </Button>
+                          )}
+                          {canDelete() && (
                           <Button variant="ghost" size="sm" onClick={() => {
                             if (!confirm('Delete this lead? This action cannot be undone.')) return;
                             // Server will create the recycle snapshot; do not create a duplicate on the client
@@ -2553,6 +2567,7 @@ export default function LeadManagement() {
                           }}>
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
+                          )}
                           {/* Quick status badge in Actions for faster visibility and context */}
                           {/* Treat backend `completed` as visually `Converted` here. We show a badge
                              labelled "Converted" but keep action buttons hidden for completed rows. */}

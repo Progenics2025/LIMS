@@ -1,9 +1,10 @@
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Clock, CheckCircle, FilePlus, Eye, X } from "lucide-react";
+import { FileText, Clock, CheckCircle, FilePlus, Eye, X, AlertTriangle, Timer } from "lucide-react";
 import type { ReportWithSample } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +17,55 @@ export default function ReportManagement() {
   };
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const { data: reports = [], isLoading } = useQuery<ReportWithSample[]>({
     queryKey: ['/api/reports'],
+  });
+
+  // TAT Logic
+  const processedReports = useMemo(() => {
+    return reports.map(report => {
+      const regDate = new Date(report.sample?.lead?.dateSampleReceived || report.sample?.lead?.createdAt || new Date());
+      const tatHours = (report.sample?.lead?.tat || 0) * 24;
+      const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
+      const diffMs = deadline.getTime() - currentTime.getTime();
+      const diffHrs = diffMs / (1000 * 60 * 60);
+      
+      let urgency = 'normal';
+      if (report.status === 'delivered' || report.status === 'approved') {
+        urgency = 'completed';
+      } else if (diffHrs < 0) {
+        urgency = 'overdue';
+      } else if (diffHrs < 2) { 
+        urgency = 'critical';
+      } else if (diffHrs < 4) { 
+        urgency = 'warning';
+      }
+
+      return { ...report, deadline, diffMs, diffHrs, urgency, tatHours };
+    }).sort((a, b) => {
+      const urgencyWeight: Record<string, number> = { overdue: 0, critical: 1, warning: 2, normal: 3, completed: 4 };
+      if (urgencyWeight[a.urgency] !== urgencyWeight[b.urgency]) {
+        return urgencyWeight[a.urgency] - urgencyWeight[b.urgency];
+      }
+      return a.diffMs - b.diffMs;
+    });
+  }, [reports, currentTime]);
+
+  const filteredReports = processedReports.filter(r => {
+    if (filter === 'all') return true;
+    if (filter === 'critical') return ['overdue', 'critical'].includes(r.urgency);
+    if (filter === 'warning') return r.urgency === 'warning';
+    return true;
   });
 
   const approveReportMutation = useMutation({
@@ -97,6 +144,41 @@ export default function ReportManagement() {
     return texts[status as keyof typeof texts] || status;
   };
 
+  // Helper Component for TAT Urgency
+  const UrgencyBadge = ({ urgency, diffHrs }: { urgency: string, diffHrs: number }) => {
+    const formatTime = (hrs: number) => {
+      const absHrs = Math.abs(hrs);
+      const h = Math.floor(absHrs);
+      const m = Math.floor((absHrs - h) * 60);
+      return `${h}h ${m}m`;
+    };
+
+    const styles: Record<string, string> = {
+      completed: "bg-slate-100 text-slate-600 border-slate-200",
+      overdue: "bg-red-50 text-red-700 border-red-200 animate-pulse",
+      critical: "bg-orange-50 text-orange-700 border-orange-200",
+      warning: "bg-yellow-50 text-yellow-700 border-yellow-200",
+      normal: "bg-[#E6F6FD] text-[#0085CA] border-blue-100"
+    };
+
+    const style = styles[urgency] || styles.normal;
+    const labels: Record<string, string> = {
+      completed: "Completed",
+      overdue: `Overdue ${formatTime(diffHrs)}`,
+      critical: `< 2h Remaining`,
+      warning: `< 4h Remaining`,
+      normal: `${formatTime(diffHrs)} Left`
+    };
+
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${style} shadow-sm`}>
+        {urgency === 'overdue' && <AlertTriangle className="w-3 h-3 mr-1.5" />}
+        {urgency === 'critical' && <Timer className="w-3 h-3 mr-1.5" />}
+        {labels[urgency]}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -127,7 +209,24 @@ export default function ReportManagement() {
       {/* Reports Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Report Queue</CardTitle>
+          <div className="flex items-center gap-4">
+            <CardTitle>Report Queue</CardTitle>
+            <div className="flex bg-slate-100/80 p-1 rounded-xl">
+              {['all', 'critical', 'warning'].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-all ${
+                    filter === f 
+                    ? 'bg-white text-[#0085CA] shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center space-x-2">
             <Button onClick={() => window.open('/wes-report.html', '_blank')}>
               <FileText className="mr-2 h-4 w-4" />
@@ -142,7 +241,7 @@ export default function ReportManagement() {
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8">Loading reports...</div>
-          ) : reports.length === 0 ? (
+          ) : filteredReports.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500 dark:text-gray-400">No reports found</p>
             </div>
@@ -151,6 +250,7 @@ export default function ReportManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="min-w-[150px]">Urgency</TableHead>
                     <TableHead className="min-w-[150px]">Sample ID</TableHead>
                     <TableHead className="min-w-[200px]">Client</TableHead>
                     <TableHead className="min-w-[180px]">Location</TableHead>
@@ -166,8 +266,11 @@ export default function ReportManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reports.map((report) => (
+                  {filteredReports.map((report) => (
                     <TableRow key={report.id}>
+                      <TableCell className="min-w-[150px]">
+                        <UrgencyBadge urgency={report.urgency} diffHrs={report.diffHrs} />
+                      </TableCell>
                       <TableCell className="min-w-[150px] font-medium text-gray-900 dark:text-white">
                         {report.sample.sampleId}
                       </TableCell>

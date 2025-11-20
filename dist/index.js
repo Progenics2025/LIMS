@@ -22,6 +22,7 @@ __export(schema_exports, {
   insertLogisticsTrackingSchema: () => insertLogisticsTrackingSchema,
   insertNotificationSchema: () => insertNotificationSchema,
   insertPricingSchema: () => insertPricingSchema,
+  insertRecycleBinSchema: () => insertRecycleBinSchema,
   insertReportSchema: () => insertReportSchema,
   insertSalesActivitySchema: () => insertSalesActivitySchema,
   insertSampleSchema: () => insertSampleSchema,
@@ -32,6 +33,7 @@ __export(schema_exports, {
   logisticsTracking: () => logisticsTracking,
   notifications: () => notifications,
   pricing: () => pricing,
+  recycleBin: () => recycleBin,
   reports: () => reports,
   salesActivities: () => salesActivities,
   samples: () => samples,
@@ -40,7 +42,7 @@ __export(schema_exports, {
 import { sql } from "drizzle-orm";
 import { mysqlTable, varchar, text, int, timestamp, boolean, decimal, json } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
-var users, leads, leadTrfs, samples, labProcessing, reports, geneticCounselling, financeRecords, logisticsTracking, pricing, salesActivities, clients, notifications, insertUserSchema, insertLeadSchema, insertSampleSchema, insertLabProcessingSchema, insertReportSchema, insertGeneticCounsellingSchema, insertFinanceRecordSchema, insertLogisticsTrackingSchema, insertPricingSchema, insertSalesActivitySchema, insertClientSchema, insertNotificationSchema;
+var users, leads, leadTrfs, samples, labProcessing, reports, geneticCounselling, financeRecords, logisticsTracking, pricing, salesActivities, clients, notifications, recycleBin, insertRecycleBinSchema, insertUserSchema, insertLeadSchema, insertSampleSchema, insertLabProcessingSchema, insertReportSchema, insertGeneticCounsellingSchema, insertFinanceRecordSchema, insertLogisticsTrackingSchema, insertPricingSchema, insertSalesActivitySchema, insertClientSchema, insertNotificationSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -87,7 +89,7 @@ var init_schema = __esm({
       // deliveryUpto: varchar("delivery_upto", { length: 255 }), // Moved to sample tracking
       discoveryStatus: varchar("discovery_status", { length: 100 }),
       followUp: varchar("follow_up", { length: 255 }),
-      leadTypeDiscovery: varchar("lead_type_discovery", { length: 100 }),
+      leadType: varchar("lead_type", { length: 100 }),
       budget: decimal("budget", { precision: 10, scale: 2 }),
       // sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }), // Moved to sample tracking
       noOfSamples: int("no_of_samples"),
@@ -430,6 +432,16 @@ var init_schema = __esm({
       // related lead, sample, or report ID
       createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`)
     });
+    recycleBin = mysqlTable("recycle_bin", {
+      id: varchar("id", { length: 36 }).primaryKey(),
+      entityType: varchar("entity_type", { length: 100 }).notNull(),
+      entityId: varchar("entity_id", { length: 255 }),
+      data: json("data"),
+      originalPath: varchar("original_path", { length: 500 }),
+      createdBy: varchar("created_by", { length: 36 }),
+      deletedAt: timestamp("deleted_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`)
+    });
+    insertRecycleBinSchema = createInsertSchema(recycleBin).omit({ id: true, deletedAt: true });
     insertUserSchema = createInsertSchema(users).omit({
       id: true,
       createdAt: true,
@@ -502,11 +514,11 @@ import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
 function getDbConfig() {
   const config2 = {
-    host: process.env.DB_HOST || "192.168.29.12",
+    host: process.env.DB_HOST || "192.168.29.11",
     port: parseInt(process.env.DB_PORT || "3306"),
     user: process.env.DB_USER || "remote_user",
     // allow percent-encoded passwords in env (e.g. Prolab%2305) and decode them
-    password: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.includes("%") ? decodeURIComponent(process.env.DB_PASSWORD) : process.env.DB_PASSWORD : "Prolab%2305",
+    password: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.includes("%") ? decodeURIComponent(process.env.DB_PASSWORD) : process.env.DB_PASSWORD : "Prolab#05",
     database: process.env.DB_NAME || "leadlab_lims",
     ssl: false,
     connectTimeout: 6e4,
@@ -550,10 +562,36 @@ var DBStorage = class {
   async initializeConnection() {
     try {
       await this.testConnection();
+      try {
+        await this.ensureRecycleTable();
+      } catch (e) {
+        console.error("Failed to ensure recycle table exists:", e.message);
+      }
       await this.ensureDefaultAdmin();
     } catch (error) {
       console.error("Failed to initialize database connection:", error.message);
       console.log("\u26A0\uFE0F Application will run in mock data mode");
+    }
+  }
+  // Create recycle_bin table if it does not exist to avoid runtime errors
+  async ensureRecycleTable() {
+    try {
+      const sql3 = `
+      CREATE TABLE IF NOT EXISTS recycle_bin (
+        id VARCHAR(36) NOT NULL PRIMARY KEY,
+        entity_type VARCHAR(100) NOT NULL,
+        entity_id VARCHAR(255),
+        data JSON,
+        original_path VARCHAR(500),
+        created_by VARCHAR(36),
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `;
+      await pool.execute(sql3);
+      console.log("\u2705 Ensured recycle_bin table exists");
+    } catch (err) {
+      console.error("Failed to create recycle_bin table:", err?.message || err);
+      throw err;
     }
   }
   async testConnection() {
@@ -617,6 +655,15 @@ var DBStorage = class {
   }
   async deleteUser(id) {
     try {
+      try {
+        const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
+        if (rows[0]) {
+          const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "users", entityId: id, data: rows[0], originalPath: `/users/${id}` });
+        }
+      } catch (e) {
+        console.error("Failed to create recycle snapshot for user:", e.message);
+      }
       await db.delete(users).where(eq(users.id, id));
       return true;
     } catch (error) {
@@ -626,6 +673,15 @@ var DBStorage = class {
   }
   async deleteLead(id) {
     try {
+      try {
+        const rows = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
+        if (rows[0]) {
+          const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "leads", entityId: id, data: rows[0], originalPath: `/leads/${id}` });
+        }
+      } catch (e) {
+        console.error("Failed to create recycle snapshot for lead:", e.message);
+      }
       await db.delete(leads).where(eq(leads.id, id));
       return true;
     } catch (error) {
@@ -661,7 +717,7 @@ var DBStorage = class {
       serviceName: insertLead.serviceName ?? null,
       discoveryStatus: insertLead.discoveryStatus ?? null,
       followUp: insertLead.followUp ?? null,
-      leadTypeDiscovery: insertLead.leadTypeDiscovery ?? null,
+      leadType: insertLead.leadType ?? null,
       budget: insertLead.budget ?? null,
       noOfSamples: insertLead.noOfSamples ?? null,
       patientClientName: insertLead.patientClientName ?? null,
@@ -710,7 +766,7 @@ var DBStorage = class {
       return void 0;
     }
   }
-  async getLeads() {
+  async getLeads(userRole, userId) {
     if (!this.connectionWorking) {
       return [
         {
@@ -739,7 +795,7 @@ var DBStorage = class {
           serviceName: null,
           discoveryStatus: null,
           followUp: null,
-          leadTypeDiscovery: null,
+          leadType: null,
           budget: null,
           noOfSamples: null,
           patientClientName: null,
@@ -786,7 +842,7 @@ var DBStorage = class {
           serviceName: "Discovery Sequencing Service",
           discoveryStatus: "In Progress",
           followUp: "Weekly updates",
-          leadTypeDiscovery: "Research",
+          leadType: "Research",
           budget: "50000",
           noOfSamples: 20,
           patientClientName: "Research Subject 001",
@@ -810,11 +866,22 @@ var DBStorage = class {
       ];
     }
     try {
-      const rows = await db.select({ lead: leads, user: users }).from(leads).leftJoin(users, eq(leads.createdBy, users.id));
-      return rows.map((row) => ({
-        ...row.lead,
-        createdBy: row.user ?? null
-      }));
+      let whereCondition = void 0;
+      if (userRole && userRole.toLowerCase() === "sales" && userId) {
+        whereCondition = eq(leads.createdBy, userId);
+      }
+      let queryBuilder = db.select({ lead: leads, user: users, sample: samples }).from(leads).leftJoin(samples, eq(samples.leadId, leads.id)).leftJoin(users, eq(leads.createdBy, users.id));
+      if (whereCondition) {
+        queryBuilder = queryBuilder.where(whereCondition);
+      }
+      const rows = await queryBuilder;
+      return rows.map((row) => {
+        const leadObj = { ...row.lead };
+        leadObj.createdBy = row.user ?? null;
+        leadObj.sample = row.sample ? { ...row.sample } : null;
+        leadObj.sampleId = row.sample?.sampleId ?? leadObj.sampleId ?? null;
+        return leadObj;
+      });
     } catch (error) {
       console.error("Error fetching leads:", error);
       return [
@@ -844,7 +911,7 @@ var DBStorage = class {
           serviceName: null,
           discoveryStatus: null,
           followUp: null,
-          leadTypeDiscovery: null,
+          leadType: null,
           budget: null,
           noOfSamples: null,
           patientClientName: null,
@@ -1097,6 +1164,15 @@ var DBStorage = class {
   }
   async deleteSample(id) {
     try {
+      try {
+        const rows = await db.select().from(samples).where(eq(samples.id, id)).limit(1);
+        if (rows[0]) {
+          const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "samples", entityId: id, data: rows[0], originalPath: `/samples/${id}` });
+        }
+      } catch (e) {
+        console.error("Failed to create recycle snapshot for sample:", e.message);
+      }
       await db.delete(samples).where(eq(samples.id, id));
       return true;
     } catch (error) {
@@ -1106,9 +1182,21 @@ var DBStorage = class {
   }
   async createLabProcessing(labData) {
     const id = randomUUID();
+    let resolvedSampleId = labData.sampleId;
+    try {
+      const byId = await db.select().from(samples).where(eq(samples.id, labData.sampleId)).limit(1);
+      if (!byId[0]) {
+        const byHuman = await db.select().from(samples).where(eq(samples.sampleId, labData.sampleId)).limit(1);
+        if (byHuman[0]) resolvedSampleId = byHuman[0].id;
+        else throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+      }
+    } catch (err) {
+      console.error("Failed to resolve sampleId for lab processing:", err.message);
+      throw err;
+    }
     await db.insert(labProcessing).values({
       id,
-      sampleId: labData.sampleId,
+      sampleId: resolvedSampleId,
       labId: labData.labId,
       qcStatus: labData.qcStatus ?? null,
       dnaRnaQuantity: labData.dnaRnaQuantity ?? null,
@@ -1149,12 +1237,16 @@ var DBStorage = class {
       temperature: labData.temperature ?? null,
       humidity: labData.humidity ?? null
     });
-    const created = await this.getLabProcessingBySampleId(labData.sampleId);
+    const created = await this.getLabProcessingBySampleId(resolvedSampleId);
     if (!created) throw new Error("Failed to create lab processing");
     return created;
   }
   async getLabProcessingBySampleId(sampleId) {
     const rows = await db.select().from(labProcessing).where(eq(labProcessing.sampleId, sampleId)).limit(1);
+    return rows[0];
+  }
+  async getLabProcessingById(id) {
+    const rows = await db.select().from(labProcessing).where(eq(labProcessing.id, id)).limit(1);
     return rows[0];
   }
   async getLabProcessingQueue() {
@@ -1202,6 +1294,15 @@ var DBStorage = class {
   }
   async deleteLabProcessing(id) {
     try {
+      try {
+        const rows = await db.select().from(labProcessing).where(eq(labProcessing.id, id)).limit(1);
+        if (rows[0]) {
+          const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "lab_processing", entityId: id, data: rows[0], originalPath: `/lab-processing/${id}` });
+        }
+      } catch (e) {
+        console.error("Failed to create recycle snapshot for lab processing:", e.message);
+      }
       await db.delete(labProcessing).where(eq(labProcessing.id, id));
       return true;
     } catch (error) {
@@ -1452,6 +1553,15 @@ var DBStorage = class {
   }
   async deleteFinanceRecord(id) {
     try {
+      try {
+        const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, id)).limit(1);
+        if (rows[0]) {
+          const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "finance_records", entityId: id, data: rows[0], originalPath: `/finance/records/${id}` });
+        }
+      } catch (e) {
+        console.error("Failed to create recycle snapshot for finance record:", e.message);
+      }
       await db.delete(financeRecords).where(eq(financeRecords.id, id));
       return true;
     } catch (error) {
@@ -1579,11 +1689,123 @@ var DBStorage = class {
   }
   async deleteGeneticCounselling(id) {
     try {
+      try {
+        const gc = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id)).limit(1);
+        if (gc[0]) {
+          const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "genetic_counselling", entityId: id, data: gc[0], originalPath: `/genetic-counselling/${id}` });
+        }
+      } catch (e) {
+        console.error("Failed to create recycle snapshot for genetic counselling:", e.message);
+      }
       await db.delete((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id));
       return true;
     } catch (error) {
       console.error("Failed to delete genetic counselling record:", error.message);
       return false;
+    }
+  }
+  // Recycle implementations
+  async createRecycleEntry(payload) {
+    const id = randomUUID();
+    const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    await db.insert(recycleBin2).values({ id, entityType: payload.entityType, entityId: payload.entityId ?? null, data: payload.data ?? null, originalPath: payload.originalPath ?? null, createdBy: payload.createdBy ?? null });
+    const row = await db.select().from(recycleBin2).where(eq(recycleBin2.id, id)).limit(1);
+    return row[0];
+  }
+  async listRecycleEntries() {
+    const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    return db.select().from(recycleBin2).orderBy(
+      recycleBin2.deletedAt
+      /* drizzle types */
+    );
+  }
+  async getRecycleEntry(id) {
+    const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const rows = await db.select().from(recycleBin2).where(eq(recycleBin2.id, id)).limit(1);
+    return rows[0];
+  }
+  async deleteRecycleEntry(id) {
+    try {
+      const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      await db.delete(recycleBin2).where(eq(recycleBin2.id, id));
+      return true;
+    } catch (error) {
+      console.error("Failed to delete recycle entry:", error.message);
+      return false;
+    }
+  }
+  async restoreRecycleEntry(id) {
+    const entry = await this.getRecycleEntry(id);
+    if (!entry) throw new Error("Recycle entry not found");
+    const entityType = entry.entityType;
+    const data = entry.data || {};
+    try {
+      const normalizeDates = (v) => {
+        if (v == null) return v;
+        if (typeof v === "string") {
+          const d = new Date(v);
+          if (!isNaN(d.getTime())) return d;
+          return v;
+        }
+        if (Array.isArray(v)) return v.map(normalizeDates);
+        if (typeof v === "object") {
+          const out = {};
+          for (const k of Object.keys(v)) out[k] = normalizeDates(v[k]);
+          return out;
+        }
+        return v;
+      };
+      const normalizedData = normalizeDates(data);
+      try {
+        const buildTypesReport = (v) => {
+          if (v == null) return { type: String(v) };
+          if (Array.isArray(v)) return v.slice(0, 5).map(buildTypesReport);
+          if (typeof v === "object") {
+            const out = {};
+            for (const k of Object.keys(v)) {
+              const val = v[k];
+              out[k] = val == null ? String(val) : val instanceof Date ? "Date" : typeof val === "object" ? Array.isArray(val) ? "Array" : "Object" : typeof val;
+            }
+            return out;
+          }
+          return typeof v;
+        };
+        const typesReport = buildTypesReport(normalizedData);
+        console.error("Restore types report for", entityType, ":", JSON.stringify(typesReport));
+      } catch (logErr) {
+        console.error("Failed to build types report for restore:", logErr.message);
+      }
+      switch (entityType) {
+        case "users":
+          await db.insert(users).values(normalizedData);
+          break;
+        case "leads":
+          await db.insert(leads).values(normalizedData);
+          break;
+        case "samples":
+          await db.insert(samples).values(normalizedData);
+          break;
+        case "lab_processing":
+          await db.insert(labProcessing).values(normalizedData);
+          break;
+        case "finance_records":
+          await db.insert(financeRecords).values(normalizedData);
+          break;
+        case "genetic_counselling":
+          await db.insert((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).values(normalizedData);
+          break;
+        case "reports":
+          await db.insert(reports).values(normalizedData);
+          break;
+        default:
+          return data;
+      }
+      await this.deleteRecycleEntry(id);
+      return { ok: true, restored: true, entityType };
+    } catch (err) {
+      console.error("Failed to restore recycle entry:", err.message);
+      throw err;
     }
   }
   // Sales Activities
@@ -1662,6 +1884,7 @@ var DBStorage = class {
   }
   async createNotification(notification) {
     const id = randomUUID();
+    const now = /* @__PURE__ */ new Date();
     await db.insert(notifications).values({
       id,
       userId: notification.userId,
@@ -1669,7 +1892,8 @@ var DBStorage = class {
       message: notification.message,
       type: notification.type,
       isRead: notification.isRead ?? false,
-      relatedId: notification.relatedId ?? null
+      relatedId: notification.relatedId ?? null,
+      createdAt: now
     });
     const rows = await db.select().from(notifications).where(eq(notifications.id, id)).limit(1);
     if (!rows[0]) throw new Error("Failed to create notification");
@@ -1682,6 +1906,20 @@ var DBStorage = class {
     const res = await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
     const row = await db.select().from(notifications).where(eq(notifications.id, id)).limit(1);
     return !!row[0]?.isRead;
+  }
+  async deleteNotification(id) {
+    console.log("Attempting to delete notification with ID:", id);
+    try {
+      const res = await db.delete(notifications).where(eq(notifications.id, id));
+      console.log("Delete executed");
+      const check = await db.select().from(notifications).where(eq(notifications.id, id)).limit(1);
+      const success = check.length === 0;
+      console.log("Notification exists after delete:", check.length > 0, "Success:", success);
+      return success;
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      return false;
+    }
   }
   async getDashboardStats() {
     if (!this.connectionWorking) {
@@ -1729,10 +1967,266 @@ var DBStorage = class {
 };
 var storage = new DBStorage();
 
+// server/services/NotificationService.ts
+var NotificationService = class _NotificationService {
+  static instance;
+  static getInstance() {
+    if (!_NotificationService.instance) {
+      _NotificationService.instance = new _NotificationService();
+    }
+    return _NotificationService.instance;
+  }
+  // Lead Management Notifications
+  async notifyLeadCreated(leadId, organizationName, userId) {
+    console.log("NotificationService: Creating notification for lead:", leadId, organizationName, userId);
+    const notification = {
+      userId: userId || "system",
+      title: "New Lead Created",
+      message: `A new lead has been created for ${organizationName}`,
+      type: "lead_created",
+      relatedId: leadId,
+      isRead: false
+    };
+    try {
+      const result = await storage.createNotification(notification);
+      console.log("NotificationService: Notification created successfully:", result.id);
+      return result;
+    } catch (error) {
+      console.error("NotificationService: Failed to create notification:", error);
+      throw error;
+    }
+  }
+  async notifyLeadConverted(leadId, organizationName, sampleId, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Lead Converted to Sample",
+      message: `Lead for ${organizationName} has been converted to sample (ID: ${sampleId})`,
+      type: "lead_converted",
+      relatedId: leadId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyLeadStatusChanged(leadId, organizationName, oldStatus, newStatus, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Lead Status Updated",
+      message: `Lead for ${organizationName} status changed from ${oldStatus} to ${newStatus}`,
+      type: "lead_status_changed",
+      relatedId: leadId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Sample Tracking Notifications
+  async notifySampleReceived(sampleId, organizationName, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Sample Received",
+      message: `Sample from ${organizationName} has been received (ID: ${sampleId})`,
+      type: "sample_received",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifySampleStatusChanged(sampleId, organizationName, oldStatus, newStatus, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Sample Status Updated",
+      message: `Sample from ${organizationName} status changed from ${oldStatus} to ${newStatus}`,
+      type: "sample_status_changed",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Genetic Counselling Notifications
+  async notifyGeneticCounsellingRequired(sampleId, patientName, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Genetic Counselling Required",
+      message: `Genetic counselling is required for patient ${patientName} (Sample ID: ${sampleId})`,
+      type: "genetic_counselling_required",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyGeneticCounsellingCompleted(gcId, patientName, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Genetic Counselling Completed",
+      message: `Genetic counselling has been completed for patient ${patientName}`,
+      type: "genetic_counselling_completed",
+      relatedId: gcId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Finance Notifications
+  async notifyPaymentReceived(financeId, amount, organizationName, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Payment Received",
+      message: `Payment of \u20B9${amount.toLocaleString()} received from ${organizationName}`,
+      type: "payment_received",
+      relatedId: financeId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyPaymentPending(financeId, amount, organizationName, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Payment Pending",
+      message: `Payment of \u20B9${amount.toLocaleString()} is pending from ${organizationName}`,
+      type: "payment_pending",
+      relatedId: financeId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Lab Processing Notifications
+  async notifyLabProcessingStarted(sampleId, testType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Lab Processing Started",
+      message: `Lab processing has started for ${testType} (Sample ID: ${sampleId})`,
+      type: "lab_processing_started",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyLabProcessingCompleted(sampleId, testType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Lab Processing Completed",
+      message: `Lab processing has been completed for ${testType} (Sample ID: ${sampleId})`,
+      type: "lab_processing_completed",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Bioinformatics Notifications
+  async notifyBioinformaticsStarted(sampleId, analysisType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Bioinformatics Analysis Started",
+      message: `Bioinformatics analysis has started for ${analysisType} (Sample ID: ${sampleId})`,
+      type: "bioinformatics_started",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyBioinformaticsCompleted(sampleId, analysisType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Bioinformatics Analysis Completed",
+      message: `Bioinformatics analysis has been completed for ${analysisType} (Sample ID: ${sampleId})`,
+      type: "bioinformatics_completed",
+      relatedId: sampleId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Report Notifications
+  async notifyReportGenerated(reportId, patientName, testType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Report Generated",
+      message: `Report has been generated for ${patientName} - ${testType}`,
+      type: "report_generated",
+      relatedId: reportId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyReportApproved(reportId, patientName, testType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Report Approved",
+      message: `Report has been approved for ${patientName} - ${testType}`,
+      type: "report_approved",
+      relatedId: reportId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async notifyReportDelivered(reportId, patientName, testType, userId) {
+    const notification = {
+      userId: userId || "system",
+      title: "Report Delivered",
+      message: `Report has been delivered to patient ${patientName} - ${testType}`,
+      type: "report_delivered",
+      relatedId: reportId,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // Admin Panel Notifications
+  async notifySystemAlert(title, message, userId) {
+    const notification = {
+      userId: userId || "system",
+      title,
+      message,
+      type: "system_alert",
+      relatedId: null,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  // General utility methods
+  async notifyAllUsers(title, message, type) {
+    const notification = {
+      userId: "all",
+      title,
+      message,
+      type,
+      relatedId: null,
+      isRead: false
+    };
+    return await storage.createNotification(notification);
+  }
+  async markAsRead(notificationId) {
+    return await storage.markNotificationAsRead(notificationId);
+  }
+  async getUserNotifications(userId) {
+    return await storage.getNotificationsByUserId(userId);
+  }
+};
+var notificationService = NotificationService.getInstance();
+
 // server/routes.ts
 init_schema();
 import path from "path";
 import fs from "fs";
+
+// server/lib/generateRoleId.ts
+function generateRoleId(role) {
+  const roleMap = {
+    administration: "AD",
+    admin: "AD",
+    manager: "MG",
+    discovery: "DG",
+    production: "PG",
+    finance: "FN",
+    hr: "HR"
+  };
+  const code = roleMap[role?.toLowerCase()] || (role ? role.substring(0, 2).toUpperCase() : "AD");
+  const now = /* @__PURE__ */ new Date();
+  const yy = String(now.getFullYear()).slice(2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `${yy}${code}${mm}${dd}${hh}${min}`;
+}
+
+// server/routes.ts
 import xlsx from "xlsx";
 import multer from "multer";
 var uploadsDir = path.join(process.cwd(), "uploads");
@@ -1942,6 +2436,10 @@ async function registerRoutes(app2) {
     }
   });
   app2.use("/uploads", (await import("express")).static(uploadsDir));
+  const wesReportDir = path.join(process.cwd(), "WES report code", "wes_report");
+  if (fs.existsSync(wesReportDir)) {
+    app2.use("/wes-report", (await import("express")).static(wesReportDir));
+  }
   app2.post("/api/uploads/trf", uploadDisk.single("trf"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ message: "No file uploaded" });
@@ -1978,7 +2476,13 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/leads", async (req, res) => {
     try {
-      const leads2 = await storage.getLeads();
+      let userRole = null;
+      let userId = null;
+      const headerUserId = req.headers["x-user-id"];
+      const headerUserRole = req.headers["x-user-role"];
+      if (headerUserId) userId = headerUserId;
+      if (headerUserRole) userRole = headerUserRole;
+      const leads2 = await storage.getLeads(userRole, userId);
       res.json(leads2);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch leads" });
@@ -2001,6 +2505,17 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid lead data", errors: result.error.errors, fields: formatZodErrors(result.error), debug: { rawDateSampleCollected, rawPickupUpto } });
       }
       const lead = await storage.createLead(result.data);
+      console.log("Lead created successfully, sending notification for:", lead.id, lead.organization);
+      try {
+        await notificationService.notifyLeadCreated(
+          lead.id,
+          lead.organization,
+          lead.createdBy || "system"
+        );
+        console.log("Lead creation notification sent successfully");
+      } catch (notificationError) {
+        console.error("Failed to send lead creation notification:", notificationError);
+      }
       res.json(lead);
     } catch (error) {
       res.status(500).json({ message: "Failed to create lead" });
@@ -2013,9 +2528,24 @@ async function registerRoutes(app2) {
       if (!["cold", "hot", "won"].includes(status)) {
         return res.status(400).json({ message: "Invalid status. Must be cold, hot, or won" });
       }
+      const currentLead = await storage.getLeadById(id);
+      if (!currentLead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
       const lead = await storage.updateLeadStatus(id, status);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
+      }
+      try {
+        await notificationService.notifyLeadStatusChanged(
+          lead.id,
+          lead.organization,
+          currentLead.status || "unknown",
+          status,
+          "system"
+        );
+      } catch (notificationError) {
+        console.error("Failed to send lead status change notification:", notificationError);
       }
       res.json(lead);
     } catch (error) {
@@ -2072,21 +2602,49 @@ async function registerRoutes(app2) {
         const requestGcFlag = !!sampleData?.createGeneticCounselling || !!sampleData?.createGc || !!sampleData?.create_genetic_counselling;
         if (requestGcFlag) {
           createdGc = await storage.createGeneticCounselling({ sampleId: conversion.sample.sampleId, gcName: "" });
+          try {
+            await notificationService.notifyGeneticCounsellingRequired(
+              conversion.sample.sampleId,
+              conversion.lead.patientClientName || "Unknown Patient",
+              "system"
+            );
+          } catch (notificationError) {
+            console.error("Failed to send genetic counselling notification:", notificationError);
+          }
         }
       } catch (err) {
         console.error("Failed to create genetic counselling after conversion:", err.message);
       }
-      const operationsUsers = await storage.getAllUsers();
-      const opsUsers = operationsUsers.filter((user) => user.role === "operations" && user.isActive);
-      for (const user of opsUsers) {
-        await storage.createNotification({
-          userId: user.id,
-          title: "New Lead Converted",
-          message: `Lead from ${conversion.lead.organization} has been converted. Sample ID: ${conversion.sample.sampleId}`,
-          type: "lead_converted",
-          relatedId: conversion.sample.id,
-          isRead: false
-        });
+      try {
+        await notificationService.notifyLeadConverted(
+          conversion.lead.id,
+          conversion.lead.organization,
+          conversion.sample.sampleId,
+          "system"
+        );
+        await notificationService.notifySampleReceived(
+          conversion.sample.sampleId,
+          conversion.lead.organization,
+          "system"
+        );
+      } catch (notificationError) {
+        console.error("Failed to send conversion notifications:", notificationError);
+      }
+      try {
+        const operationsUsers = await storage.getAllUsers();
+        const opsUsers = operationsUsers.filter((user) => user.role === "operations" && user.isActive);
+        for (const user of opsUsers) {
+          await storage.createNotification({
+            userId: user.id,
+            title: "New Lead Converted",
+            message: `Lead from ${conversion.lead.organization} has been converted. Sample ID: ${conversion.sample.sampleId}`,
+            type: "lead_converted",
+            relatedId: conversion.sample.id,
+            isRead: false
+          });
+        }
+      } catch (legacyNotificationError) {
+        console.error("Failed to send legacy notifications:", legacyNotificationError);
       }
       res.json({ ...conversion, geneticCounselling: createdGc });
     } catch (error) {
@@ -2144,9 +2702,26 @@ async function registerRoutes(app2) {
         console.error("Sample update validation errors:", JSON.stringify(parsed.error.errors, null, 2));
         return res.status(400).json({ message: "Invalid sample data", errors: parsed.error.errors, fields: formatZodErrors(parsed.error), debug: { cleanedPayload: updates } });
       }
+      const currentSample = await storage.getSampleById(id);
+      if (!currentSample) {
+        return res.status(404).json({ message: "Sample not found" });
+      }
       const sample = await storage.updateSample(id, parsed.data);
       if (!sample) {
         return res.status(404).json({ message: "Sample not found" });
+      }
+      if (parsed.data.status && parsed.data.status !== currentSample.status) {
+        try {
+          await notificationService.notifySampleStatusChanged(
+            sample.sampleId,
+            sample.organization || "Unknown Organization",
+            currentSample.status || "unknown",
+            parsed.data.status,
+            "system"
+          );
+        } catch (notificationError) {
+          console.error("Failed to send sample status change notification:", notificationError);
+        }
       }
       res.json(sample);
     } catch (error) {
@@ -2179,19 +2754,37 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid lab processing data", errors: result.error.errors });
       }
       const labProcessing2 = await storage.createLabProcessing(result.data);
-      await storage.updateSample(result.data.sampleId, { status: "lab_processing" });
+      await storage.updateSample(labProcessing2.sampleId, { status: "lab_processing" });
+      try {
+        const sample = await storage.getSampleById(labProcessing2.sampleId);
+        if (sample) {
+          const lead = await storage.getLeadById(sample.leadId);
+          const testType = lead?.testName || "Unknown Test";
+          await notificationService.notifyLabProcessingStarted(
+            sample.sampleId || "Unknown Sample",
+            testType,
+            "system"
+          );
+        }
+      } catch (notificationError) {
+        console.error("Failed to send lab processing notification:", notificationError);
+      }
       if (!result.data.isOutsourced) {
-        const bioUsers = await storage.getAllUsers();
-        const bioinformaticsUsers = bioUsers.filter((user) => user.role === "bioinformatics" && user.isActive);
-        for (const user of bioinformaticsUsers) {
-          await storage.createNotification({
-            userId: user.id,
-            title: "Sample Ready for Bioinformatics",
-            message: `Lab processing completed for sample ${labProcessing2.labId}`,
-            type: "bioinformatics_ready",
-            relatedId: result.data.sampleId,
-            isRead: false
-          });
+        try {
+          const bioUsers = await storage.getAllUsers();
+          const bioinformaticsUsers = bioUsers.filter((user) => user.role === "bioinformatics" && user.isActive);
+          for (const user of bioinformaticsUsers) {
+            await storage.createNotification({
+              userId: user.id,
+              title: "Sample Ready for Bioinformatics",
+              message: `Lab processing completed for sample ${labProcessing2.labId}`,
+              type: "bioinformatics_ready",
+              relatedId: labProcessing2.sampleId,
+              isRead: false
+            });
+          }
+        } catch (legacyNotificationError) {
+          console.error("Failed to send legacy bioinformatics notifications:", legacyNotificationError);
         }
       }
       res.json(labProcessing2);
@@ -2222,6 +2815,16 @@ async function registerRoutes(app2) {
       const updated = await storage.updateLabProcessing(id, parsed.data);
       if (!updated) {
         return res.status(404).json({ message: "Lab processing record not found" });
+      }
+      try {
+        const sample = await storage.getSampleById(updated.sampleId);
+        await notificationService.notifyLabProcessingCompleted(
+          sample?.sampleId || updated.labId,
+          "Lab Processing Update",
+          "system"
+        );
+      } catch (notificationError) {
+        console.error("Failed to send lab processing update notification:", notificationError);
       }
       res.json(updated);
     } catch (error) {
@@ -2390,17 +2993,34 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid report data", errors: result.error.errors });
       }
       const report = await storage.createReport(result.data);
-      const financeUsers = await storage.getAllUsers();
-      const finUsers = financeUsers.filter((user) => user.role === "finance" && user.isActive);
-      for (const user of finUsers) {
-        await storage.createNotification({
-          userId: user.id,
-          title: "Report Ready for Approval",
-          message: `Report generated and awaiting financial approval`,
-          type: "report_ready",
-          relatedId: report.id,
-          isRead: false
-        });
+      try {
+        const sample = await storage.getSampleById(result.data.sampleId);
+        const patientName = "Patient";
+        const testType = "Test Report";
+        await notificationService.notifyReportGenerated(
+          report.id,
+          patientName,
+          testType,
+          "system"
+        );
+      } catch (notificationError) {
+        console.error("Failed to send report generation notification:", notificationError);
+      }
+      try {
+        const financeUsers = await storage.getAllUsers();
+        const finUsers = financeUsers.filter((user) => user.role === "finance" && user.isActive);
+        for (const user of finUsers) {
+          await storage.createNotification({
+            userId: user.id,
+            title: "Report Ready for Approval",
+            message: `Report generated and awaiting financial approval`,
+            type: "report_ready",
+            relatedId: report.id,
+            isRead: false
+          });
+        }
+      } catch (legacyNotificationError) {
+        console.error("Failed to send legacy finance notifications:", legacyNotificationError);
       }
       res.json(report);
     } catch (error) {
@@ -2419,17 +3039,33 @@ async function registerRoutes(app2) {
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
       }
-      const reportingUsers = await storage.getAllUsers();
-      const repUsers = reportingUsers.filter((user) => user.role === "reporting" && user.isActive);
-      for (const user of repUsers) {
-        await storage.createNotification({
-          userId: user.id,
-          title: "Report Approved",
-          message: `Report has been approved and can be delivered`,
-          type: "report_approved",
-          relatedId: report.id,
-          isRead: false
-        });
+      try {
+        await notificationService.notifyReportApproved(
+          report.id,
+          "Patient",
+          // Would need to get from linked data
+          "Test Report",
+          // Would need to get from linked data
+          "system"
+        );
+      } catch (notificationError) {
+        console.error("Failed to send report approval notification:", notificationError);
+      }
+      try {
+        const reportingUsers = await storage.getAllUsers();
+        const repUsers = reportingUsers.filter((user) => user.role === "reporting" && user.isActive);
+        for (const user of repUsers) {
+          await storage.createNotification({
+            userId: user.id,
+            title: "Report Approved",
+            message: `Report has been approved and can be delivered`,
+            type: "report_approved",
+            relatedId: report.id,
+            isRead: false
+          });
+        }
+      } catch (legacyNotificationError) {
+        console.error("Failed to send legacy reporting notifications:", legacyNotificationError);
       }
       res.json(report);
     } catch (error) {
@@ -2479,6 +3115,27 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid finance record data", errors: result.error.errors });
       }
       const record = await storage.createFinanceRecord(result.data);
+      try {
+        const amount = parseFloat(record.amount?.toString() || "0");
+        const organizationName = record.organization || "Unknown Organization";
+        if (record.paymentStatus === "paid") {
+          await notificationService.notifyPaymentReceived(
+            record.id,
+            amount,
+            organizationName,
+            "system"
+          );
+        } else if (record.paymentStatus === "pending") {
+          await notificationService.notifyPaymentPending(
+            record.id,
+            amount,
+            organizationName,
+            "system"
+          );
+        }
+      } catch (notificationError) {
+        console.error("Failed to send finance notification:", notificationError);
+      }
       res.json(record);
     } catch (error) {
       res.status(500).json({ message: "Failed to create finance record" });
@@ -2563,6 +3220,406 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch clients" });
     }
   });
+  app2.get("/api/project-samples", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM project_samples");
+        return res.json(rows);
+      } catch (e) {
+        const rows = await storage.getSamples();
+        return res.json(rows);
+      }
+    } catch (error) {
+      console.error("Failed to fetch project samples", error.message);
+      res.status(500).json({ message: "Failed to fetch project samples" });
+    }
+  });
+  app2.post("/api/project-samples", async (req, res) => {
+    try {
+      try {
+        const data = req.body || {};
+        try {
+          if (!data.unique_id && !data.uniqueId) {
+            let roleForId = void 0;
+            try {
+              const hdr = req.headers["x-user-role"] || req.headers["x_user_role"] || req.headers["x-user"];
+              if (hdr && typeof hdr === "string" && hdr.trim() !== "") roleForId = hdr.trim();
+            } catch (e) {
+            }
+            if (!roleForId && data.createdBy) {
+              try {
+                const user = await storage.getUser(String(data.createdBy));
+                if (user && user.role) roleForId = user.role;
+              } catch (e) {
+              }
+            }
+            if (!roleForId) roleForId = data.leadType || data.lead_type || "admin";
+            const uid = generateRoleId(String(roleForId));
+            data.unique_id = uid;
+            data.uniqueId = uid;
+          }
+        } catch (e) {
+          console.warn("generateRoleId failed for project-samples insert", e);
+        }
+        const keys = Object.keys(data);
+        const cols = keys.map((k) => `\`${k}\``).join(",");
+        const placeholders = keys.map(() => "?").join(",");
+        const values = keys.map((k) => data[k]);
+        const [result] = await pool.execute(`INSERT INTO project_samples (${cols}) VALUES (${placeholders})`, values);
+        const insertId = result.insertId || null;
+        const [rows] = await pool.execute("SELECT * FROM project_samples WHERE id = ?", [insertId]);
+        return res.json(rows[0] ?? { id: insertId });
+      } catch (e) {
+        console.error("Insert into project_samples failed, table may not exist", e);
+        return res.status(500).json({ message: "Failed to create project sample" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create project sample" });
+    }
+  });
+  app2.put("/api/project-samples/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => updates[k]);
+      values.push(id);
+      await pool.execute(`UPDATE project_samples SET ${set} WHERE id = ?`, values);
+      const [rows] = await pool.execute("SELECT * FROM project_samples WHERE id = ?", [id]);
+      res.json(rows[0] ?? null);
+    } catch (error) {
+      console.error("Failed to update project sample", error.message);
+      res.status(500).json({ message: "Failed to update project sample" });
+    }
+  });
+  app2.delete("/api/project-samples/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM project_samples WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete project sample", error.message);
+      res.status(500).json({ message: "Failed to delete project sample" });
+    }
+  });
+  app2.get("/api/logistic-sheet", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM logistic_sheet");
+        return res.json(rows);
+      } catch (e) {
+        const rows = await storage.getLogisticsTracking();
+        return res.json(rows);
+      }
+    } catch (error) {
+      console.error("Failed to fetch logistic sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch logistic sheet" });
+    }
+  });
+  app2.post("/api/logistic-sheet", async (req, res) => {
+    try {
+      try {
+        const data = req.body || {};
+        const keys = Object.keys(data);
+        const cols = keys.map((k) => `\`${k}\``).join(",");
+        const placeholders = keys.map(() => "?").join(",");
+        const values = keys.map((k) => data[k]);
+        const [result] = await pool.execute(`INSERT INTO logistic_sheet (${cols}) VALUES (${placeholders})`, values);
+        const insertId = result.insertId || null;
+        const [rows] = await pool.execute("SELECT * FROM logistic_sheet WHERE id = ?", [insertId]);
+        return res.json(rows[0] ?? { id: insertId });
+      } catch (e) {
+        const created = await storage.createLogisticsTracking(req.body);
+        return res.json(created);
+      }
+    } catch (error) {
+      console.error("Failed to create logistic record", error.message);
+      res.status(500).json({ message: "Failed to create logistic record" });
+    }
+  });
+  app2.put("/api/logistic-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      try {
+        const updates = req.body || {};
+        const keys = Object.keys(updates);
+        if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+        const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+        const values = keys.map((k) => updates[k]);
+        values.push(id);
+        await pool.execute(`UPDATE logistic_sheet SET ${set} WHERE id = ?`, values);
+        const [rows] = await pool.execute("SELECT * FROM logistic_sheet WHERE id = ?", [id]);
+        return res.json(rows[0] ?? null);
+      } catch (e) {
+        const updated = await storage.updateLogisticsTracking(id, req.body);
+        return res.json(updated);
+      }
+    } catch (error) {
+      console.error("Failed to update logistic record", error.message);
+      res.status(500).json({ message: "Failed to update logistic record" });
+    }
+  });
+  app2.delete("/api/logistic-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      try {
+        await pool.execute("DELETE FROM logistic_sheet WHERE id = ?", [id]);
+        return res.json({ id });
+      } catch (e) {
+        const ok = await storage.updateLogisticsTracking(id, { status: "deleted" });
+        return res.json({ id, fallback: !!ok });
+      }
+    } catch (error) {
+      console.error("Failed to delete logistic record", error.message);
+      res.status(500).json({ message: "Failed to delete logistic record" });
+    }
+  });
+  app2.get("/api/lab-process/discovery", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM lab_process_discovery_sheet");
+        return res.json(rows);
+      } catch (e) {
+        const queue = await storage.getLabProcessingQueue();
+        return res.json(queue.filter((r) => (r.sample?.lead?.category || "").toLowerCase() === "discovery"));
+      }
+    } catch (error) {
+      console.error("Failed to fetch discovery lab process", error.message);
+      res.status(500).json({ message: "Failed to fetch discovery lab process" });
+    }
+  });
+  app2.get("/api/lab-process/clinical", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM lab_process_clinical_sheet");
+        return res.json(rows);
+      } catch (e) {
+        const queue = await storage.getLabProcessingQueue();
+        return res.json(queue.filter((r) => (r.sample?.lead?.category || "").toLowerCase() === "clinical"));
+      }
+    } catch (error) {
+      console.error("Failed to fetch clinical lab process", error.message);
+      res.status(500).json({ message: "Failed to fetch clinical lab process" });
+    }
+  });
+  app2.get("/api/finance-sheet", async (req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM finance_sheet");
+        return res.json({ rows, total: Array.isArray(rows) ? rows.length : 0 });
+      } catch (e) {
+        const result = await storage.getFinanceRecords({ page: 1, pageSize: 1e3 });
+        return res.json(result);
+      }
+    } catch (error) {
+      console.error("Failed to fetch finance sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch finance sheet" });
+    }
+  });
+  app2.post("/api/finance-sheet", async (req, res) => {
+    try {
+      try {
+        const data = req.body || {};
+        const keys = Object.keys(data);
+        const cols = keys.map((k) => `\`${k}\``).join(",");
+        const placeholders = keys.map(() => "?").join(",");
+        const values = keys.map((k) => data[k]);
+        const [result] = await pool.execute(`INSERT INTO finance_sheet (${cols}) VALUES (${placeholders})`, values);
+        const insertId = result.insertId || null;
+        const [rows] = await pool.execute("SELECT * FROM finance_sheet WHERE id = ?", [insertId]);
+        return res.json(rows[0] ?? { id: insertId });
+      } catch (e) {
+        const created = await storage.createFinanceRecord(req.body);
+        return res.json(created);
+      }
+    } catch (error) {
+      console.error("Failed to create finance record", error.message);
+      res.status(500).json({ message: "Failed to create finance record" });
+    }
+  });
+  app2.put("/api/finance-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      try {
+        const updates = req.body || {};
+        const keys = Object.keys(updates);
+        if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+        const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+        const values = keys.map((k) => updates[k]);
+        values.push(id);
+        await pool.execute(`UPDATE finance_sheet SET ${set} WHERE id = ?`, values);
+        const [rows] = await pool.execute("SELECT * FROM finance_sheet WHERE id = ?", [id]);
+        return res.json(rows[0] ?? null);
+      } catch (e) {
+        const updated = await storage.updateFinanceRecord(id, req.body);
+        return res.json(updated);
+      }
+    } catch (error) {
+      console.error("Failed to update finance record", error.message);
+      res.status(500).json({ message: "Failed to update finance record" });
+    }
+  });
+  app2.delete("/api/finance-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      try {
+        await pool.execute("DELETE FROM finance_sheet WHERE id = ?", [id]);
+        return res.json({ id });
+      } catch (e) {
+        const ok = await storage.deleteFinanceRecord(id);
+        return res.json({ id, fallback: !!ok });
+      }
+    } catch (error) {
+      console.error("Failed to delete finance record", error.message);
+      res.status(500).json({ message: "Failed to delete finance record" });
+    }
+  });
+  app2.get("/api/bioinfo/discovery", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM discovery_bioinfo_sheet");
+        return res.json(rows);
+      } catch (e) {
+        const lp = await storage.getLabProcessingQueue();
+        return res.json(lp.filter((r) => (r.sample?.lead?.category || "").toLowerCase() === "discovery"));
+      }
+    } catch (error) {
+      console.error("Failed to fetch discovery bioinfo", error.message);
+      res.status(500).json({ message: "Failed to fetch discovery bioinfo" });
+    }
+  });
+  app2.get("/api/bioinfo/clinical", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM clinical_bioinfo_sheet");
+        return res.json(rows);
+      } catch (e) {
+        const lp = await storage.getLabProcessingQueue();
+        return res.json(lp.filter((r) => (r.sample?.lead?.category || "").toLowerCase() === "clinical"));
+      }
+    } catch (error) {
+      console.error("Failed to fetch clinical bioinfo", error.message);
+      res.status(500).json({ message: "Failed to fetch clinical bioinfo" });
+    }
+  });
+  app2.get("/api/nutrition-sheet", async (_req, res) => {
+    try {
+      try {
+        const [rows] = await pool.execute("SELECT * FROM nutrition_sheet");
+        return res.json(rows);
+      } catch (e) {
+        return res.json([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch nutrition sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch nutrition sheet" });
+    }
+  });
+  app2.post("/api/nutrition-sheet", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => data[k]);
+      const [result] = await pool.execute(`INSERT INTO nutrition_sheet (${cols}) VALUES (${placeholders})`, values);
+      const insertId = result.insertId || null;
+      const [rows] = await pool.execute("SELECT * FROM nutrition_sheet WHERE id = ?", [insertId]);
+      return res.json(rows[0] ?? { id: insertId });
+    } catch (error) {
+      console.error("Failed to create nutrition record", error.message);
+      res.status(500).json({ message: "Failed to create nutrition record" });
+    }
+  });
+  app2.put("/api/nutrition-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => updates[k]);
+      values.push(id);
+      await pool.execute(`UPDATE nutrition_sheet SET ${set} WHERE id = ?`, values);
+      const [rows] = await pool.execute("SELECT * FROM nutrition_sheet WHERE id = ?", [id]);
+      res.json(rows[0] ?? null);
+    } catch (error) {
+      console.error("Failed to update nutrition record", error.message);
+      res.status(500).json({ message: "Failed to update nutrition record" });
+    }
+  });
+  app2.delete("/api/nutrition-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM nutrition_sheet WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete nutrition record", error.message);
+      res.status(500).json({ message: "Failed to delete nutrition record" });
+    }
+  });
+  app2.get("/api/gc-registration", async (_req, res) => {
+    try {
+      const rows = await storage.getGeneticCounselling();
+      res.json(rows);
+    } catch (error) {
+      console.error("Failed to fetch gc registration", error.message);
+      res.status(500).json({ message: "Failed to fetch gc registration" });
+    }
+  });
+  app2.post("/api/gc-registration", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const created = await storage.createGeneticCounselling({
+        sampleId: body.sample_id || body.sampleId || "",
+        gcName: body.gc_name || body.gcName || "",
+        counsellingType: body.counselling_type || body.counsellingType || void 0,
+        counsellingStartTime: body.counselling_start_time || body.counsellingStartTime || void 0,
+        counsellingEndTime: body.counselling_end_time || body.counsellingEndTime || void 0,
+        gcSummary: body.gc_summary || body.gcSummary || void 0,
+        extendedFamilyTesting: body.extended_family_testing ?? body.extendedFamilyTesting ?? false,
+        approvalStatus: body.approval_status || body.approvalStatus || "pending"
+      });
+      res.json(created);
+    } catch (error) {
+      console.error("Failed to create gc registration", error.message);
+      res.status(500).json({ message: "Failed to create gc registration" });
+    }
+  });
+  app2.put("/api/gc-registration/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const updated = await storage.updateGeneticCounselling(id, {
+        sampleId: updates.sample_id || updates.sampleId,
+        gcName: updates.gc_name || updates.gcName,
+        counsellingType: updates.counselling_type || updates.counsellingType,
+        counsellingStartTime: updates.counselling_start_time || updates.counsellingStartTime,
+        counsellingEndTime: updates.counselling_end_time || updates.counsellingEndTime,
+        gcSummary: updates.gc_summary || updates.gcSummary,
+        extendedFamilyTesting: updates.extended_family_testing ?? updates.extendedFamilyTesting,
+        approvalStatus: updates.approval_status || updates.approvalStatus
+      });
+      if (!updated) return res.status(404).json({ message: "Record not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update gc registration", error.message);
+      res.status(500).json({ message: "Failed to update gc registration" });
+    }
+  });
+  app2.delete("/api/gc-registration/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteGeneticCounselling(id);
+      if (!ok) return res.status(404).json({ message: "Record not found" });
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete gc registration", error.message);
+      res.status(500).json({ message: "Failed to delete gc registration" });
+    }
+  });
   app2.post("/api/clients", async (req, res) => {
     try {
       const result = insertClientSchema.safeParse(req.body);
@@ -2608,6 +3665,57 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch notifications" });
     }
   });
+  app2.get("/api/recycle", async (_req, res) => {
+    try {
+      const entries = await storage.listRecycleEntries();
+      res.json(entries);
+    } catch (error) {
+      console.error("Failed to list recycle entries", error.message);
+      res.status(500).json({ message: "Failed to list recycle entries" });
+    }
+  });
+  app2.get("/api/recycle/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const entry = await storage.getRecycleEntry(id);
+      if (!entry) return res.status(404).json({ message: "Not found" });
+      res.json(entry);
+    } catch (error) {
+      console.error("Failed to fetch recycle entry", error.message);
+      res.status(500).json({ message: "Failed to fetch recycle entry" });
+    }
+  });
+  app2.post("/api/recycle", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const created = await storage.createRecycleEntry({ entityType: body.entityType, entityId: body.entityId, data: body.data, originalPath: body.originalPath, createdBy: body.createdBy });
+      res.json(created);
+    } catch (error) {
+      console.error("Failed to create recycle entry", error.message);
+      res.status(500).json({ message: "Failed to create recycle entry" });
+    }
+  });
+  app2.delete("/api/recycle/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteRecycleEntry(id);
+      if (!ok) return res.status(500).json({ message: "Failed to delete recycle entry" });
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete recycle entry", error.message);
+      res.status(500).json({ message: "Failed to delete recycle entry" });
+    }
+  });
+  app2.post("/api/recycle/:id/restore", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await storage.restoreRecycleEntry(id);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to restore recycle entry", error.message);
+      res.status(500).json({ message: "Failed to restore recycle entry", details: error.message });
+    }
+  });
   app2.put("/api/notifications/:id/read", async (req, res) => {
     try {
       const { id } = req.params;
@@ -2618,6 +3726,32 @@ async function registerRoutes(app2) {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+  app2.delete("/api/notifications/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteNotification(id);
+      if (!success) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+  app2.post("/api/test/notification", async (req, res) => {
+    try {
+      console.log("Test notification endpoint called");
+      const result = await notificationService.notifyLeadCreated(
+        "test-lead-" + Date.now(),
+        "Test Organization",
+        "system"
+      );
+      res.json({ success: true, notification: result });
+    } catch (error) {
+      console.error("Test notification failed:", error);
+      res.status(500).json({ message: "Failed to create test notification", error: error.message });
     }
   });
   app2.get("/api/sharepoint/scan", async (_req, res) => {
@@ -3283,6 +4417,29 @@ var LeadManagementModule = class extends AbstractModule {
           return res.status(503).json({ message: "Lead Management module is disabled" });
         }
         const bodyCopy = { ...req.body };
+        try {
+          if (!bodyCopy.unique_id && !bodyCopy.uniqueId) {
+            let roleForId = void 0;
+            try {
+              const hdr = req.headers["x-user-role"] || req.headers["x_user_role"] || req.headers["x-user"];
+              if (hdr && typeof hdr === "string" && hdr.trim() !== "") roleForId = hdr.trim();
+            } catch (e) {
+            }
+            if (!roleForId && bodyCopy.createdBy) {
+              try {
+                const user = await this.storage.getUser(String(bodyCopy.createdBy));
+                if (user && user.role) roleForId = user.role;
+              } catch (e) {
+              }
+            }
+            if (!roleForId) roleForId = bodyCopy.leadType || bodyCopy.lead_type || "admin";
+            const uid = generateRoleId(String(roleForId));
+            bodyCopy.unique_id = uid;
+            bodyCopy.uniqueId = uid;
+          }
+        } catch (e) {
+          console.warn("generateRoleId failed for /api/leads", e);
+        }
         const dateKeys = ["dateSampleCollected", "pickupUpto", "dateSampleReceived", "pickupDate", "sampleShippedDate"];
         for (const k of dateKeys) {
           if (bodyCopy[k] && typeof bodyCopy[k] === "string") {
@@ -3298,6 +4455,17 @@ var LeadManagementModule = class extends AbstractModule {
           });
         }
         const lead = await this.storage.createLead(result.data);
+        console.log("Lead created in module, sending notification for:", lead.id, lead.organization);
+        try {
+          await notificationService.notifyLeadCreated(
+            lead.id,
+            lead.organization,
+            lead.createdBy || "system"
+          );
+          console.log("Lead creation notification sent successfully from module");
+        } catch (notificationError) {
+          console.error("Failed to send lead creation notification from module:", notificationError);
+        }
         res.json(lead);
       } catch (error) {
         console.error("Error creating lead:", error);
@@ -3389,6 +4557,25 @@ var LeadManagementModule = class extends AbstractModule {
           status: sampleData.status || "pickup_scheduled"
         };
         const conversion = await this.storage.convertLead(id, validatedSampleData);
+        console.log("Lead converted in module, sending notifications for:", conversion.lead?.id, conversion.sample?.id);
+        try {
+          if (conversion.lead && conversion.sample) {
+            await notificationService.notifyLeadConverted(
+              conversion.lead.id,
+              conversion.lead.organization,
+              conversion.sample.id,
+              conversion.lead.createdBy || "system"
+            );
+            await notificationService.notifySampleReceived(
+              conversion.sample.id,
+              conversion.lead.organization,
+              conversion.lead.createdBy || "system"
+            );
+            console.log("Lead conversion notifications sent successfully from module");
+          }
+        } catch (notificationError) {
+          console.error("Failed to send lead conversion notifications from module:", notificationError);
+        }
         res.json({
           lead: conversion.lead,
           sample: conversion.sample,
@@ -3814,6 +5001,87 @@ var FinanceModule = class extends AbstractModule {
   constructor(storage2) {
     super(storage2);
   }
+  async searchFinanceRecords(query, page, pageSize, sortBy, sortDir = "desc") {
+    const offset = (page - 1) * pageSize;
+    const like = `%${query}%`;
+    const searchCols = [
+      "fr.invoice_number",
+      "fr.id",
+      "fr.sample_id",
+      "s.sample_id",
+      "fr.patient_name",
+      "fr.organization",
+      "l.organization",
+      "fr.title_unique_id",
+      "lp.title_unique_id",
+      "fr.clinician",
+      "l.referred_doctor",
+      "fr.city",
+      "l.location",
+      "fr.service_name",
+      "l.service_name",
+      "fr.patient_name",
+      "l.patient_client_name",
+      "fr.sales_responsible_person",
+      "l.sales_responsible_person",
+      "fr.payment_status",
+      "fr.payment_method",
+      "COALESCE(fr.title_unique_id, lp.title_unique_id)"
+    ];
+    const whereClauses = searchCols.map((col) => `${col} LIKE ?`);
+    const whereClause = `WHERE ${whereClauses.join(" OR ")}`;
+    const orderClause = sortBy ? `ORDER BY ${sortBy} ${sortDir.toUpperCase()}` : "ORDER BY fr.created_at DESC";
+    const sql3 = `
+      SELECT 
+        fr.*,
+        s.id as s_id,
+        s.sample_id as s_sample_id,
+        s.*,
+        l.*,
+        lp.title_unique_id as lp_title_unique_id,
+        COALESCE(fr.title_unique_id, lp.title_unique_id) as effective_title_unique_id
+      FROM finance_records fr
+      LEFT JOIN samples s ON fr.sample_id = s.id OR fr.lead_id = s.lead_id
+      LEFT JOIN leads l ON fr.lead_id = l.id OR s.lead_id = l.id
+      LEFT JOIN lab_processing lp ON (s.id = lp.sample_id OR fr.sample_id = lp.sample_id)
+      ${whereClause}
+      GROUP BY fr.id
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `;
+    const countSql = `
+      SELECT COUNT(DISTINCT fr.id) as cnt
+      FROM finance_records fr
+      LEFT JOIN samples s ON fr.sample_id = s.id OR fr.lead_id = s.lead_id
+      LEFT JOIN leads l ON fr.lead_id = l.id OR s.lead_id = l.id
+      LEFT JOIN lab_processing lp ON (s.id = lp.sample_id OR fr.sample_id = lp.sample_id)
+      ${whereClause}
+    `;
+    try {
+      const searchBindings = searchCols.map(() => like);
+      const queryBindings = [...searchBindings, pageSize, offset];
+      const countBindings = [...searchBindings];
+      console.log("Search SQL:", sql3);
+      console.log("Search bindings:", queryBindings);
+      console.log("Count SQL:", countSql);
+      console.log("Count bindings:", countBindings);
+      const connection = await mysql6.createConnection({
+        host: process.env.DB_HOST || "192.168.29.12",
+        user: process.env.DB_USER || "remote_user",
+        password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
+        database: process.env.DB_NAME || "leadlab_lims"
+      });
+      const [rows] = await connection.execute(sql3, queryBindings);
+      const [countResult] = await connection.execute(countSql, countBindings);
+      await connection.end();
+      const total = countResult[0]?.cnt || 0;
+      console.log(`Found ${rows.length} records out of ${total} total matches`);
+      return { rows, total };
+    } catch (error) {
+      console.error("Finance search error:", error);
+      throw error;
+    }
+  }
   async validateSchema() {
     try {
       const connection = await mysql6.createConnection({
@@ -3873,9 +5141,32 @@ var FinanceModule = class extends AbstractModule {
         const pageSize = parseInt(String(req.query.pageSize || "25")) || 25;
         const sortBy = req.query.sortBy ? String(req.query.sortBy) : null;
         const sortDir = req.query.sortDir === "asc" ? "asc" : "desc";
-        const query = req.query.query ? String(req.query.query) : null;
-        const result = await this.storage.getFinanceRecords({ page, pageSize, sortBy, sortDir, query });
-        res.json(result);
+        const query = req.query.query ? String(req.query.query) : "";
+        if (query) {
+          try {
+            const result = await this.searchFinanceRecords(query, page, pageSize, sortBy, sortDir);
+            return res.json(result);
+          } catch (searchError) {
+            console.error("Error in finance search:", searchError);
+            const result = await this.storage.getFinanceRecords({
+              page,
+              pageSize,
+              sortBy,
+              sortDir,
+              query: null
+            });
+            return res.json(result);
+          }
+        } else {
+          const result = await this.storage.getFinanceRecords({
+            page,
+            pageSize,
+            sortBy,
+            sortDir,
+            query: null
+          });
+          return res.json(result);
+        }
       } catch (error) {
         console.error("Error fetching finance records:", error);
         res.json({ rows: [], total: 0 });

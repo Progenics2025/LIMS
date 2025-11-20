@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,18 @@ import {
   BarChart3,
   LineChart,
   Calendar,
-  Target
+  Target,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  Timer,
+  ArrowUpRight,
+  Dna
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ReportWithSample } from "@shared/schema";
+import { Link } from "wouter";
 import {
   LineChart as RechartsLineChart,
   BarChart,
@@ -55,6 +63,57 @@ interface PerformanceMetrics {
   revenueGrowth: number;
 }export default function Dashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const { data: reports = [] } = useQuery<ReportWithSample[]>({
+    queryKey: ['/api/reports'],
+  });
+
+  // TAT Logic
+  const processedReports = useMemo(() => {
+    return reports.map(report => {
+      // Calculate deadline based on sample received date and TAT
+      // If sample received date is missing, use created_at as fallback
+      const regDate = new Date(report.sample?.lead?.dateSampleReceived || report.sample?.lead?.createdAt || new Date());
+      const tatHours = (report.sample?.lead?.tat || 0) * 24; // TAT is in days
+      const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
+      const diffMs = deadline.getTime() - currentTime.getTime();
+      const diffHrs = diffMs / (1000 * 60 * 60);
+      
+      let urgency = 'normal';
+      if (report.status === 'delivered' || report.status === 'approved') {
+        urgency = 'completed';
+      } else if (diffHrs < 0) {
+        urgency = 'overdue';
+      } else if (diffHrs < 2) { 
+        urgency = 'critical';
+      } else if (diffHrs < 4) { 
+        urgency = 'warning';
+      }
+
+      return { ...report, deadline, diffMs, diffHrs, urgency, tatHours };
+    }).sort((a, b) => {
+      const urgencyWeight: Record<string, number> = { overdue: 0, critical: 1, warning: 2, normal: 3, completed: 4 };
+      if (urgencyWeight[a.urgency] !== urgencyWeight[b.urgency]) {
+        return urgencyWeight[a.urgency] - urgencyWeight[b.urgency];
+      }
+      return a.diffMs - b.diffMs;
+    });
+  }, [reports, currentTime]);
+
+  const tatStats = {
+    overdue: processedReports.filter(r => r.urgency === 'overdue').length,
+    critical: processedReports.filter(r => r.urgency === 'critical').length,
+    warning: processedReports.filter(r => r.urgency === 'warning').length,
+    totalPending: processedReports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_approval').length
+  };
   
   const { data: stats } = useQuery({
     queryKey: ['/api/dashboard/stats'],
@@ -256,6 +315,150 @@ interface PerformanceMetrics {
         <p className="mt-2 text-gray-600 dark:text-gray-400">
           Monitor your laboratory operations and key metrics
         </p>
+      </div>
+
+      {/* TAT Alert Banner */}
+      {(tatStats.overdue > 0 || tatStats.critical > 0) && (
+        <div className="bg-gradient-to-r from-red-50 to-white border border-red-100 rounded-xl p-4 shadow-sm flex items-center justify-between animate-fade-in">
+          <div className="flex items-center gap-4">
+            <div className="bg-red-100 p-2 rounded-full">
+              <AlertTriangle className="text-red-600" size={24} />
+            </div>
+            <div>
+              <h4 className="text-red-800 font-bold text-sm">TAT Limit Breached</h4>
+              <p className="text-red-600 text-sm mt-0.5">
+                {tatStats.overdue} overdue items require immediate validation.
+              </p>
+            </div>
+          </div>
+          <Link href="/reports">
+            <Button variant="destructive" size="sm" className="bg-white text-red-600 border border-red-200 hover:bg-red-50 shadow-sm">
+              Resolve Now
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* TAT Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <TATStatCard 
+          title="Critical Overdue" 
+          count={tatStats.overdue} 
+          icon={AlertTriangle}
+          colorClass="text-red-600"
+          bgClass="bg-red-100"
+          borderClass="bg-red-500"
+          subText="Requires Validation"
+        />
+        <TATStatCard 
+          title="High Risk (<2h)" 
+          count={tatStats.critical} 
+          icon={Timer}
+          colorClass="text-orange-500"
+          bgClass="bg-orange-100"
+          borderClass="bg-orange-500"
+          subText="Expiring Soon"
+        />
+        <TATStatCard 
+          title="Approaching (<4h)" 
+          count={tatStats.warning} 
+          icon={Clock}
+          colorClass="text-yellow-600"
+          bgClass="bg-yellow-100"
+          borderClass="bg-yellow-500"
+          subText="Keep Monitor"
+        />
+        <TATStatCard 
+          title="Active Workload" 
+          count={tatStats.totalPending} 
+          icon={Activity}
+          colorClass="text-[#0085CA]"
+          bgClass="bg-[#E6F6FD]"
+          borderClass="bg-[#0085CA]"
+          subText="Total Pending"
+        />
+      </div>
+
+      {/* Live TAT Priority Queue & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 className="font-bold text-[#0B1139] flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              Live TAT Priority Queue
+            </h3>
+            <Link href="/reports">
+              <button className="text-[#0085CA] text-sm font-semibold hover:text-blue-800 flex items-center gap-1">
+                Full Queue <ArrowUpRight size={16} />
+              </button>
+            </Link>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {processedReports
+              .filter(r => r.status === 'in_progress' || r.status === 'awaiting_approval')
+              .slice(0, 5)
+              .map(report => (
+                <div key={report.id} className="p-4 hover:bg-blue-50/30 transition-colors flex items-center justify-between group cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-1 h-12 rounded-full ${
+                      report.urgency === 'overdue' ? 'bg-red-500' : 
+                      report.urgency === 'critical' ? 'bg-orange-500' : 
+                      report.urgency === 'warning' ? 'bg-yellow-500' : 'bg-emerald-500'
+                    }`}></div>
+                    <div>
+                      <h4 className="font-bold text-slate-700 group-hover:text-[#0085CA] transition-colors">{report.sample?.lead?.testName || 'Unknown Test'}</h4>
+                      <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                        <span className="bg-slate-100 px-1.5 rounded text-xs font-medium text-slate-600">{report.sample?.sampleId}</span>
+                        {report.sample?.lead?.patientClientName || 'Unknown Patient'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <UrgencyBadge urgency={report.urgency} diffHrs={report.diffHrs} />
+                    <p className="text-xs text-slate-400 mt-1 font-mono">Target: {report.tatHours}h</p>
+                  </div>
+                </div>
+            ))}
+            {processedReports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_approval').length === 0 && (
+              <div className="p-8 text-center text-slate-500">
+                No pending reports
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Side Widget - Progenics Themed */}
+        <div className="bg-gradient-to-b from-[#0B1139] to-[#1a2255] rounded-2xl shadow-lg p-4 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-6 opacity-10">
+            <Dna size={120} />
+          </div>
+          <h3 className="text-lg font-bold mb-4 relative z-10">Quick Actions</h3>
+          <div className="space-y-3 relative z-10">
+            <Link href="/leads">
+              <button className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm py-3 px-4 rounded-xl text-left text-sm font-medium flex items-center gap-3 transition-all border border-white/10 mb-3">
+                <div className="bg-[#0085CA] p-1.5 rounded-lg">
+                  <FileText size={16} />
+                </div>
+                Register New Sample
+              </button>
+            </Link>
+            <Link href="/lab">
+              <button className="w-full bg-white/10 hover:bg-white/20 backdrop-blur-sm py-3 px-4 rounded-xl text-left text-sm font-medium flex items-center gap-3 transition-all border border-white/10">
+                <div className="bg-emerald-500 p-1.5 rounded-lg">
+                  <Activity size={16} />
+                </div>
+                Lab Process
+              </button>
+            </Link>
+          </div>
+          <div className="mt-8 pt-6 border-t border-white/10 relative z-10">
+            <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">Lab Efficiency</p>
+            <div className="flex items-end gap-2 mt-2">
+              <span className="text-3xl font-bold">94%</span>
+              <span className="text-sm text-blue-200 mb-1">On Time</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -687,3 +890,56 @@ interface PerformanceMetrics {
     </div>
   );
 }
+
+// Helper Components for TAT Dashboard
+const UrgencyBadge = ({ urgency, diffHrs }: { urgency: string, diffHrs: number }) => {
+  const formatTime = (hrs: number) => {
+    const absHrs = Math.abs(hrs);
+    const h = Math.floor(absHrs);
+    const m = Math.floor((absHrs - h) * 60);
+    return `${h}h ${m}m`;
+  };
+
+  const styles: Record<string, string> = {
+    completed: "bg-slate-100 text-slate-600 border-slate-200",
+    overdue: "bg-red-50 text-red-700 border-red-200 animate-pulse",
+    critical: "bg-orange-50 text-orange-700 border-orange-200",
+    warning: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    normal: "bg-[#E6F6FD] text-[#0085CA] border-blue-100"
+  };
+
+  const style = styles[urgency] || styles.normal;
+  const labels: Record<string, string> = {
+    completed: "Completed",
+    overdue: `Overdue ${formatTime(diffHrs)}`,
+    critical: `< 2h Remaining`,
+    warning: `< 4h Remaining`,
+    normal: `${formatTime(diffHrs)} Left`
+  };
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${style} shadow-sm`}>
+      {urgency === 'overdue' && <AlertTriangle className="w-3 h-3 mr-1.5" />}
+      {urgency === 'critical' && <Timer className="w-3 h-3 mr-1.5" />}
+      {labels[urgency]}
+    </span>
+  );
+};
+
+const TATStatCard = ({ title, count, icon: Icon, colorClass, bgClass, borderClass, subText }: any) => (
+  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-md transition-shadow`}>
+    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${borderClass}`}></div>
+    <div className="flex justify-between items-start mb-4">
+      <div>
+        <p className="text-slate-500 text-xs font-semibold uppercase tracking-wide">{title}</p>
+        <h3 className={`text-4xl font-bold mt-2 ${colorClass}`}>{count}</h3>
+      </div>
+      <div className={`p-3 rounded-xl ${bgClass} ${colorClass} bg-opacity-10`}>
+        <Icon size={24} />
+      </div>
+    </div>
+    <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
+      {subText}
+    </p>
+  </div>
+);

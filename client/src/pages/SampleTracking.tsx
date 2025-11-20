@@ -377,32 +377,38 @@ export default function SampleTracking() {
               <Table>
                 <TableHeader className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b-2">
                   <TableRow>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('UniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'titleUniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleCollectedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Collected Date{sortKey === 'sampleCollectedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShippedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipped Date{sortKey === 'sampleShippedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleDeliveryDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Delivery Date{sortKey === 'sampleDeliveryDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[180px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('responsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sales / Responsible Person{sortKey === 'responsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[200px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('organization'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Organisation / Hospital{sortKey === 'organization' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('senderCity'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[150px] whitespace-nowrap font-semibold">Sample Pickup From{sortKey === 'senderCity' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('senderContact'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[150px] whitespace-nowrap font-semibold">Patient / Client Phone{sortKey === 'senderContact' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('receiverAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[200px] whitespace-nowrap font-semibold">Delivery Upto{sortKey === 'receiverAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleDeliveryDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Recevied Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('trackingNumber'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Tracking ID{sortKey === 'trackingNumber' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('courierCompany'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Courier Company{sortKey === 'courierCompany' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('labAlertStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[150px] whitespace-nowrap font-semibold">Alert to Lab Process{sortKey === 'labAlertStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('thirdPartyContractDetails'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Contact{sortKey === 'thirdPartyContractDetails' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('thirdPartySentDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[150px] whitespace-nowrap font-semibold">Sample Sent to 3rd Party Date{sortKey === 'thirdPartySentDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('thirdPartyReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[150px] whitespace-nowrap font-semibold">Sample Received to 3rd party date{sortKey === 'thirdPartyReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead onClick={() => { setSortKey('comments'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="min-w-[220px] whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'comments' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold min-w-[150px]">Actions</TableHead>
+                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleCollectedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Collection Date{sortKey === 'sampleCollectedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShippedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipped Date{sortKey === 'sampleShippedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleDeliveryDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Delivery Date{sortKey === 'sampleDeliveryDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[140px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('pickupFrom'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Pick Up From{sortKey === 'pickupFrom' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('pickupUpto'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Delivery Up To{sortKey === 'pickupUpto' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('trackingId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Tracking ID{sortKey === 'trackingId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('courierCompany'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Courier Company{sortKey === 'courierCompany' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('shippingAmount'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipment Amount{sortKey === 'shippingAmount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('organization'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Organisation/Hospital{sortKey === 'organization' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('clinicianName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Clinician/Researcher Name{sortKey === 'clinicianName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[140px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('clinicianPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Clinician/Researcher Phone{sortKey === 'clinicianPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('patientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Patient/Client Name{sortKey === 'patientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('patientPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Patient/Client Phone{sortKey === 'patientPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('salesPerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sales/Responsible Person{sortKey === 'salesPerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Third Party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Third Party Phone{sortKey === 'thirdPartyPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartySentDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Sent to Third Party Date{sortKey === 'thirdPartySentDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Received to Third Party Date{sortKey === 'thirdPartyReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[140px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('labAlertStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Alert to Lab Process Team{sortKey === 'labAlertStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created At{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('comments'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Remark/Comment{sortKey === 'comments' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold min-w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {visibleSamples.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={40} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={25} className="text-center py-8 text-muted-foreground">
                         {filteredSamples.length === 0 ? (
                           <div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-white">No samples found</h3>
@@ -419,24 +425,31 @@ export default function SampleTracking() {
                       const lead = sample.lead || {};
                       return (
                         <TableRow key={sample.id}>
-                          <TableCell className="min-w-[150px] font-medium text-gray-900 dark:text-white">{sample.id ?? (sample as any).UniqueId ?? '-'}</TableCell>
-                          <TableCell className="min-w-[150px] font-medium text-gray-900 dark:text-white">{sample.sampleId}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleCollectedDate ? new Date(sample.sampleCollectedDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{(sample as any).sampleShippedDate ? new Date((sample as any).sampleShippedDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{(sample as any).sampleDeliveryDate ? new Date((sample as any).sampleDeliveryDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{sample.responsiblePerson || sample.lead?.salesResponsiblePerson || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{sample.organization || sample.lead?.organization || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.senderCity || sample.lead?.location || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.senderContact || sample.lead?.phone || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{sample.receiverAddress || sample.lead?.pickupFrom || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.trackingNumber || sample.trackingId || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.courierCompany || sample.courierPartner || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.labAlertStatus || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{sample.thirdPartyName || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{sample.thirdPartyContractDetails || 'N/A'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.thirdPartySentDate ? new Date(sample.thirdPartySentDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.thirdPartyReceivedDate ? new Date(sample.thirdPartyReceivedDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs truncate">{sample.comments ?? (sample._raw && sample._raw.comments) ?? '-'}</TableCell>
+                          <TableCell className="min-w-[120px] font-medium text-gray-900 dark:text-white">{sample.id ?? (sample as any).UniqueId ?? '-'}</TableCell>
+                          <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.lead?.projectId ?? '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.sampleCollectedDate ? new Date(sample.sampleCollectedDate).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{(sample as any).sampleShippedDate ? new Date((sample as any).sampleShippedDate).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{(sample as any).sampleDeliveryDate ? new Date((sample as any).sampleDeliveryDate).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{sample.lead?.pickupFrom || sample.senderCity || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.lead?.pickupUpto ? new Date(sample.lead.pickupUpto).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.trackingId || sample.trackingNumber || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.courierCompany || sample.courierPartner || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.shippingCost ? `₹${formatINR(Number(sample.shippingCost))}` : '-'}</TableCell>
+                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.organization || sample.lead?.organization || '-'}</TableCell>
+                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.lead?.referredDoctor || '-'}</TableCell>
+                          <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{sample.lead?.phone || sample.senderContact || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.lead?.patientClientName || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.lead?.patientClientPhone || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.lead?.dateSampleReceived ? new Date(sample.lead.dateSampleReceived).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.responsiblePerson || sample.lead?.salesResponsiblePerson || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.thirdPartyName || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.thirdPartyLab || '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.thirdPartySentDate ? new Date(sample.thirdPartySentDate).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.thirdPartyReceivedDate ? new Date(sample.thirdPartyReceivedDate).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{sample.labAlertStatus || '-'}</TableCell>
+                          <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.createdAt ? new Date(sample.createdAt).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{typeof sample.createdBy === 'object' ? (sample.createdBy as any)?.name ?? '-' : sample.createdBy ?? '-'}</TableCell>
+                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white max-w-xs truncate">{sample.comments ?? (sample._raw && sample._raw.comments) ?? '-'}</TableCell>
                           <TableCell className="min-w-[150px]">
                             <div className="flex space-x-2">
                               <Button
@@ -499,59 +512,193 @@ export default function SampleTracking() {
           </DialogHeader>
           {selectedSample && (
             <div className="space-y-6">
-              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Sample Information</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><span className="font-medium">Sample ID:</span> {selectedSample.sampleId}</div>
-                  <div><span className="font-medium">Organization:</span> {selectedSample.lead?.organization || 'N/A'}</div>
-                  <div><span className="font-medium">Test Type:</span> {selectedSample.lead?.testName || 'N/A'}</div>
-                  <div><span className="font-medium">Category:</span> {selectedSample.lead?.category || 'N/A'}</div>
-
-                  {/* New fields for sample tracking */}
+              {/* Sample Collection & Dates Section */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium mb-4">Sample Collection & Dates</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="UniqueId">ID</Label>
-                    <Input id="UniqueId" value={(selectedSample as any).id || ''} disabled readOnly />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="sampleUniqueId">Sample ID</Label>
-                    <Input id="sampleUniqueId" defaultValue={(selectedSample as any).sampleUniqueId || (selectedSample as any).sampleId || ''} disabled={!editableFields.has('sampleUniqueId')} readOnly />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="sampleCollectedDate">Sample Collected Date</Label>
-                    <Input id="sampleCollectedDate" type="datetime-local" defaultValue={(selectedSample as any).sampleCollectedDate ? new Date((selectedSample as any).sampleCollectedDate).toISOString().slice(0,16) : ''} disabled={!editableFields.has('sampleCollectedDate')} />
+                    <Label htmlFor="sampleCollectedDate">Sample Collection Date</Label>
+                    <Input id="sampleCollectedDate" type="datetime-local" defaultValue={(selectedSample as any).sampleCollectedDate ? new Date((selectedSample as any).sampleCollectedDate).toISOString().slice(0,16) : ''} />
                   </div>
 
                   <div>
                     <Label htmlFor="sampleShippedDate">Sample Shipped Date</Label>
-                    <Input id="sampleShippedDate" type="datetime-local" defaultValue={(selectedSample as any).sampleShippedDate ? new Date((selectedSample as any).sampleShippedDate).toISOString().slice(0,16) : ''} disabled={!editableFields.has('sampleShippedDate')} />
+                    <Input id="sampleShippedDate" type="datetime-local" defaultValue={(selectedSample as any).sampleShippedDate ? new Date((selectedSample as any).sampleShippedDate).toISOString().slice(0,16) : ''} />
                   </div>
 
                   <div>
                     <Label htmlFor="sampleDeliveryDate">Sample Delivery Date</Label>
-                    <Input id="sampleDeliveryDate" type="datetime-local" defaultValue={(selectedSample as any).sampleDeliveryDate ? new Date((selectedSample as any).sampleDeliveryDate).toISOString().slice(0,16) : ''} disabled={!editableFields.has('sampleDeliveryDate')} />
+                    <Input id="sampleDeliveryDate" type="datetime-local" defaultValue={(selectedSample as any).sampleDeliveryDate ? new Date((selectedSample as any).sampleDeliveryDate).toISOString().slice(0,16) : ''} />
                   </div>
 
                   <div>
-                    <Label htmlFor="responsiblePerson">Responsible Person</Label>
-                    <Input id="responsiblePerson" defaultValue={(selectedSample as any).responsiblePerson || ''} disabled={!editableFields.has('responsiblePerson')} />
+                    <Label htmlFor="pickupDate">Sample Pick Up From (Address)</Label>
+                    <Input id="pickupDate" placeholder="Pickup address" defaultValue={selectedSample.lead?.pickupFrom || ''} disabled readOnly />
                   </div>
 
                   <div>
-                    <Label htmlFor="amount">Amount (INR)</Label>
-                    <Input id="amount" type="number" step="0.01" defaultValue={(selectedSample as any).amount ?? ''} />
+                    <Label htmlFor="pickupUpto">Delivery Up To (Deadline)</Label>
+                    <Input id="pickupUpto" type="date" defaultValue={selectedSample.lead?.pickupUpto ? new Date(selectedSample.lead.pickupUpto).toISOString().split('T')[0] : ''} disabled readOnly />
                   </div>
-
-                  <div>
-                    <Label htmlFor="organization">Organization</Label>
-                    <Input id="organization" defaultValue={(selectedSample as any).organization || ''} disabled={!editableFields.has('organization')} />
-                  </div>
-
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tracking & Courier Section */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium mb-4">Tracking & Courier Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="trackingId">Tracking ID</Label>
+                    <Input id="trackingId" defaultValue={(selectedSample as any).trackingId || ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="courierCompany">Courier Company</Label>
+                    <Input id="courierCompany" defaultValue={(selectedSample as any).courierCompany || ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="shippingCost">Sample Shipment Amount (INR)</Label>
+                    <Input id="shippingCost" type="number" step="0.01" placeholder="e.g., 500" defaultValue={(selectedSample as any).shippingCost || ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="trackingNumber">Tracking Number</Label>
+                    <Input id="trackingNumber" placeholder="e.g., DHL123456789" defaultValue={(selectedSample as any).trackingNumber || ''} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Organisation & Contact Section */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium mb-4">Organisation & Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="organization">Organisation/Hospital</Label>
+                    <Input id="organization" defaultValue={selectedSample.lead?.organization || ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="clinicianName">Clinician/Researcher Name</Label>
+                    <Input id="clinicianName" defaultValue={selectedSample.lead?.referredDoctor || ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="clinicianPhone">Clinician/Researcher Phone</Label>
+                    <Input id="clinicianPhone" defaultValue={selectedSample.lead?.phone || ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="patientName">Patient/Client Name</Label>
+                    <Input id="patientName" defaultValue={selectedSample.lead?.patientClientName || ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="patientPhone">Patient/Client Phone</Label>
+                    <Input id="patientPhone" defaultValue={selectedSample.lead?.patientClientPhone || ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="sampleReceivedDate">Sample Received Date</Label>
+                    <Input id="sampleReceivedDate" type="date" defaultValue={selectedSample.lead?.dateSampleReceived ? new Date(selectedSample.lead.dateSampleReceived).toISOString().split('T')[0] : ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="responsiblePerson">Sales/Responsible Person</Label>
+                    <Input id="responsiblePerson" defaultValue={(selectedSample as any).responsiblePerson || selectedSample.lead?.salesResponsiblePerson || ''} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Third Party Section */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium mb-4">Third Party Lab Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="thirdPartyName">Third Party Name</Label>
+                    <Input id="thirdPartyName" defaultValue={(selectedSample as any).thirdPartyName || ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="thirdPartyLab">Third Party Lab</Label>
+                    <Input id="thirdPartyLab" placeholder="e.g., Advanced Genomics Lab" defaultValue={(selectedSample as any).thirdPartyLab || ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="senderContact">Third Party Phone</Label>
+                    <Input id="senderContact" placeholder="Phone number" defaultValue={(selectedSample as any).senderContact || ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="thirdPartySentDate">Sample Sent to Third Party Date</Label>
+                    <Input id="thirdPartySentDate" type="datetime-local" defaultValue={(selectedSample as any).thirdPartySentDate ? new Date((selectedSample as any).thirdPartySentDate).toISOString().slice(0,16) : ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="thirdPartyReceivedDate">Sample Received to Third Party Date</Label>
+                    <Input id="thirdPartyReceivedDate" type="datetime-local" defaultValue={(selectedSample as any).thirdPartyReceivedDate ? new Date((selectedSample as any).thirdPartyReceivedDate).toISOString().slice(0,16) : ''} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="thirdPartyAddress">Third Party Lab Address</Label>
+                    <Textarea id="thirdPartyAddress" placeholder="Complete address of third party lab" defaultValue={(selectedSample as any).thirdPartyAddress || ''} rows={3} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="thirdPartyContractDetails">Third Party Contract Details</Label>
+                    <Textarea id="thirdPartyContractDetails" defaultValue={(selectedSample as any).thirdPartyContractDetails || ''} rows={3} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Lab Alert & System Section */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium mb-4">Lab Alert & System Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="labAlertStatus">Alert to Lab Process Team</Label>
+                    <Select value={dialogLabAlertStatus} onValueChange={(v) => setDialogLabAlertStatus(v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="alerted">Alerted</SelectItem>
+                        <SelectItem value="acknowledged">Acknowledged</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="createdAt">Created At</Label>
+                    <Input id="createdAt" type="text" value={selectedSample.createdAt ? new Date(selectedSample.createdAt).toLocaleString() : ''} disabled readOnly />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="createdBy">Created By</Label>
+                    <Input id="createdBy" type="text" value={typeof selectedSample.createdBy === 'object' ? (selectedSample.createdBy as any)?.name ?? '-' : selectedSample.createdBy ?? ''} disabled readOnly />
+                  </div>
+                </div>
+              </div>
+
+              {/* Remarks Section */}
+              <div className="border-b pb-6">
+                <h3 className="text-lg font-medium mb-4">Remarks & Comments</h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="comments">Remark/Comment</Label>
+                    <Textarea id="comments" placeholder="Add any remarks or comments" defaultValue={(selectedSample as any).comments || ''} rows={4} />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="specialInstructions">Special Instructions</Label>
+                    <Textarea id="specialInstructions" placeholder="Any special handling instructions" defaultValue={(selectedSample as any).specialInstructions || ''} rows={4} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Fields (hidden from view but still editable) */}
+              <div className="hidden">
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-900 dark:text-white">Lab Routing</h4>
 
@@ -799,32 +946,33 @@ export default function SampleTracking() {
                   };
 
                   const updates: any = {
-                    sampleUniqueId: raw('sampleUniqueId'),
+                    // Sample Collection & Dates
                     sampleCollectedDate: isoDate('sampleCollectedDate'),
                     sampleShippedDate: isoDate('sampleShippedDate'),
                     sampleDeliveryDate: isoDate('sampleDeliveryDate'),
-                    responsiblePerson: raw('responsiblePerson'),
-                    organization: raw('organization'),
-                    senderCity: raw('senderCity'),
-                    senderContact: raw('senderContact'),
-                    receiverAddress: raw('receiverAddress'),
+                    // Tracking & Courier
                     trackingId: raw('trackingId'),
                     courierCompany: raw('courierCompany'),
-                    labAlertStatus: dialogLabAlertStatus || undefined,
+                    shippingCost: formatDecimal(raw('shippingCost')),
+                    trackingNumber: raw('trackingNumber'),
+                    // Organisation & Contact
+                    responsiblePerson: raw('responsiblePerson'),
+                    // Third Party
                     thirdPartyName: raw('thirdPartyName'),
-                    thirdPartyContractDetails: raw('thirdPartyContractDetails'),
+                    thirdPartyLab: raw('thirdPartyLab'),
+                    senderContact: raw('senderContact'),
                     thirdPartySentDate: isoDate('thirdPartySentDate'),
                     thirdPartyReceivedDate: isoDate('thirdPartyReceivedDate'),
-                    labDestination: dialogLabDestination || undefined,
-                    thirdPartyLab: raw('thirdPartyLab'),
                     thirdPartyAddress: raw('thirdPartyAddress'),
-                    courierPartner: dialogCourierPartner || undefined,
-                    pickupDate: isoDate('pickupDate'),
-                    trackingNumber: raw('trackingNumber'),
-                    shippingCost: formatDecimal(raw('shippingCost')),
-                    amount: formatDecimal(raw('amount')),
-                    specialInstructions: raw('specialInstructions'),
+                    thirdPartyContractDetails: raw('thirdPartyContractDetails'),
+                    // Lab Alert
+                    labAlertStatus: dialogLabAlertStatus || undefined,
+                    // Remarks
                     comments: raw('comments'),
+                    specialInstructions: raw('specialInstructions'),
+                    // Legacy fields from hidden section
+                    senderCity: raw('senderCity'),
+                    receiverAddress: raw('receiverAddress'),
                   };
 
                   // remove undefined keys and empty strings

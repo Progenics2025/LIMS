@@ -44,7 +44,7 @@ export const leads = mysqlTable("leads", {
   // deliveryUpto: varchar("delivery_upto", { length: 255 }), // Moved to sample tracking
   discoveryStatus: varchar("discovery_status", { length: 100 }),
   followUp: varchar("follow_up", { length: 255 }),
-  leadTypeDiscovery: varchar("lead_type_discovery", { length: 100 }),
+  leadType: varchar("lead_type", { length: 100 }),
   budget: decimal("budget", { precision: 10, scale: 2 }),
   // sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }), // Moved to sample tracking
   noOfSamples: int("no_of_samples"),

@@ -2,9 +2,9 @@
 # Update these values according to your MySQL server settings
 
 DATABASE_CONFIG = {
-    'host': '192.168.29.12',
+    'host': '192.168.29.11',
     'user': 'remote_user',
-    'password': 'Prolab%2305',  # Set your password here
+    'password': 'Prolab#05',  # Set your password here
     'database': 'leadlab_lims',
     'port': 3306,
     'charset': 'utf8mb4',
