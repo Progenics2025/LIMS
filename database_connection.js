@@ -5,7 +5,7 @@ const connection = mysql.createConnection({
     host: '192.168.29.12',
     user: 'remote_user',
     password: 'Prolab%2305',
-    database: 'leadlab_lims'
+    database: 'lead_lims2'
 });
 
 // Connect to the database

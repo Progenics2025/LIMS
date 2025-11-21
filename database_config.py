@@ -5,7 +5,7 @@ DATABASE_CONFIG = {
     'host': '192.168.29.11',
     'user': 'remote_user',
     'password': 'Prolab#05',  # Set your password here
-    'database': 'leadlab_lims',
+    'database': 'lead_lims2',
     'port': 3306,
     'charset': 'utf8mb4',
     'autocommit': True,

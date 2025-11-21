@@ -20,6 +20,7 @@ import fs from "fs";
 import { db, pool } from './db';
 import { sql } from 'drizzle-orm';
 import { generateRoleId } from './lib/generateRoleId';
+import { generateProjectId } from './lib/generateProjectId';
 import xlsx from "xlsx";
 import { ZodError } from 'zod';
 import multer from 'multer';
@@ -352,6 +353,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const normalized = normalizeDateFields(req.body);
+      
+      // Generate Project ID based on category (Clinical/Discovery) with timestamp
+      try {
+        if (!normalized.projectId && !normalized.project_id) {
+          const category = normalized.category || normalized.lead_type || 'clinical';
+          const projectId = await generateProjectId(String(category));
+          normalized.projectId = projectId;
+          normalized.project_id = projectId;
+          console.log(`Generated project ID for ${category} lead:`, projectId);
+        }
+      } catch (e) {
+        console.warn('generateProjectId failed for POST /api/leads', e);
+      }
+      
       const result = insertLeadSchema.safeParse(normalized);
       if (!result.success) {
         console.error('Lead validation failed on POST /api/leads:', JSON.stringify(result.error.errors, null, 2));
@@ -1279,7 +1294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // fallback to leadType or default
             if (!roleForId) roleForId = data.leadType || data.lead_type || 'admin';
 
-            const uid = generateRoleId(String(roleForId));
+            const uid = await generateRoleId(String(roleForId));
             data.unique_id = uid;
             data.uniqueId = uid;
           }

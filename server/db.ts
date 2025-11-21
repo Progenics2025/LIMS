@@ -11,7 +11,7 @@ function getDbConfig() {
     user: process.env.DB_USER || 'remote_user',
     // allow percent-encoded passwords in env (e.g. Prolab%2305) and decode them
     password: process.env.DB_PASSWORD ? (process.env.DB_PASSWORD.includes('%') ? decodeURIComponent(process.env.DB_PASSWORD) : process.env.DB_PASSWORD) : 'Prolab#05',
-    database: process.env.DB_NAME || 'leadlab_lims',
+    database: process.env.DB_NAME || 'lead_lims2',
     ssl: false,
     connectTimeout: 60000,
     charset: 'utf8mb4'

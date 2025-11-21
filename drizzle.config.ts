@@ -8,7 +8,7 @@ function getDbConfig() {
     port: parseInt(process.env.DB_PORT || '3306'),
     user: process.env.DB_USER || 'remote_user',
     password: decodeURIComponent(process.env.DB_PASSWORD || 'Prolab%2305'),
-    database: process.env.DB_NAME || 'leadlab_lims',
+    database: process.env.DB_NAME || 'lead_lims2',
   };
 }
 

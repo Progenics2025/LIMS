@@ -7,6 +7,7 @@ import { insertLeadSchema } from '@shared/schema';
 import { notificationService } from '../../services/NotificationService';
 import mysql from 'mysql2/promise';
 import { generateRoleId } from '../../lib/generateRoleId';
+import { generateProjectId } from '../../lib/generateProjectId';
 
 export class LeadManagementModule extends AbstractModule {
   name = 'lead-management';
@@ -75,6 +76,7 @@ export class LeadManagementModule extends AbstractModule {
         
         // Normalize date-like fields so zod `date()` validators accept ISO/date strings
         const bodyCopy = { ...req.body } as any;
+        
         // Server-side authoritative Unique ID: generate if not provided
         try {
           if (!bodyCopy.unique_id && !bodyCopy.uniqueId) {
@@ -95,13 +97,28 @@ export class LeadManagementModule extends AbstractModule {
 
             if (!roleForId) roleForId = bodyCopy.leadType || bodyCopy.lead_type || 'admin';
 
-            const uid = generateRoleId(String(roleForId));
+            // Generate unique ID with uniqueness check
+            const uid = await generateRoleId(String(roleForId));
             bodyCopy.unique_id = uid;
             bodyCopy.uniqueId = uid;
           }
         } catch (e) {
           console.warn('generateRoleId failed for /api/leads', e);
         }
+        
+        // Generate Project ID based on category (Clinical/Discovery) with timestamp
+        try {
+          if (!bodyCopy.projectId && !bodyCopy.project_id) {
+            const category = bodyCopy.category || bodyCopy.lead_type || 'clinical';
+            const projectId = await generateProjectId(String(category));
+            bodyCopy.projectId = projectId;
+            bodyCopy.project_id = projectId;
+            console.log(`Generated project ID for ${category} lead:`, projectId);
+          }
+        } catch (e) {
+          console.warn('generateProjectId failed for /api/leads', e);
+        }
+        
         const dateKeys = ['dateSampleCollected', 'pickupUpto', 'dateSampleReceived', 'pickupDate', 'sampleShippedDate'];
         for (const k of dateKeys) {
           if (bodyCopy[k] && typeof bodyCopy[k] === 'string') {
@@ -112,7 +129,7 @@ export class LeadManagementModule extends AbstractModule {
 
         const result = insertLeadSchema.safeParse(bodyCopy);
         if (!result.success) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: 'Invalid lead data', 
             errors: result.error.errors 
           });
