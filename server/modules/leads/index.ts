@@ -8,6 +8,7 @@ import { notificationService } from '../../services/NotificationService';
 import mysql from 'mysql2/promise';
 import { generateRoleId } from '../../lib/generateRoleId';
 import { generateProjectId } from '../../lib/generateProjectId';
+import { pool } from '../../db';
 
 export class LeadManagementModule extends AbstractModule {
   name = 'lead-management';
@@ -21,20 +22,19 @@ export class LeadManagementModule extends AbstractModule {
     try {
       // Check if leads table exists and has required columns
       const connection = await mysql.createConnection({
-        host: process.env.DB_HOST || '192.168.29.12',
+        host: process.env.DB_HOST || '192.168.29.11',
         user: process.env.DB_USER || 'remote_user',
         password: decodeURIComponent(process.env.DB_PASSWORD || 'Prolab%2305'),
-        database: process.env.DB_NAME || 'leadlab_lims',
+        database: process.env.DB_NAME || 'lead_lims2',
       });
       
-      const [rows] = await connection.execute('DESCRIBE leads');
+      const [rows] = await connection.execute('DESCRIBE lead_management');
       await connection.end();
       
       const columns = (rows as any[]).map(row => row.Field);
       const requiredColumns = [
-        'id', 'organization', 'location', 'referred_doctor', 'phone',
-        'email', 'client_email', 'test_name', 'sample_type', 'amount_quoted',
-        'tat', 'status', 'category'
+        'id', 'unique_id', 'project_id', 'lead_type', 'status',
+        'organisation_hospital', 'patient_client_name'
       ];
       
       const hasAllColumns = requiredColumns.every(col => 
@@ -109,11 +109,10 @@ export class LeadManagementModule extends AbstractModule {
         // Generate Project ID based on category (Clinical/Discovery) with timestamp
         try {
           if (!bodyCopy.projectId && !bodyCopy.project_id) {
-            const category = bodyCopy.category || bodyCopy.lead_type || 'clinical';
+            const category = bodyCopy.testCategory || bodyCopy.category || bodyCopy.lead_type || 'clinical';
             const projectId = await generateProjectId(String(category));
             bodyCopy.projectId = projectId;
             bodyCopy.project_id = projectId;
-            console.log(`Generated project ID for ${category} lead:`, projectId);
           }
         } catch (e) {
           console.warn('generateProjectId failed for /api/leads', e);
@@ -137,13 +136,126 @@ export class LeadManagementModule extends AbstractModule {
         
         const lead = await this.storage.createLead(result.data);
         
+        // Auto-create nutritional management record if required
+        console.log('Lead nutritionalCounsellingRequired check:', lead.nutritionalCounsellingRequired, 'Type:', typeof lead.nutritionalCounsellingRequired);
+        if (lead.nutritionalCounsellingRequired === true) {
+          try {
+            // Check if nutrition record already exists for this unique_id
+            const [existingNM] = await pool.execute(
+              'SELECT id FROM nutritional_management WHERE unique_id = ? LIMIT 1',
+              [lead.uniqueId]
+            ) as [any[], any];
+            
+            if (existingNM && existingNM.length > 0) {
+              console.log('Nutrition record already exists for unique_id:', lead.uniqueId, '- skipping auto-creation');
+            } else {
+              console.log('TRIGGERING nutritional management auto-creation for lead:', lead.id);
+              
+              const nutritionData = {
+              unique_id: lead.uniqueId || '',
+              project_id: lead.projectId || null,
+              service_name: lead.serviceName || null,
+              patient_client_name: lead.patientClientName || null,
+              age: lead.age ? Number(lead.age) : null,
+              gender: lead.gender || null,
+              created_by: lead.leadCreatedBy || 'system',
+              created_at: new Date(),
+            };
+            
+            console.log('Auto-creating nutritional record with data:', {
+              unique_id: nutritionData.unique_id,
+              patient_client_name: nutritionData.patient_client_name,
+              age: nutritionData.age,
+              service_name: nutritionData.service_name
+            });
+            
+            const keys = Object.keys(nutritionData);
+            const cols = keys.map(k => `\`${k}\``).join(',');
+            const placeholders = keys.map(() => '?').join(',');
+            const values = keys.map(k => nutritionData[k as keyof typeof nutritionData]);
+            
+            console.log('Executing SQL:', `INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`);
+            console.log('With values:', values);
+            
+            const [result]: any = await pool.execute(
+              `INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            
+            console.log('SQL execution result:', result);
+            console.log('Auto-created nutritional record for lead:', lead.id, 'NM Record ID:', result.insertId);
+            }
+          } catch (err) {
+            console.error('Failed to auto-create nutritional record for lead:', (err as Error).message);
+            console.error('Stack trace:', (err as Error).stack);
+            // Don't fail the request if nutritional record creation fails
+          }
+        }
+        
+        // Auto-create related records if required
+        console.log('Lead geneticCounselorRequired check:', lead.geneticCounselorRequired, 'Lead keys:', Object.keys(lead).filter(k => k.includes('genetic')));
+        if (lead.geneticCounselorRequired) {
+          try {
+            console.log('TRIGGERING genetic counselling auto-creation for lead:', lead.id);
+            
+            const gcData = {
+              unique_id: lead.uniqueId || '',
+              project_id: lead.projectId || null,
+              patient_client_name: lead.patientClientName || null,
+              patient_client_address: lead.patientClientAddress || null,
+              age: lead.age ? Number(lead.age) : null,
+              gender: lead.gender || null,
+              patient_client_email: lead.patientClientEmail || null,
+              patient_client_phone: lead.patientClientPhone || null,
+              clinician_researcher_name: lead.clinicianResearcherName || null,
+              organisation_hospital: lead.organisationHospital || null,
+              speciality: lead.speciality || null,
+              service_name: lead.serviceName || null,
+              budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
+              sample_type: lead.sampleType || null,
+              sales_responsible_person: lead.salesResponsiblePerson || null,
+              created_by: lead.leadCreatedBy || 'system',
+              created_at: new Date(),
+            };
+            
+            console.log('Auto-creating genetic counselling record with data:', {
+              unique_id: gcData.unique_id,
+              patient_client_name: gcData.patient_client_name,
+              patient_client_address: gcData.patient_client_address,
+              age: gcData.age,
+              service_name: gcData.service_name,
+              sample_type: gcData.sample_type
+            });
+            
+            const keys = Object.keys(gcData);
+            const cols = keys.map(k => `\`${k}\``).join(',');
+            const placeholders = keys.map(() => '?').join(',');
+            const values = keys.map(k => gcData[k as keyof typeof gcData]);
+            
+            console.log('Executing SQL:', `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
+            console.log('With values:', values);
+            
+            const [result]: any = await pool.execute(
+              `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            
+            console.log('SQL execution result:', result);
+            console.log('Auto-created genetic counselling record for lead:', lead.id, 'GC Record ID:', result.insertId);
+          } catch (err) {
+            console.error('Failed to auto-create genetic counselling record for lead:', (err as Error).message);
+            console.error('Stack trace:', (err as Error).stack);
+            // Don't fail the request if genetic counselling record creation fails
+          }
+        }
+        
         // Send notification for new lead creation
-        console.log('Lead created in module, sending notification for:', lead.id, lead.organization);
+        console.log('Lead created in module, sending notification for:', lead.id, lead.organisationHospital);
         try {
           await notificationService.notifyLeadCreated(
             lead.id, 
-            lead.organization, 
-            lead.createdBy || 'system'
+            String(lead.organisationHospital ?? ''), 
+            lead.leadCreatedBy ?? 'system'
           );
           console.log('Lead creation notification sent successfully from module');
         } catch (notificationError) {
@@ -275,15 +387,15 @@ export class LeadManagementModule extends AbstractModule {
           if (conversion.lead && conversion.sample) {
             await notificationService.notifyLeadConverted(
               conversion.lead.id,
-              conversion.lead.organization,
-              conversion.sample.id,
-              conversion.lead.createdBy || 'system'
+              String(conversion.lead.organisationHospital ?? ''),
+              String(conversion.sample.id),
+              conversion.lead.leadCreatedBy || 'system'
             );
             
             await notificationService.notifySampleReceived(
-              conversion.sample.id,
-              conversion.lead.organization,
-              conversion.lead.createdBy || 'system'
+              String(conversion.sample.id),
+              String(conversion.lead.organisationHospital ?? ''),
+              conversion.lead.leadCreatedBy || 'system'
             );
             
             console.log('Lead conversion notifications sent successfully from module');

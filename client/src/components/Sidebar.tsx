@@ -46,14 +46,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Explicit allowed pages per role according to requirements.
   const pagesByRole: Record<string, string[]> = {
   admin: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle','admin'],
-  manager: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle','admin'],
+  manager: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle'],
   operations: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle','admin'],
-  reporting: ['dashboard','leads','finance','lab','genetic','bioinformatics','reports','recycle'],
-  lab: ['dashboard','leads','samples','lab'],
-  genetic_counselling: ['dashboard','leads','samples'],
-  genetic: ['dashboard','leads','samples'],
-  sales: ['dashboard','leads','process_master','samples','reports'],
-  bioinformatics: ['dashboard','leads','samples','lab'],
+  reporting: ['leads','finance','lab','genetic','bioinformatics','reports',],
+  nutritionist: ['leads','reports','nutrition'],
+  lab: ['leads','samples','lab'],
+  genetic_counselling: ['leads','samples'],
+  genetic: ['leads','samples'],
+  sales: ['leads','samples','reports'],
+  bioinformatics: ['leads','samples','lab'],
   };
 
   const allowedPages = pagesByRole[userRole] ?? pagesByRole['admin'];

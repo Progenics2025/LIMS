@@ -249,6 +249,7 @@ export default function AdminPanel() {
       lab: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
       bioinformatics: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300",
       reporting: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
+      nutritionist: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300",
     };
     return colors[role as keyof typeof colors] || colors.sales;
   };
@@ -327,8 +328,9 @@ export default function AdminPanel() {
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="operations">Operations</SelectItem>
                     <SelectItem value="finance">Finance</SelectItem>
-                    <SelectItem value="lab">Lab Technician</SelectItem>
+                    <SelectItem value="lab">Lab Associate</SelectItem>
                     <SelectItem value="bioinformatics">Bioinformatics</SelectItem>
+                    <SelectItem value="nutritionist">Nutritionist</SelectItem>
                     <SelectItem value="reporting">Reporting</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="admin">Administrator</SelectItem>
@@ -392,8 +394,9 @@ export default function AdminPanel() {
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="operations">Operations</SelectItem>
                     <SelectItem value="finance">Finance</SelectItem>
-                    <SelectItem value="lab">Lab Technician</SelectItem>
+                    <SelectItem value="lab">Lab Associate</SelectItem>
                     <SelectItem value="bioinformatics">Bioinformatics</SelectItem>
+                    <SelectItem value="nutritionist">Nutritionist</SelectItem>
                     <SelectItem value="reporting">Reporting</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="admin">Administrator</SelectItem>
@@ -468,8 +471,9 @@ export default function AdminPanel() {
                               <SelectItem value="sales">Sales</SelectItem>
                               <SelectItem value="operations">Operations</SelectItem>
                               <SelectItem value="finance">Finance</SelectItem>
-                              <SelectItem value="lab">Lab Technician</SelectItem>
+                              <SelectItem value="lab">Lab Associate</SelectItem>
                               <SelectItem value="bioinformatics">Bioinformatics</SelectItem>
+                              <SelectItem value="nutritionist">Nutritionist</SelectItem>
                               <SelectItem value="reporting">Reporting</SelectItem>
                               <SelectItem value="manager">Manager</SelectItem>
                               <SelectItem value="admin">Administrator</SelectItem>

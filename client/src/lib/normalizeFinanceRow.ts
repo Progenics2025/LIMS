@@ -9,6 +9,7 @@ export default function normalizeFinanceRow(rec: any) {
 
   return {
     id: fr.id,
+    projectId: fr.projectId ?? fr.project_id ?? sample?.projectId ?? sample?.project_id ?? lead?.projectId ?? lead?.project_id ?? null,
   titleUniqueId: fr.titleUniqueId ?? fr.title_unique_id ?? lead?.id ?? null,
     sampleId: fr.sampleId ?? fr.sample_id ?? sample?.sampleId ?? sample?.sample_id ?? null,
     dateSampleCollected: fr.dateSampleCollected ?? fr.date_sample_collected ?? sample?.sampleCollectedDate ?? sample?.sample_collected_date ?? null,

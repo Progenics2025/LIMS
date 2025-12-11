@@ -80,9 +80,9 @@ interface PerformanceMetrics {
   const processedReports = useMemo(() => {
     return reports.map(report => {
       // Calculate deadline based on sample received date and TAT
-      // If sample received date is missing, use created_at as fallback
-      const regDate = new Date(report.sample?.lead?.dateSampleReceived || report.sample?.lead?.createdAt || new Date());
-      const tatHours = (report.sample?.lead?.tat || 0) * 24; // TAT is in days
+      // If sample received date is missing, use leadCreated as fallback
+      const regDate = new Date(report.sample?.lead?.sampleReceivedDate || report.sample?.lead?.leadCreated || new Date());
+      const tatHours = (Number(report.sample?.lead?.tat) || 0) * 24; // TAT is in days
       const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
       const diffMs = deadline.getTime() - currentTime.getTime();
       const diffHrs = diffMs / (1000 * 60 * 60);
@@ -406,9 +406,9 @@ interface PerformanceMetrics {
                       report.urgency === 'warning' ? 'bg-yellow-500' : 'bg-emerald-500'
                     }`}></div>
                     <div>
-                      <h4 className="font-bold text-slate-700 group-hover:text-[#0085CA] transition-colors">{report.sample?.lead?.testName || 'Unknown Test'}</h4>
+                      <h4 className="font-bold text-slate-700 group-hover:text-[#0085CA] transition-colors">{report.sample?.lead?.serviceName || 'Unknown Test'}</h4>
                       <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
-                        <span className="bg-slate-100 px-1.5 rounded text-xs font-medium text-slate-600">{report.sample?.sampleId}</span>
+                        <span className="bg-slate-100 px-1.5 rounded text-xs font-medium text-slate-600">{report.sample?.uniqueId}</span>
                         {report.sample?.lead?.patientClientName || 'Unknown Patient'}
                       </p>
                     </div>

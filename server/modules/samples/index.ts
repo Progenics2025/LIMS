@@ -22,11 +22,11 @@ export class SampleTrackingModule extends AbstractModule {
         database: process.env.DB_NAME || 'leadlab_lims',
       });
       
-      const [rows] = await connection.execute('DESCRIBE samples');
+      const [rows] = await connection.execute('DESCRIBE sample_tracking');
       await connection.end();
       
       const columns = (rows as any[]).map(row => row.Field);
-      const requiredColumns = ['id', 'sample_id', 'lead_id', 'status', 'amount', 'paid_amount'];
+      const requiredColumns = ['id', 'unique_id', 'project_id', 'tracking_id', 'organisation_hospital'];
       
       const hasAllColumns = requiredColumns.every(col => columns.includes(col));
       

@@ -16,68 +16,47 @@ export class FinanceModule extends AbstractModule {
     const offset = (page - 1) * pageSize;
     const like = `%${query}%`;
 
-    // Define searchable columns
     const searchCols = [
+      'fr.unique_id',
       'fr.invoice_number',
-      'fr.id',
-      'fr.sample_id',
-      's.sample_id',
-      'fr.patient_name',
-      'fr.organization',
-      'l.organization',
-      'fr.title_unique_id',
-      'lp.title_unique_id',
-      'fr.clinician',
-      'l.referred_doctor',
-      'fr.city',
-      'l.location',
-      'fr.service_name', 
-      'l.service_name',
-      'fr.patient_name',
-      'l.patient_client_name',
+      'fr.patient_client_name',
+      'fr.organisation_hospital',
+      'fr.service_name',
       'fr.sales_responsible_person',
-      'l.sales_responsible_person',
-      'fr.payment_status',
-      'fr.payment_method',
-      'COALESCE(fr.title_unique_id, lp.title_unique_id)'
+      'fr.mode_of_payment',
+      'fr.transactional_number',
+      'fr.third_party_name',
+      's.organisation_hospital',
+      's.patient_client_name',
+      'l.organisation_hospital',
+      'l.patient_client_name'
     ];
 
-    // Build WHERE clause
     const whereClauses = searchCols.map(col => `${col} LIKE ?`);
     const whereClause = `WHERE ${whereClauses.join(' OR ')}`;
-    
-    // Build ORDER BY clause
+
     const orderClause = sortBy 
       ? `ORDER BY ${sortBy} ${sortDir.toUpperCase()}`
       : 'ORDER BY fr.created_at DESC';
 
-    // Main query
     const sql = `
       SELECT 
-        fr.*,
-        s.id as s_id,
-        s.sample_id as s_sample_id,
-        s.*,
-        l.*,
-        lp.title_unique_id as lp_title_unique_id,
-        COALESCE(fr.title_unique_id, lp.title_unique_id) as effective_title_unique_id
-      FROM finance_records fr
-      LEFT JOIN samples s ON fr.sample_id = s.id OR fr.lead_id = s.lead_id
-      LEFT JOIN leads l ON fr.lead_id = l.id OR s.lead_id = l.id
-      LEFT JOIN lab_processing lp ON (s.id = lp.sample_id OR fr.sample_id = lp.sample_id)
+        fr.*, 
+        s.organisation_hospital AS sample_organisation,
+        l.organisation_hospital AS lead_organisation
+      FROM finance_sheet fr
+      LEFT JOIN sample_tracking s ON s.project_id = fr.project_id
+      LEFT JOIN lead_management l ON l.project_id = fr.project_id
       ${whereClause}
-      GROUP BY fr.id
       ${orderClause}
       LIMIT ? OFFSET ?
     `;
 
-    // Count query
     const countSql = `
       SELECT COUNT(DISTINCT fr.id) as cnt
-      FROM finance_records fr
-      LEFT JOIN samples s ON fr.sample_id = s.id OR fr.lead_id = s.lead_id
-      LEFT JOIN leads l ON fr.lead_id = l.id OR s.lead_id = l.id
-      LEFT JOIN lab_processing lp ON (s.id = lp.sample_id OR fr.sample_id = lp.sample_id)
+      FROM finance_sheet fr
+      LEFT JOIN sample_tracking s ON s.project_id = fr.project_id
+      LEFT JOIN lead_management l ON l.project_id = fr.project_id
       ${whereClause}
     `;
 
@@ -124,11 +103,11 @@ export class FinanceModule extends AbstractModule {
         database: process.env.DB_NAME || 'leadlab_lims',
       });
       
-      const [rows] = await connection.execute('DESCRIBE finance_records');
+      const [rows] = await connection.execute('DESCRIBE finance_sheet');
       await connection.end();
       
       const columns = (rows as any[]).map(row => row.Field);
-      const requiredColumns = ['id', 'sample_id', 'lead_id', 'invoice_number', 'amount', 'payment_status'];
+      const requiredColumns = ['id', 'unique_id', 'project_id', 'invoice_number', 'organisation_hospital'];
       
       const hasAllColumns = requiredColumns.every(col => columns.includes(col));
       

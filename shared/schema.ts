@@ -1,7 +1,11 @@
 import { sql } from "drizzle-orm";
-import { mysqlTable, varchar, text, int, timestamp, boolean, decimal, json } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, int, timestamp, boolean, decimal, json, bigint } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Helper to convert empty strings to null for date preprocessing
+const emptyToNull = (val: unknown) =>
+  val === "" || val === null || val === undefined ? null : val;
 
 export const users = mysqlTable("users", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -15,56 +19,49 @@ export const users = mysqlTable("users", {
 });
 
 // Enhanced leads table to accommodate more fields from Excel sheets
-export const leads = mysqlTable("leads", {
+export const leads = mysqlTable("lead_management", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  organization: varchar("organization", { length: 255 }).notNull(),
-  location: varchar("location", { length: 255 }).notNull(),
-  referredDoctor: varchar("referred_doctor", { length: 255 }).notNull(),
-  clinicHospitalName: varchar("clinic_hospital_name", { length: 255 }),
-  phone: varchar("phone", { length: 50 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull(),
-  clientEmail: varchar("client_email", { length: 255 }).notNull(),
-  testName: varchar("test_name", { length: 255 }).notNull(),
-  sampleType: varchar("sample_type", { length: 255 }).notNull(),
-  amountQuoted: decimal("amount_quoted", { precision: 10, scale: 2 }).notNull(),
-  tat: int("tat").notNull(), // days
-  status: varchar("status", { length: 50 }).default("quoted"), // quoted, cold, hot, won, converted, closed
-  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-  createdBy: varchar("created_by", { length: 36 }),
-  convertedAt: timestamp("converted_at"),
-  category: varchar("category", { length: 50 }).default("clinical"), // clinical, discovery
-  // Discovery-specific fields
-  discoveryOrganization: varchar("discovery_organization", { length: 255 }),
-  clinicianName: varchar("clinician_name", { length: 255 }),
-  specialty: varchar("specialty", { length: 255 }),
-  clinicianOrgEmail: varchar("clinician_org_email", { length: 255 }),
-  clinicianOrgPhone: varchar("clinician_org_phone", { length: 50 }),
-  serviceName: varchar("service_name", { length: 255 }),
-  // pickupFrom: varchar("pickup_from", { length: 255 }), // Moved to sample tracking
-  // deliveryUpto: varchar("delivery_upto", { length: 255 }), // Moved to sample tracking
-  discoveryStatus: varchar("discovery_status", { length: 100 }),
-  followUp: varchar("follow_up", { length: 255 }),
+  uniqueId: varchar("unique_id", { length: 100 }).notNull(),
+  projectId: varchar("project_id", { length: 100 }),
   leadType: varchar("lead_type", { length: 100 }),
-  budget: decimal("budget", { precision: 10, scale: 2 }),
-  // sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }), // Moved to sample tracking
-  noOfSamples: int("no_of_samples"),
+  status: varchar("status", { length: 50 }).default("quoted"),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+  speciality: varchar("speciality", { length: 255 }),
+  clinicianResearcherEmail: varchar("clinician_researcher_email", { length: 255 }),
+  clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 50 }),
+  clinicianResearcherAddress: varchar("clinician_researcher_address", { length: 500 }),
   patientClientName: varchar("patient_client_name", { length: 255 }),
   age: int("age"),
   gender: varchar("gender", { length: 20 }),
-  patientClientPhone: varchar("patient_client_phone", { length: 50 }),
   patientClientEmail: varchar("patient_client_email", { length: 255 }),
-  salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
-  geneticCounsellorRequired: boolean("genetic_counsellor_required").default(false),
-  dateSampleReceived: timestamp("date_sample_received"),
-  dateSampleCollected: timestamp("date_sample_collected"),
-  // Pickup / tracking fields (some apps move these to samples/logistics, but adding here per request)
-  pickupFrom: varchar("pickup_from", { length: 255 }),
-  pickupUpto: timestamp("pickup_upto"),
-  shippingAmount: decimal("shipping_amount", { precision: 10, scale: 2 }),
+  patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+  patientClientAddress: varchar("patient_client_address", { length: 500 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  sampleType: varchar("sample_type", { length: 255 }),
+  testCategory: varchar("test_category", { length: 50 }),
+  noOfSamples: int("no_of_samples"),
+  budget: decimal("budget", { precision: 10, scale: 2 }),
+  amountQuoted: decimal("amount_quoted", { precision: 10, scale: 2 }),
+  tat: varchar("tat", { length: 50 }),
+  sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }),
+  phlebotomistCharges: decimal("phlebotomist_charges", { precision: 10, scale: 2 }),
+  geneticCounselorRequired: boolean("genetic_counselor_required").default(false),
+  nutritionalCounsellingRequired: boolean("nutritional_counselling_required").default(false),
+  samplePickUpFrom: varchar("sample_pick_up_from", { length: 500 }),
+  deliveryUpTo: timestamp("delivery_up_to", { mode: "date" }),
+  sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+  sampleShippedDate: timestamp("sample_shipped_date", { mode: "date" }),
+  sampleReceivedDate: timestamp("sample_recevied_date", { mode: "date" }),
   trackingId: varchar("tracking_id", { length: 100 }),
   courierCompany: varchar("courier_company", { length: 255 }),
-  progenicsTRF: varchar("progenics_trf", { length: 255 }),
-  phlebotomistCharges: decimal("phlebotomist_charges", { precision: 10, scale: 2 }),
+  progenicsTrf: varchar("progenics_trf", { length: 255 }),
+  followUp: varchar("follow_up", { length: 500 }),
+  remarkComment: text("Remark_Comment"),
+  leadCreatedBy: varchar("lead_created_by", { length: 36 }),
+  salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
+  leadCreated: timestamp("lead_created", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  leadModified: timestamp("lead_modified", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const leadTrfs = mysqlTable('lead_trfs', {
@@ -76,41 +73,35 @@ export const leadTrfs = mysqlTable('lead_trfs', {
 });
 
 // Enhanced samples table
-export const samples = mysqlTable("samples", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  sampleId: varchar("sample_id", { length: 64 }).notNull().unique(),
-  leadId: varchar("lead_id", { length: 36 }).notNull(),
-  status: varchar("status", { length: 50 }).default("pickup_scheduled"), // pickup_scheduled, in_transit, received, lab_processing, bioinformatics, reporting, completed
-  courierDetails: json("courier_details"),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0"),
+export const samples = mysqlTable("sample_tracking", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 80 }),
+  projectId: varchar("project_id", { length: 80 }),
+  sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+  sampleShippedDate: timestamp("sample_shipped_date", { mode: "date" }),
+  sampleDeliveryDate: timestamp("sample_delivery_date", { mode: "date" }),
+  samplePickUpFrom: varchar("sample_pick_up_from", { length: 255 }),
+  deliveryUpTo: varchar("delivery_up_to", { length: 255 }),
+  trackingId: varchar("tracking_id", { length: 120 }),
+  courierCompany: varchar("courier_company", { length: 200 }),
+  sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 200 }),
+  clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 60 }),
+  patientClientName: varchar("patient_client_name", { length: 200 }),
+  patientClientPhone: varchar("patient_client_phone", { length: 60 }),
+  sampleReceivedDate: timestamp("sample_recevied_date", { mode: "date" }),
+  salesResponsiblePerson: varchar("sales_responsible_person", { length: 200 }),
+  thirdPartyName: varchar("third_party_name", { length: 200 }),
+  thirdPartyPhone: varchar("third_party_phone", { length: 60 }),
+  thirdPartyReport: varchar("third_party_report", { length: 500 }),
+  thirdPartyTrf: varchar("third_party_trf", { length: 500 }),
+  sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+  sampleReceivedToThirdPartyDate: timestamp("sample_received_to_third_party_date", { mode: "date" }),
+  alertToLabprocessTeam: boolean("alert_to_labprocess_team").default(false),
   createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-  // New tracking fields (mirrors migrations)
-  sampleCollectedDate: timestamp("sample_collected_date"),
-  sampleShippedDate: timestamp("sample_shipped_date"),
-  sampleDeliveryDate: timestamp("sample_delivery_date"),
-  responsiblePerson: varchar("responsible_person", { length: 255 }),
-  organization: varchar("organization", { length: 255 }),
-  senderCity: varchar("sender_city", { length: 255 }),
-  senderContact: varchar("sender_contact", { length: 100 }),
-  receiverAddress: text("receiver_address"),
-  trackingId: varchar("tracking_id", { length: 100 }),
-  courierCompany: varchar("courier_company", { length: 100 }),
-  labAlertStatus: varchar("lab_alert_status", { length: 50 }).default("pending"),
-  thirdPartyName: varchar("third_party_name", { length: 255 }),
-  thirdPartyContractDetails: text("third_party_contract_details"),
-  thirdPartySentDate: timestamp("third_party_sent_date"),
-  thirdPartyReceivedDate: timestamp("third_party_received_date"),
-  comments: text("comments"),
-  // Lab routing and tracking fields
-  labDestination: varchar("lab_destination", { length: 100 }).default("internal"), // internal, third_party
-  thirdPartyLab: varchar("third_party_lab", { length: 255 }),
-  thirdPartyAddress: text("third_party_address"),
-  courierPartner: varchar("courier_partner", { length: 100 }),
-  pickupDate: timestamp("pickup_date"),
-  trackingNumber: varchar("tracking_number", { length: 100 }),
-  shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }),
-  specialInstructions: text("special_instructions"),
+  createdBy: varchar("created_by", { length: 80 }),
+  remarkComment: text("remark_comment"),
 });
 
 // Enhanced lab processing table
@@ -160,6 +151,70 @@ export const labProcessing = mysqlTable("lab_processing", {
   progenicsTrf: varchar("progenics_trf", { length: 255 }),
 });
 
+export const labProcessDiscoverySheet = mysqlTable("labprocess_discovery_sheet", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+  projectId: varchar("project_id", { length: 255 }),
+  sampleId: varchar("sample_id", { length: 255 }),
+  clientId: varchar("client_id", { length: 255 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  sampleType: varchar("sample_type", { length: 255 }),
+  noOfSamples: int("no_of_samples"),
+  sampleReceivedDate: timestamp("sample_received_date", { mode: "date" }),
+  extractionProtocol: varchar("extraction_protocol", { length: 255 }),
+  extractionQualityCheck: varchar("extraction_quality_check", { length: 255 }),
+  extractionQcStatus: varchar("extraction_qc_status", { length: 100 }),
+  extractionProcess: varchar("extraction_process", { length: 255 }),
+  libraryPreparationProtocol: varchar("library_preparation_protocol", { length: 255 }),
+  libraryPreparationQualityCheck: varchar("library_preparation_quality_check", { length: 255 }),
+  libraryPreparationQcStatus: varchar("library_preparation_qc_status", { length: 100 }),
+  libraryPreparationProcess: varchar("library_preparation_process", { length: 255 }),
+  purificationProtocol: varchar("purification_protocol", { length: 255 }),
+  purificationQualityCheck: varchar("purification_quality_check", { length: 255 }),
+  purificationQcStatus: varchar("purification_qc_status", { length: 100 }),
+  purificationProcess: varchar("purification_process", { length: 255 }),
+  alertToBioinformaticsTeam: boolean("alert_to_bioinformatics_team").default(false),
+  alertToTechnicalLeadd: boolean("alert_to_technical_leadd").default(false),
+  progenicsTrf: varchar("progenics_trf", { length: 255 }),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
+});
+
+export const labProcessClinicalSheet = mysqlTable("labprocess_clinical_sheet", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+  projectId: varchar("project_id", { length: 255 }),
+  sampleId: varchar("sample_id", { length: 255 }),
+  clientId: varchar("client_id", { length: 255 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  sampleType: varchar("sample_type", { length: 255 }),
+  noOfSamples: int("no_of_samples"),
+  sampleReceivedDate: timestamp("sample_received_date", { mode: "date" }),
+  extractionProtocol: varchar("extraction_protocol", { length: 255 }),
+  extractionQualityCheck: varchar("extraction_quality_check", { length: 255 }),
+  extractionQcStatus: varchar("extraction_qc_status", { length: 100 }),
+  extractionProcess: varchar("extraction_process", { length: 255 }),
+  libraryPreparationProtocol: varchar("library_preparation_protocol", { length: 255 }),
+  libraryPreparationQualityCheck: varchar("library_preparation_quality_check", { length: 255 }),
+  libraryPreparationQcStatus: varchar("library_preparation_qc_status", { length: 100 }),
+  libraryPreparationProcess: varchar("library_preparation_process", { length: 255 }),
+  purificationProtocol: varchar("purification_protocol", { length: 255 }),
+  purificationQualityCheck: varchar("purification_quality_check", { length: 255 }),
+  purificationQcStatus: varchar("purification_qc_status", { length: 100 }),
+  purificationProcess: varchar("purification_process", { length: 255 }),
+  alertToBioinformaticsTeam: boolean("alert_to_bioinformatics_team").default(false),
+  alertToTechnicalLead: boolean("alert_to_technical_lead").default(false),
+  progenicsTrf: varchar("progenics_trf", { length: 255 }),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
+});
+
 // Enhanced reports table
 export const reports = mysqlTable("reports", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -185,106 +240,96 @@ export const reports = mysqlTable("reports", {
 });
 
 // Genetic counselling table
-export const geneticCounselling = mysqlTable("genetic_counselling", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  sampleId: varchar("sample_id", { length: 64 }).notNull(),
-  uniqueId: varchar("unique_id", { length: 100 }),
-  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-  gcRegistrationStartTime: timestamp("gc_registration_start_time"),
-  gcRegistrationEndTime: timestamp("gc_registration_end_time"),
-  clientName: varchar("client_name", { length: 255 }),
-  clientContact: varchar("client_contact", { length: 100 }),
-  clientEmail: varchar("client_email", { length: 255 }),
+export const geneticCounselling = mysqlTable("genetic_counselling_records", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull(),
+  projectId: varchar("project_id", { length: 255 }),
+  counsellingDate: timestamp("counselling_date", { mode: "date" }),
+  gcRegistrationStartTime: varchar("gc_registration_start_time", { length: 20 }),
+  gcRegistrationEndTime: varchar("gc_registration_end_time", { length: 20 }),
+  patientClientName: varchar("patient_client_name", { length: 255 }),
   age: int("age"),
-  sex: varchar("sex", { length: 20 }),
-  paymentStatus: varchar("payment_status", { length: 50 }),
-  paymentMethod: varchar("payment_method", { length: 50 }),
-  approvalFromHead: varchar("approval_from_head", { length: 255 }),
-  referralDoctor: varchar("referral_doctor", { length: 255 }),
-  organization: varchar("organization", { length: 255 }),
-  specialty: varchar("specialty", { length: 255 }),
-  query: text("query"),
-  gcName: varchar("gc_name", { length: 255 }).notNull(),
-  gcOtherMembers: text("gc_other_members"),
+  gender: varchar("gender", { length: 20 }),
+  patientClientEmail: varchar("patient_client_email", { length: 255 }),
+  patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+  patientClientAddress: varchar("patient_client_address", { length: 255 }),
+  paymentStatus: varchar("payment_status", { length: 100 }),
+  modeOfPayment: varchar("mode_of_payment", { length: 100 }),
+  approvalFromHead: boolean("approval_from_head").default(false),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  speciality: varchar("speciality", { length: 255 }),
+  querySuspection: varchar("query_suspection", { length: 500 }),
+  gcName: varchar("gc_name", { length: 255 }),
+  gcOtherMembers: varchar("gc_other_members", { length: 255 }),
   serviceName: varchar("service_name", { length: 255 }),
-  counsellingType: varchar("counselling_type", { length: 100 }),
-  counsellingStartTime: timestamp("counselling_start_time", { mode: "date" }),
-  counsellingEndTime: timestamp("counselling_end_time", { mode: "date" }),
+  counselingType: varchar("counseling_type", { length: 255 }),
+  counselingStartTime: varchar("counseling_start_time", { length: 20 }),
+  counselingEndTime: varchar("counseling_end_time", { length: 20 }),
   budgetForTestOpted: decimal("budget_for_test_opted", { precision: 10, scale: 2 }),
-  testingStatus: varchar("testing_status", { length: 100 }),
-  potentialPatientForTestingFuture: boolean("potential_patient_for_testing_future").default(false),
-  extendedFamilyTesting: boolean("extended_family_testing").default(false),
+  testingStatus: varchar("testing_status", { length: 255 }),
+  actionRequired: varchar("action_required", { length: 255 }),
+  potentialPatientForTestingInFuture: boolean("potential_patient_for_testing_in_future").default(false),
+  extendedFamilyTestingRequirement: boolean("extended_family_testing_requirement").default(false),
   budget: decimal("budget", { precision: 10, scale: 2 }),
-  sampleType: varchar("sample_type", { length: 100 }),
-  createdBy: varchar("created_by", { length: 36 }),
-  gcSummary: text("gc_summary"),
+  sampleType: varchar("sample_type", { length: 255 }),
   gcSummarySheet: text("gc_summary_sheet"),
-  gcfVideoLinks: text("gcf_video_links"),
-  modifiedAt: timestamp("modified_at"),
-  assignedToSalesPerson: varchar("assigned_to_sales_person", { length: 36 }),
-  
-  // keep existing approvalStatus compatibility
-  approvalStatus: varchar("approval_status", { length: 50 }).default("pending"),
-  // preserve auto-created timestamp
-  // createdAt already defined above
-  // existing fields end
-  // Note: `counsellingStartTime` / `counsellingEndTime` are mapped above to snake_case columns
+  gcVideoLink: varchar("gc_video_link", { length: 500 }),
+  gcAudioLink: varchar("gc_audio_link", { length: 500 }),
+  salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
 });
 
 // New table for finance records
-export const financeRecords = mysqlTable("finance_records", {
-  id: varchar("id", { length: 36 }).primaryKey(),
-  sampleId: varchar("sample_id", { length: 36 }),
-  leadId: varchar("lead_id", { length: 36 }),
-  invoiceNumber: varchar("invoice_number", { length: 100 }).unique(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  paymentStatus: varchar("payment_status", { length: 50 }).default("pending"), // pending, partial, paid, overdue
-  paymentMethod: varchar("payment_method", { length: 50 }),
-  paymentDate: timestamp("payment_date"),
-  dueDate: timestamp("due_date"),
-  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-  // Additional fields from Excel sheets
-  currency: varchar("currency", { length: 10 }).default("INR"),
-  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
-  discountReason: varchar("discount_reason", { length: 255 }),
-  billingAddress: text("billing_address"),
-  billingContact: varchar("billing_contact", { length: 255 }),
-  paymentTerms: varchar("payment_terms", { length: 100 }),
-  lateFees: decimal("late_fees", { precision: 10, scale: 2 }).default("0"),
-  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default("0"),
-  refundReason: varchar("refund_reason", { length: 255 }),
-  notes: text("notes"),
-  // Fields used by the Finance UI (added to match client form)
-  titleUniqueId: varchar("title_unique_id", { length: 100 }),
-  dateSampleCollected: timestamp("date_sample_collected"),
-  organization: varchar("organization", { length: 255 }),
-  clinician: varchar("clinician", { length: 255 }),
-  city: varchar("city", { length: 255 }),
-  patientName: varchar("patient_name", { length: 255 }),
-  patientEmail: varchar("patient_email", { length: 255 }),
-  patientPhone: varchar("patient_phone", { length: 50 }),
+export const financeRecords = mysqlTable("finance_sheet", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull(),
+  projectId: varchar("project_id", { length: 255 }).notNull(),
+  sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+  clinicianResearcherEmail: varchar("clinician_researcher_email", { length: 255 }),
+  clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 50 }),
+  clinicianResearcherAddress: varchar("clinician_researcher_address", { length: 255 }),
+  patientClientName: varchar("patient_client_name", { length: 255 }),
+  patientClientEmail: varchar("patient_client_email", { length: 255 }),
+  patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+  patientClientAddress: varchar("patient_client_address", { length: 255 }),
   serviceName: varchar("service_name", { length: 255 }),
   budget: decimal("budget", { precision: 10, scale: 2 }),
-  salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
-  invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }),
-  invoiceDate: timestamp("invoice_date"),
-  paymentReceivedAmount: decimal("payment_received_amount", { precision: 10, scale: 2 }),
-  utrDetails: varchar("utr_details", { length: 255 }),
-  balanceAmountReceivedDate: timestamp("balance_amount_received_date"),
-  totalPaymentReceivedStatus: varchar("total_payment_received_status", { length: 100 }),
   phlebotomistCharges: decimal("phlebotomist_charges", { precision: 10, scale: 2 }),
+  salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
   sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }),
+  invoiceNumber: varchar("invoice_number", { length: 255 }),
+  invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }),
+  invoiceDate: timestamp("invoice_date", { mode: "date" }),
+  paymentReceiptAmount: decimal("payment_receipt_amount", { precision: 10, scale: 2 }),
+  balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }),
+  paymentReceiptDate: timestamp("payment_receipt_date", { mode: "date" }),
+  modeOfPayment: varchar("mode_of_payment", { length: 100 }),
+  transactionalNumber: varchar("transactional_number", { length: 255 }),
+  balanceAmountReceivedDate: timestamp("balance_amount_received_date", { mode: "date" }),
+  totalAmountReceivedStatus: boolean("total_amount_received_status").default(false),
+  utrDetails: varchar("utr_details", { length: 255 }),
   thirdPartyCharges: decimal("third_party_charges", { precision: 10, scale: 2 }),
   otherCharges: decimal("other_charges", { precision: 10, scale: 2 }),
+  otherChargesReason: varchar("other_charges_reason", { length: 255 }),
   thirdPartyName: varchar("third_party_name", { length: 255 }),
-  thirdPartyContractDetails: text("third_party_contract_details"),
-  thirdPartyPaymentStatus: varchar("third_party_payment_status", { length: 100 }),
-  progenicsTrf: varchar("progenics_trf", { length: 255 }),
-  approveToLabProcess: boolean("approve_to_lab_process").default(false),
-  approveToReportProcess: boolean("approve_to_report_process").default(false),
-  createdBy: varchar("created_by", { length: 36 }),
+  thirdPartyPhone: varchar("third_party_phone", { length: 50 }),
+  thirdPartyPaymentDate: timestamp("third_party_payment_date", { mode: "date" }),
+  thirdPartyPaymentStatus: boolean("third_party_payment_status").default(false),
+  alertToLabprocessTeam: boolean("alert_to_labprocess_team").default(false),
+  alertToReportTeam: boolean("alert_to_report_team").default(false),
+  alertToTechnicalLead: boolean("alert_to_technical_lead").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
 });
 
 // New table for logistics tracking
@@ -414,20 +459,72 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
-  createdAt: true,
-  convertedAt: true,
+  leadCreated: true,
+  leadModified: true,
+}).extend({
+  // Preprocess date fields: convert empty strings to null, then coerce to Date
+  deliveryUpTo: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleCollectionDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleReceivedDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
 });
 
 export const insertSampleSchema = createInsertSchema(samples).omit({
   id: true,
   createdAt: true,
-  sampleId: true, // generated server-side
+}).extend({
+  // Preprocess date fields: convert empty strings to null, then coerce to Date
+  sampleCollectionDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleShippedDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleDeliveryDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleReceivedDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleSentToThirdPartyDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  sampleReceivedToThirdPartyDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
 });
 
 export const insertLabProcessingSchema = createInsertSchema(labProcessing).omit({
   id: true,
   processedAt: true,
 });
+
+export const insertLabProcessDiscoverySheetSchema = createInsertSchema(labProcessDiscoverySheet).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+}).extend({
+  // Preprocess date fields: convert empty strings to null, then coerce to Date
+  sampleReceivedDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+}).passthrough();
+
+export const insertLabProcessClinicalSheetSchema = createInsertSchema(labProcessClinicalSheet).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+}).extend({
+  // Preprocess date fields: convert empty strings to null, then coerce to Date
+  sampleReceivedDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+}).passthrough();
 
 export const insertReportSchema = createInsertSchema(reports).omit({
   id: true,
@@ -436,11 +533,33 @@ export const insertReportSchema = createInsertSchema(reports).omit({
   deliveredAt: true,
 });
 
-export const insertGeneticCounsellingSchema = createInsertSchema(geneticCounselling).omit({ id: true, createdAt: true });
+export const insertGeneticCounsellingSchema = createInsertSchema(geneticCounselling).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+});
 
 export const insertFinanceRecordSchema = createInsertSchema(financeRecords).omit({
   id: true,
   createdAt: true,
+  modifiedAt: true,
+}).extend({
+  // Preprocess date fields: convert empty strings to null, then coerce to Date
+  sampleCollectionDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  invoiceDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  paymentReceiptDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  balanceAmountReceivedDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  thirdPartyPaymentDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
 });
 
 export const insertLogisticsTrackingSchema = createInsertSchema(logisticsTracking).omit({
@@ -468,6 +587,223 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+// Bioinformatics Clinical Sheet
+export const bioinformaticsSheetClinical = mysqlTable("bioinformatics_sheet_clinical", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+  projectId: varchar("project_id", { length: 255 }),
+  sampleId: varchar("sample_id", { length: 255 }),
+  clientId: varchar("client_id", { length: 255 }),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+  patientClientName: varchar("patient_client_name", { length: 255 }),
+  age: int("age"),
+  gender: varchar("gender", { length: 20 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  noOfSamples: int("no_of_samples"),
+  sequencingStatus: varchar("sequencing_status", { length: 255 }),
+  sequencingDataStorageDate: timestamp("sequencing_data_storage_date", { mode: "date" }),
+  basecalling: varchar("basecalling", { length: 255 }),
+  basecallingDataStorageDate: timestamp("basecalling_data_storage_date", { mode: "date" }),
+  workflowType: varchar("workflow_type", { length: 255 }),
+  analysisStatus: varchar("analysis_status", { length: 255 }),
+  analysisDate: timestamp("analysis_date", { mode: "date" }),
+  thirdPartyName: varchar("third_party_name", { length: 255 }),
+  sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+  thirdPartyTrf: varchar("third_party_trf", { length: 255 }),
+  resultsRawDataReceivedFromThirdPartyDate: timestamp("results_raw_data_received_from_third_party_date", { mode: "date" }),
+  thirdPartyReport: varchar("third_party_report", { length: 255 }),
+  tat: varchar("tat", { length: 100 }),
+  vcfFileLink: varchar("vcf_file_link", { length: 500 }),
+  cnvStatus: varchar("cnv_status", { length: 255 }),
+  progenicsRawData: varchar("progenics_raw_data", { length: 500 }),
+  progenicsRawDataSize: varchar("progenics_raw_data_size", { length: 255 }),
+  progenicsRawDataLink: varchar("progenics_raw_data_link", { length: 500 }),
+  analysisHtmlLink: varchar("analysis_html_link", { length: 500 }),
+  relativeAbundanceSheet: varchar("relative_abundance_sheet", { length: 500 }),
+  dataAnalysisSheet: varchar("data_analysis_sheet", { length: 500 }),
+  databaseToolsInformation: text("database_tools_information"),
+  alertToTechnicalLeadd: boolean("alert_to_technical_leadd").default(false),
+  alertToReportTeam: boolean("alert_to_report_team").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
+});
+
+export const insertBioinformaticsSheetClinicalSchema = createInsertSchema(bioinformaticsSheetClinical).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+});
+
+// Bioinformatics Discovery Sheet
+export const bioinformaticsSheetDiscovery = mysqlTable("bioinformatics_sheet_discovery", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+  projectId: varchar("project_id", { length: 255 }),
+  sampleId: varchar("sample_id", { length: 255 }),
+  clientId: varchar("client_id", { length: 255 }),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+  patientClientName: varchar("patient_client_name", { length: 255 }),
+  age: int("age"),
+  gender: varchar("gender", { length: 20 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  noOfSamples: int("no_of_samples"),
+  sequencingStatus: varchar("sequencing_status", { length: 255 }),
+  sequencingDataStorageDate: timestamp("sequencing_data_storage_date", { mode: "date" }),
+  basecalling: varchar("basecalling", { length: 255 }),
+  basecallingDataStorageDate: timestamp("basecalling_data_storage_date", { mode: "date" }),
+  workflowType: varchar("workflow_type", { length: 255 }),
+  analysisStatus: varchar("analysis_status", { length: 255 }),
+  analysisDate: timestamp("analysis_date", { mode: "date" }),
+  thirdPartyName: varchar("third_party_name", { length: 255 }),
+  sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+  thirdPartyTrf: varchar("third_party_trf", { length: 255 }),
+  resultsRawDataReceivedFromThirdPartyDate: timestamp("results_raw_data_received_from_third_party_date", { mode: "date" }),
+  thirdPartyReport: varchar("third_party_report", { length: 500 }),
+  tat: varchar("tat", { length: 100 }),
+  vcfFileLink: varchar("vcf_file_link", { length: 500 }),
+  cnvStatus: varchar("cnv_status", { length: 255 }),
+  progenicsRawData: varchar("progenics_raw_data", { length: 500 }),
+  progenicsRawDataSize: varchar("progenics_raw_data_size", { length: 255 }),
+  progenicsRawDataLink: varchar("progenics_raw_data_link", { length: 500 }),
+  analysisHtmlLink: varchar("analysis_html_link", { length: 500 }),
+  relativeAbundanceSheet: varchar("relative_abundance_sheet", { length: 500 }),
+  dataAnalysisSheet: varchar("data_analysis_sheet", { length: 500 }),
+  databaseToolsInformation: text("database_tools_information"),
+  alertToTechnicalLeadd: boolean("alert_to_technical_leadd").default(false),
+  alertToReportTeam: boolean("alert_to_report_team").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
+});
+
+export const insertBioinformaticsSheetDiscoverySchema = createInsertSchema(bioinformaticsSheetDiscovery).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+});
+
+// Nutritional Management
+export const nutritionalManagement = mysqlTable("nutritional_management", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+  projectId: varchar("project_id", { length: 255 }),
+  sampleId: varchar("sample_id", { length: 255 }),
+  serviceName: varchar("service_name", { length: 255 }),
+  patientClientName: varchar("patient_client_name", { length: 255 }),
+  age: int("age"),
+  gender: varchar("gender", { length: 20 }),
+  progenicsTrf: varchar("progenics_trf", { length: 255 }),
+  questionnaire: text("questionnaire"),
+  questionnaireCallRecording: varchar("questionnaire_call_recording", { length: 500 }),
+  dataAnalysisSheet: varchar("data_analysis_sheet", { length: 500 }),
+  progenicsReport: varchar("progenics_report", { length: 500 }),
+  nutritionChart: varchar("nutrition_chart", { length: 500 }),
+  counsellingSessionDate: timestamp("counselling_session_date", { mode: "date" }),
+  furtherCounsellingRequired: boolean("further_counselling_required").default(false),
+  counsellingStatus: varchar("counselling_status", { length: 255 }),
+  counsellingSessionRecording: varchar("counselling_session_recording", { length: 500 }),
+  alertToTechnicalLead: boolean("alert_to_technical_lead").default(false),
+  alertToReportTeam: boolean("alert_to_report_team").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+  remarkComment: text("remark_comment"),
+});
+
+export const insertNutritionalManagementSchema = createInsertSchema(nutritionalManagement).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+}).extend({
+  // Make all fields more lenient and allow coercion
+  uniqueId: z.string().optional(),
+  projectId: z.union([z.string(), z.number()]).optional(),
+  sampleId: z.string().optional(),
+  serviceName: z.string().optional(),
+  patientClientName: z.string().optional(),
+  age: z.union([z.string(), z.number()]).transform(v => v === '' ? null : Number(v)).nullable().optional(),
+  gender: z.string().optional(),
+  progenicsTrf: z.string().optional(),
+  questionnaire: z.string().optional(),
+  questionnaireCallRecording: z.string().optional(),
+  dataAnalysisSheet: z.string().optional(),
+  progenicsReport: z.string().optional(),
+  nutritionChart: z.string().optional(),
+  counsellingSessionDate: z
+    .preprocess(emptyToNull, z.coerce.date().nullable())
+    .optional(),
+  furtherCounsellingRequired: z.union([z.boolean(), z.string()]).transform(v => v === true || v === 'true' || v === 'on').optional(),
+  counsellingStatus: z.string().optional(),
+  counsellingSessionRecording: z.string().optional(),
+  alertToTechnicalLead: z.union([z.boolean(), z.string()]).transform(v => v === true || v === 'true' || v === 'on').optional(),
+  alertToReportTeam: z.union([z.boolean(), z.string()]).transform(v => v === true || v === 'true' || v === 'on').optional(),
+  createdBy: z.string().optional(),
+  modifiedBy: z.string().optional(),
+  modifiedAt: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+  remarkComment: z.string().optional(),
+  remarksComment: z.string().optional(),
+}).passthrough();
+
+// Process Master Sheet
+export const processMasterSheet = mysqlTable("process_master_sheet", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+  projectId: varchar("project_id", { length: 255 }),
+  sampleId: varchar("sample_id", { length: 255 }),
+  clientId: varchar("client_id", { length: 255 }),
+  organisationHospital: varchar("organisation_hospital", { length: 255 }),
+  clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+  speciality: varchar("speciality", { length: 255 }),
+  clinicianResearcherEmail: varchar("clinician_researcher_email", { length: 255 }),
+  clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 50 }),
+  clinicianResearcherAddress: varchar("clinician_researcher_address", { length: 255 }),
+  patientClientName: varchar("patient_client_name", { length: 255 }),
+  age: int("age"),
+  gender: varchar("gender", { length: 20 }),
+  patientClientEmail: varchar("patient_client_email", { length: 255 }),
+  patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+  patientClientAddress: varchar("patient_client_address", { length: 255 }),
+  sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+  sampleReceviedDate: timestamp("sample_recevied_date", { mode: "date" }),
+  serviceName: varchar("service_name", { length: 255 }),
+  sampleType: varchar("sample_type", { length: 255 }),
+  noOfSamples: int("no_of_samples"),
+  tat: varchar("tat", { length: 100 }),
+  salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
+  progenicsTrf: varchar("progenics_trf", { length: 255 }),
+  thirdPartyTrf: varchar("third_party_trf", { length: 255 }),
+  progenicsReport: varchar("progenics_report", { length: 500 }),
+  sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+  thirdPartyName: varchar("third_party_name", { length: 255 }),
+  thirdPartyReport: varchar("third_party_report", { length: 500 }),
+  resultsRawDataReceivedFromThirdPartyDate: timestamp("results_raw_data_received_from_third_party_date", { mode: "date" }),
+  logisticStatus: varchar("logistic_status", { length: 255 }),
+  financeStatus: varchar("finance_status", { length: 255 }),
+  labProcessStatus: varchar("lab_process_status", { length: 255 }),
+  bioinformaticsStatus: varchar("bioinformatics_status", { length: 255 }),
+  nutritionalManagementStatus: varchar("nutritional_management_status", { length: 255 }),
+  progenicsReportReleaseDate: timestamp("progenics_report_release_date", { mode: "date" }),
+  remarkComment: text("Remark_Comment"),
+  createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  createdBy: varchar("created_by", { length: 255 }),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
+});
+
+export const insertProcessMasterSheetSchema = createInsertSchema(processMasterSheet).omit({
+  id: true,
+  createdAt: true,
+  modifiedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -477,6 +813,10 @@ export type InsertSample = z.infer<typeof insertSampleSchema>;
 export type Sample = typeof samples.$inferSelect;
 export type InsertLabProcessing = z.infer<typeof insertLabProcessingSchema>;
 export type LabProcessing = typeof labProcessing.$inferSelect;
+export type InsertLabProcessDiscoverySheet = z.infer<typeof insertLabProcessDiscoverySheetSchema>;
+export type LabProcessDiscoverySheet = typeof labProcessDiscoverySheet.$inferSelect;
+export type InsertLabProcessClinicalSheet = z.infer<typeof insertLabProcessClinicalSheetSchema>;
+export type LabProcessClinicalSheet = typeof labProcessClinicalSheet.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type Report = typeof reports.$inferSelect;
 export type InsertFinanceRecord = z.infer<typeof insertFinanceRecordSchema>;
@@ -491,6 +831,18 @@ export type InsertClient = z.infer<typeof insertClientSchema>;
 export type Client = typeof clients.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertBioinformaticsSheetClinical = z.infer<typeof insertBioinformaticsSheetClinicalSchema>;
+export type BioinformaticsSheetClinical = typeof bioinformaticsSheetClinical.$inferSelect;
+export type InsertBioinformaticsSheetDiscovery = z.infer<typeof insertBioinformaticsSheetDiscoverySchema>;
+export type BioinformaticsSheetDiscovery = typeof bioinformaticsSheetDiscovery.$inferSelect;
+export type InsertBioinformaticsSheet = InsertBioinformaticsSheetClinical;
+export type BioinformaticsSheet = BioinformaticsSheetClinical;
+export type InsertBioinformaticsDiscovery = InsertBioinformaticsSheetDiscovery;
+export type BioinformaticsDiscovery = BioinformaticsSheetDiscovery;
+export type InsertNutritionalManagement = z.infer<typeof insertNutritionalManagementSchema>;
+export type NutritionalManagement = typeof nutritionalManagement.$inferSelect;
+export type InsertProcessMasterSheet = z.infer<typeof insertProcessMasterSheetSchema>;
+export type ProcessMasterSheet = typeof processMasterSheet.$inferSelect;
 
 // Extended types for joins
 export type LeadWithUser = Lead & { createdBy: User | null };

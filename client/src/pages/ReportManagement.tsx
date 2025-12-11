@@ -34,8 +34,8 @@ export default function ReportManagement() {
   // TAT Logic
   const processedReports = useMemo(() => {
     return reports.map(report => {
-      const regDate = new Date(report.sample?.lead?.dateSampleReceived || report.sample?.lead?.createdAt || new Date());
-      const tatHours = (report.sample?.lead?.tat || 0) * 24;
+      const regDate = new Date(report.sample?.lead?.sampleReceivedDate || report.sample?.lead?.leadCreated || new Date());
+      const tatHours = (parseInt(report.sample?.lead?.tat || '0', 10) || 0) * 24;
       const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
       const diffMs = deadline.getTime() - currentTime.getTime();
       const diffHrs = diffMs / (1000 * 60 * 60);
@@ -272,23 +272,23 @@ export default function ReportManagement() {
                         <UrgencyBadge urgency={report.urgency} diffHrs={report.diffHrs} />
                       </TableCell>
                       <TableCell className="min-w-[150px] font-medium text-gray-900 dark:text-white">
-                        {report.sample.sampleId}
+                        {report.sampleId}
                       </TableCell>
                       <TableCell className="min-w-[200px] text-gray-900 dark:text-white">
-                        {report.sample.lead.organization}
+                        {report.sample.lead.organisationHospital}
                       </TableCell>
                       <TableCell className="min-w-[180px] text-gray-900 dark:text-white">
-                        {report.sample.lead.location}
+                        {report.sample.lead.organisationHospital}
                       </TableCell>
                       <TableCell className="min-w-[200px] text-gray-900 dark:text-white">
-                        {report.sample.lead.testName}
+                        {report.sample.lead.serviceName}
                       </TableCell>
                       <TableCell className="min-w-[120px] text-gray-900 dark:text-white">
                         {report.sample.lead.sampleType}
                       </TableCell>
                       <TableCell className="min-w-[100px]">
-                        <Badge className={report.sample.lead.category === 'clinical' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}>
-                          {report.sample.lead.category ? report.sample.lead.category.charAt(0).toUpperCase() + report.sample.lead.category.slice(1) : 'Clinical'}
+                        <Badge className={report.sample.lead.leadType === 'clinical_trial' || report.sample.lead.leadType === 'r_and_d' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}>
+                          {report.sample.lead.leadType ? report.sample.lead.leadType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Individual'}
                         </Badge>
                       </TableCell>
                       <TableCell className="min-w-[120px]">
@@ -302,17 +302,17 @@ export default function ReportManagement() {
                       <TableCell className="min-w-[200px]">
                         <div className="text-sm">
                           <div className="text-gray-900 dark:text-white font-medium">
-                            Dr. {stripHonorific(report.sample.lead.referredDoctor)}
+                            {stripHonorific(report.sample.lead.clinicianResearcherName || '')}
                           </div>
                           <div className="text-gray-500 dark:text-gray-400">
-                            📞 {report.sample.lead.phone}
+                            📞 {report.sample.lead.clinicianResearcherPhone || '-'}
                           </div>
                           <div className="text-gray-500 dark:text-gray-400">
-                            ✉️ {report.sample.lead.email}
+                            ✉️ {report.sample.lead.clinicianResearcherEmail || '-'}
                           </div>
-                          {report.sample.lead.clientEmail && (
+                          {report.sample.lead.patientClientEmail && (
                             <div className="text-gray-500 dark:text-gray-400">
-                              👤 {report.sample.lead.clientEmail}
+                              👤 {report.sample.lead.patientClientEmail}
                             </div>
                           )}
                         </div>

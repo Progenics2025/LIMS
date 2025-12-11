@@ -6,6 +6,7 @@ export type RecycleItem = {
   originalPath?: string; // optional route where item belonged
   data: any; // full item payload
   deletedAt: string; // ISO timestamp
+  createdBy?: string; // user who deleted the item
 };
 
 const STORAGE_KEY = 'll_recycle_bin_v1';
@@ -41,6 +42,7 @@ export function addToRecycle(payload: {
   name?: string;
   originalPath?: string;
   data: any;
+  deletedAt?: string; // optional: use database timestamp if provided
 }): RecycleItem {
   const items = readStorage();
   const uid = `${payload.entityType}::${payload.entityId}::${Date.now()}::${Math.floor(Math.random()*10000)}`;
@@ -51,7 +53,7 @@ export function addToRecycle(payload: {
     name: payload.name,
     originalPath: payload.originalPath,
     data: payload.data,
-    deletedAt: new Date().toISOString(),
+    deletedAt: payload.deletedAt || new Date().toISOString(),
   };
   items.unshift(item);
   writeStorage(items);

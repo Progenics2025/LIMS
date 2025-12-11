@@ -12,10 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { CurrencyInput, formatINR } from "@/components/ui/currency-input";
 import { Plus, Edit, CheckCircle, Trash2, UserPlus, Flame, List } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { useRecycle } from '@/contexts/RecycleContext';
 import { zodResolver } from "@hookform/resolvers/zod";
 import PhoneInput from 'react-phone-number-input';
+import { PDFViewer } from '@/components/PDFViewer';
 import 'react-phone-number-input/style.css';
 import '../styles/phone-input.css';
 import { isValidPhoneNumber } from 'react-phone-number-input';
@@ -27,60 +28,48 @@ import { z } from "zod";
 
 const leadFormSchema = insertLeadSchema.extend({
   // Required Organization fields
-  organization: z.string()
+  organisationHospital: z.string()
     .min(1, "Organization name is required")
     .min(2, "Organization name must be at least 2 characters")
     .max(255, "Organization name must not exceed 255 characters")
     .refine((val) => val.trim().length > 0, "Organization name cannot be just whitespace"),
-    
-  location: z.string()
-    .min(1, "Location is required")
-    .min(2, "Location must be at least 2 characters")
-    .max(255, "Location must not exceed 255 characters")
-    .refine((val) => val.trim().length > 0, "Location cannot be just whitespace"),
-  clinicianAddress: z.string().optional(),
-    
-  // Required Doctor fields
-  referredDoctor: z.string()
-    .min(1, "Clinical name/Referred doctor is required")
-    .min(2, "Doctor name must be at least 2 characters")
-    .max(255, "Doctor name must not exceed 255 characters")
-    .refine((val) => val.trim().length > 0, "Doctor name cannot be just whitespace"),
-    
-  // Email validation with proper format
-  email: z.string()
-    .min(1, "Doctor's email is required")
+
+  // Required Clinician fields
+  clinicianResearcherName: z.string()
+    .min(1, "Clinician name is required")
+    .min(2, "Clinician name must be at least 2 characters")
+    .max(255, "Clinician name must not exceed 255 characters")
+    .refine((val) => val.trim().length > 0, "Clinician name cannot be just whitespace"),
+
+  clinicianResearcherAddress: z.string().optional(),
+
+  // Clinician contact fields
+  clinicianResearcherEmail: z.string()
+    .min(1, "Clinician email is required")
     .email("Please enter a valid email address")
     .max(255, "Email must not exceed 255 characters"),
-    
+
   // Phone validation for international numbers (required)
-  phone: z.string()
-    .min(1, "Doctor's phone number is required")
+  clinicianResearcherPhone: z.string()
+    .min(1, "Clinician phone number is required")
     .refine((phone) => {
       if (!phone || phone.trim() === '') return false; // Make required
       return isValidPhoneNumber(phone);
     }, {
       message: "Please enter a valid international phone number"
     }),
-    
+
   // Lead type validation
-  leadTypeDiscovery: z.string()
+  leadType: z.string()
     .min(1, "Lead type is required")
     .max(100, "Lead type must not exceed 100 characters"),
-    
-  // Test details validation
-  testName: z.string()
-    .min(1, "Test name is required")
-    .min(2, "Test name must be at least 2 characters")
-    .max(255, "Test name must not exceed 255 characters")
-    .refine((val) => val.trim().length > 0, "Test name cannot be just whitespace"),
-    
+
   sampleType: z.string()
     .min(1, "Sample type is required")
     .min(2, "Sample type must be at least 2 characters")
     .max(255, "Sample type must not exceed 255 characters")
     .refine((val) => val.trim().length > 0, "Sample type cannot be just whitespace"),
-    
+
   // Amount validation with proper format
   amountQuoted: z.string()
     .min(1, "Amount quoted is required")
@@ -92,14 +81,14 @@ const leadFormSchema = insertLeadSchema.extend({
       const num = parseFloat(val);
       return num <= 999999999.99;
     }, "Amount cannot exceed 999,999,999.99"),
-    
+
   // Patient details validation
   patientClientName: z.string()
     .min(1, "Patient name is required")
     .min(2, "Patient name must be at least 2 characters")
     .max(255, "Patient name must not exceed 255 characters")
     .refine((val) => val.trim().length > 0, "Patient name cannot be just whitespace"),
-    
+
   patientClientPhone: z.string()
     .min(1, "Patient's phone number is required")
     .refine((phone) => {
@@ -109,43 +98,58 @@ const leadFormSchema = insertLeadSchema.extend({
       message: "Please enter a valid international phone number"
     }),
   sampleId: z.string().optional(),
-  patientAddress: z.string().optional(),
-    
+  patientClientAddress: z.string().optional(),
+
   // Additional fields for lead management
-  specialty: z.string().optional(),
-  geneticCounsellorRequired: z.boolean().optional(),
-  nutritionRequired: z.boolean().optional(),
+  speciality: z.string().optional(),
+  geneticCounselorRequired: z.boolean().optional(),
+  nutritionalCounsellingRequired: z.boolean().optional(),
   serviceName: z.string().optional(),
-  leadType: z.string().optional(),
-  discoveryStatus: z.string().optional(),
-  followUp: z.string().optional(),
   budget: z.string().optional(),
   salesResponsiblePerson: z.string().optional(),
   noOfSamples: z.coerce.number().int().positive().optional().nullable(),
   age: z.coerce.number().int().min(0).max(150).optional().nullable(),
-  gender: z.enum(['Male','Female','Other']).optional(),
+  gender: z.enum(['Male', 'Female', 'Other']).optional(),
   patientClientEmail: z.string().email().optional().or(z.literal("")),
   // Tracking / pickup fields
-  pickupFrom: z.string().optional(),
-  // date inputs (YYYY-MM-DD)
-  dateSampleCollected: z.string().optional().nullable(),
-  // store the datetime-local value (YYYY-MM-DDTHH:mm) as a string in the form
-  // and convert to Date in coerceNumericFields before submission
-  pickupUpto: z.string().optional().nullable(),
+  samplePickUpFrom: z.string().optional(),
+  // date inputs - coerce string from HTML date input to Date object
+  sampleCollectionDate: z.coerce.date().optional().nullable(),
+  // store datetime as Date object and convert to ISO string before submission
+  deliveryUpTo: z.coerce.date().optional().nullable(),
   // date when sample was shipped
-  sampleShippedDate: z.string().optional().nullable(),
-  shippingAmount: z.string().optional(),
+  sampleShippedDate: z.coerce.date().optional().nullable(),
+  sampleShipmentAmount: z.string().optional(),
   trackingId: z.string().optional(),
   courierCompany: z.string().optional(),
-  progenicsTRF: z.string().optional(),
+  progenicsTrf: z.string().optional(),
   phlebotomistCharges: z.string().optional(),
+  testCategory: z.enum(['clinical', 'discovery']).optional(),
+  remarkComment: z.string().optional(),
+  sampleReceivedDate: z.coerce.date().optional().nullable(),
 });
 
 type LeadFormData = z.infer<typeof leadFormSchema>;
 
-// Helper: convert string inputs that represent numbers into actual numbers
-function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData) {
+// Schema for editing leads - all fields optional to allow partial updates
+const editLeadSchema = leadFormSchema.partial();
+
+// Helper: convert string inputs that represent numbers into actual numbers and auto-populate timestamps
+function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData, userId?: string, isEditMode?: boolean) {
   const copy: any = { ...data };
+
+  // Auto-populate leadCreatedBy and leadCreated for new leads (only if not already set)
+  if (!isEditMode) {
+    if (!copy.leadCreatedBy && userId) {
+      copy.leadCreatedBy = userId;
+    }
+    if (!copy.leadCreated) {
+      copy.leadCreated = new Date().toISOString();
+    }
+  }
+
+  // Auto-populate leadModified on every update
+  copy.leadModified = new Date().toISOString();
 
   const toDecimalString = (v: any) => {
     if (v === undefined || v === null || v === '') return null;
@@ -157,54 +161,108 @@ function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData) {
     return Number.isFinite(asNum) ? String(asNum) : null;
   };
 
-  // Convert pickupUpto from ISO string to Date object
-  if (copy.pickupUpto && typeof copy.pickupUpto === 'string' && copy.pickupUpto.trim() !== '') {
-    try {
-      const d = new Date(copy.pickupUpto);
-      // If valid, store as ISO string (server normalizer will convert to Date)
-      if (!isNaN(d.getTime())) {
-        copy.pickupUpto = d.toISOString();
+  // Convert deliveryUpTo from Date object to ISO string for API submission
+  if (copy.deliveryUpTo) {
+    if (copy.deliveryUpTo instanceof Date) {
+      if (!isNaN(copy.deliveryUpTo.getTime())) {
+        copy.deliveryUpTo = copy.deliveryUpTo.toISOString();
       } else {
-        copy.pickupUpto = null;
+        copy.deliveryUpTo = null;
       }
-    } catch (error) {
-      copy.pickupUpto = null;
+    } else if (typeof copy.deliveryUpTo === 'string' && copy.deliveryUpTo.trim() !== '') {
+      try {
+        const d = new Date(copy.deliveryUpTo);
+        if (!isNaN(d.getTime())) {
+          copy.deliveryUpTo = d.toISOString();
+        } else {
+          copy.deliveryUpTo = null;
+        }
+      } catch (error) {
+        copy.deliveryUpTo = null;
+      }
+    } else {
+      copy.deliveryUpTo = null;
     }
   } else {
-    copy.pickupUpto = null;
+    copy.deliveryUpTo = null;
   }
 
-  // Convert dateSampleCollected (YYYY-MM-DD) to Date
-  if (copy.dateSampleCollected && typeof copy.dateSampleCollected === 'string' && copy.dateSampleCollected.trim() !== '') {
-    try {
-      // date input returns YYYY-MM-DD - parse as local midnight then send ISO
-      const d = new Date(copy.dateSampleCollected + 'T00:00:00');
-      if (!isNaN(d.getTime())) {
-        copy.dateSampleCollected = d.toISOString();
+  // Convert sampleCollectionDate from Date object to ISO string
+  if (copy.sampleCollectionDate) {
+    if (copy.sampleCollectionDate instanceof Date) {
+      if (!isNaN(copy.sampleCollectionDate.getTime())) {
+        copy.sampleCollectionDate = copy.sampleCollectionDate.toISOString();
       } else {
-        copy.dateSampleCollected = null;
+        copy.sampleCollectionDate = null;
       }
-    } catch (e) {
-      copy.dateSampleCollected = null;
+    } else if (typeof copy.sampleCollectionDate === 'string' && copy.sampleCollectionDate.trim() !== '') {
+      try {
+        const d = new Date(copy.sampleCollectionDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          copy.sampleCollectionDate = d.toISOString();
+        } else {
+          copy.sampleCollectionDate = null;
+        }
+      } catch (e) {
+        copy.sampleCollectionDate = null;
+      }
+    } else {
+      copy.sampleCollectionDate = null;
     }
   } else {
-    copy.dateSampleCollected = null;
+    copy.sampleCollectionDate = null;
   }
 
-  // Convert sampleShippedDate (YYYY-MM-DD) to Date
-  if (copy.sampleShippedDate && typeof copy.sampleShippedDate === 'string' && copy.sampleShippedDate.trim() !== '') {
-    try {
-      const d = new Date(copy.sampleShippedDate + 'T00:00:00');
-      if (!isNaN(d.getTime())) {
-        copy.sampleShippedDate = d.toISOString();
+  // Convert sampleShippedDate from Date object to ISO string
+  if (copy.sampleShippedDate) {
+    if (copy.sampleShippedDate instanceof Date) {
+      if (!isNaN(copy.sampleShippedDate.getTime())) {
+        copy.sampleShippedDate = copy.sampleShippedDate.toISOString();
       } else {
         copy.sampleShippedDate = null;
       }
-    } catch (e) {
+    } else if (typeof copy.sampleShippedDate === 'string' && copy.sampleShippedDate.trim() !== '') {
+      try {
+        const d = new Date(copy.sampleShippedDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          copy.sampleShippedDate = d.toISOString();
+        } else {
+          copy.sampleShippedDate = null;
+        }
+      } catch (e) {
+        copy.sampleShippedDate = null;
+      }
+    } else {
       copy.sampleShippedDate = null;
     }
   } else {
     copy.sampleShippedDate = null;
+  }
+
+  // Convert sampleReceivedDate from Date object to ISO string
+  if (copy.sampleReceivedDate) {
+    if (copy.sampleReceivedDate instanceof Date) {
+      if (!isNaN(copy.sampleReceivedDate.getTime())) {
+        copy.sampleReceivedDate = copy.sampleReceivedDate.toISOString();
+      } else {
+        copy.sampleReceivedDate = null;
+      }
+    } else if (typeof copy.sampleReceivedDate === 'string' && copy.sampleReceivedDate.trim() !== '') {
+      try {
+        const d = new Date(copy.sampleReceivedDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          copy.sampleReceivedDate = d.toISOString();
+        } else {
+          copy.sampleReceivedDate = null;
+        }
+      } catch (e) {
+        copy.sampleReceivedDate = null;
+      }
+    } else {
+      copy.sampleReceivedDate = null;
+    }
+  } else {
+    copy.sampleReceivedDate = null;
   }
 
   // Some server-side schema uses `dateSampleReceived` (DB column `date_sample_received`)
@@ -214,10 +272,15 @@ function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData) {
     (copy as any).dateSampleReceived = (copy as any).sampleShippedDate;
   }
 
+  // If client sent sampleReceivedDate, ensure it maps to dateSampleReceived
+  if ((copy as any).sampleReceivedDate) {
+    (copy as any).dateSampleReceived = (copy as any).sampleReceivedDate;
+  }
+
   // Decimal fields (drizzle decimal => zod string) must be sent as strings
   copy.amountQuoted = toDecimalString(copy.amountQuoted);
   copy.budget = toDecimalString(copy.budget);
-  copy.shippingAmount = toDecimalString(copy.shippingAmount);
+  copy.sampleShipmentAmount = toDecimalString(copy.sampleShipmentAmount);
   copy.phlebotomistCharges = toDecimalString(copy.phlebotomistCharges);
 
   // Integer fields - ensure they are numbers (Zod coerce will handle, but double-check)
@@ -233,9 +296,11 @@ function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData) {
     copy.age = null;
   }
 
-  // tat may be registered with valueAsNumber; ensure it's an integer or null
+  // TAT is a string field in the database (varchar), keep it as string or null
   if (copy.tat !== undefined && copy.tat !== null && copy.tat !== '') {
-    copy.tat = typeof copy.tat === 'number' ? copy.tat : parseInt(copy.tat, 10);
+    copy.tat = String(copy.tat).trim();
+  } else {
+    copy.tat = null;
   }
 
   // If createdBy is present, keep as-is
@@ -259,36 +324,24 @@ function normalizeLead(l: any) {
     projectId: get('project_id', 'projectId') || get('projectId', 'projectId') || get('project', 'projectId') || undefined,
     uniqueId: get('unique_id', 'uniqueId') || get('uniqueId', 'uniqueId') || undefined,
     // sample/test
-    // sampleId should map to the DB/sample human-readable identifier (sample_id)
-    // Prefer an explicit samples.sample_id if a nested `sample` object is present
     sampleId:
       get('sample_id', 'sampleId') ??
       get('sampleId', 'sampleId') ??
       (l.sample ? (l.sample.sampleId ?? l.sample.sample_id) : undefined) ??
       undefined,
-    testName: (() => {
-      const testName = get('test_name', 'testName') ?? get('testName', 'testName');
+    testName: undefined, // No longer in schema - map to serviceName instead
+    serviceName: (() => {
       const serviceName = get('service_name', 'serviceName') ?? get('serviceName', 'serviceName');
-
-      // If testName is a placeholder or empty, try to use serviceName as fallback
-      if (!testName || (typeof testName === 'string' && (testName === 'Unknown Test' || testName.toLowerCase().includes('unknown')))) {
-        if (serviceName && typeof serviceName === 'string' && serviceName !== 'Unknown' && !serviceName.toLowerCase().includes('unknown')) {
-          return serviceName;
-        }
-        return testName || undefined;
-      }
-      return testName;
+      return serviceName;
     })(),
-    // dates
-    // Accept multiple DB keys: `date_sample_collected`, `sample_collected_date`, or camelCase variants
-    dateSampleCollected: get('date_sample_collected', 'dateSampleCollected') || get('sample_collected_date', 'dateSampleCollected') || get('dateSampleCollected', 'dateSampleCollected') || null,
-    // Accept `created` (some DBs use `created`) as well as `created_at`/camelCase
+    // dates - mapped to new schema names
+    sampleCollectionDate: get('sample_collection_date', 'sampleCollectionDate') || get('date_sample_collected', 'sampleCollectionDate') || get('sample_collected_date', 'sampleCollectionDate') || null,
     createdAt: get('created', 'createdAt') || get('created_at', 'createdAt') || get('createdAt', 'createdAt') || null,
     // Modified maps to converted_at per mapping (also keep updatedAt/backwards compat)
     convertedAt: get('converted_at', 'convertedAt') || get('convertedAt', 'convertedAt') || null,
     updatedAt: get('converted_at', 'updatedAt') || get('updatedAt', 'updatedAt') || get('converted_at', 'converted_at') || null,
     // lead/organisation fields
-    leadType: get('lead_type_discovery', 'leadType') || get('leadType', 'leadType') || get('lead_type_discovery', 'lead_type_discovery') || undefined,
+    leadType: get('lead_type', 'leadType') || get('leadType', 'leadType') || get('lead_type_discovery', 'lead_type_discovery') || undefined,
     // Normalize backend status values: treat legacy `completed` as `converted` so
     // the UI and filters remain consistent.
     status: ((): any => {
@@ -297,33 +350,38 @@ function normalizeLead(l: any) {
       if (String(s).toLowerCase() === 'completed') return 'converted';
       return String(s);
     })(),
-    geneticCounsellorRequired: get('genetic_counsellor_required', 'geneticCounsellorRequired') ?? get('geneticCounsellorRequired', 'geneticCounsellorRequired') ?? false,
-    // Nutrition / diet management flags may be present under several names
-    nutritionRequired: get('nutrition_management', 'nutritionRequired') || get('nutrition_required', 'nutritionRequired') || get('nutritionRequired', 'nutritionRequired') || get('nutritionManagement', 'nutritionRequired') || false,
-    createdBy: get('created_by', 'createdBy') || get('createdBy', 'createdBy') || undefined,
+    geneticCounselorRequired: get('genetic_counselor_required', 'geneticCounselorRequired') ?? get('geneticCounsellorRequired', 'geneticCounsellorRequired') ?? false,
+    // Nutrition/counselling flags
+    nutritionalCounsellingRequired: get('nutritional_counselling_required', 'nutritionalCounsellingRequired') || get('nutrition_required', 'nutritionalCounsellingRequired') || get('nutritional_counselling_required', 'nutritionalCounsellingRequired') || false,
+    createdBy: get('lead_created_by', 'createdBy') || get('created_by', 'createdBy') || get('createdBy', 'createdBy') || undefined,
     salesResponsiblePerson: get('sales_responsible_person', 'salesResponsiblePerson') || get('salesResponsiblePerson', 'salesResponsiblePerson') || undefined,
     sampleType: get('sample_type', 'sampleType') || undefined,
-    // Map organization from a variety of backend keys so the UI shows the org/hospital
-    organization:
-      get('organization', 'organization') ||
-      get('organisation', 'organization') ||
-      get('org', 'organization') ||
-      get('hospital', 'organization') ||
-      get('hospital_name', 'organization') ||
-      get('clinic_name', 'organization') ||
-      // As a last resort, some exports put the hospital/org under `organisation_hospital`
-      get('organisation_hospital', 'organization') ||
+    testCategory: get('test_category', 'testCategory') || undefined,
+    // Map organization from database's organisation_hospital field
+    organisationHospital:
+      get('organisation_hospital', 'organisationHospital') ||
+      get('organization', 'organisationHospital') ||
+      get('organisation', 'organisationHospital') ||
+      get('org', 'organisationHospital') ||
+      get('hospital', 'organisationHospital') ||
+      get('hospital_name', 'organisationHospital') ||
+      get('clinic_name', 'organisationHospital') ||
       undefined,
-    // clinician / referred doctor may be stored under multiple names
-    referredDoctor: get('clinician_name', 'referredDoctor') || get('clinician_researcher_name', 'referredDoctor') || get('referredDoctor', 'referredDoctor') || get('referred_doctor', 'referred_doctor') || undefined,
-    clinicHospitalName: get('clinic_hospital_name', 'clinicHospitalName') || undefined,
+    // clinician / researcher name from database column
+    clinicianResearcherName: get('clinician_researcher_name', 'clinicianResearcherName') || get('clinician_name', 'clinicianResearcherName') || get('referredDoctor', 'clinicianResearcherName') || get('referred_doctor', 'clinicianResearcherName') || undefined,
     // Accept both US and British spellings from backend: `specialty` and `speciality`
-    specialty: get('specialty', 'specialty') || get('speciality', 'specialty') || undefined,
-    // clinician emails / phones may use alternate column names
-    email: get('clinician_org_email', 'email') || get('clinician_researcher_email', 'email') || get('email', 'email') || undefined,
-    phone: get('clinician_org_phone', 'phone') || get('clinician_researcher_contact', 'phone') || get('phone', 'phone') || undefined,
-    // Location may be named `location`; keep organization name as separate field
-    location: get('location', 'location') || get('organization', 'location') || undefined,
+    speciality: get('speciality', 'speciality') || get('specialty', 'speciality') || undefined,
+    // clinician emails / phones from database
+    clinicianResearcherEmail: get('clinician_researcher_email', 'clinicianResearcherEmail') || get('clinician_org_email', 'clinicianResearcherEmail') || get('email', 'clinicianResearcherEmail') || undefined,
+    clinicianResearcherPhone: get('clinician_researcher_phone', 'clinicianResearcherPhone') || get('clinician_org_phone', 'clinicianResearcherPhone') || get('phone', 'clinicianResearcherPhone') || undefined,
+    // clinician / researcher address from database
+    clinicianResearcherAddress:
+      get('clinician_researcher_address', 'clinicianResearcherAddress') ||
+      get('clinician_address', 'clinicianResearcherAddress') ||
+      get('clinic_hospital_address', 'clinicianResearcherAddress') ||
+      get('clinic_address', 'clinicianResearcherAddress') ||
+      get('clinician_org_address', 'clinicianResearcherAddress') ||
+      undefined,
     // patient fields
     patientClientName: get('patient_client_name', 'patientClientName') || undefined,
     patientClientEmail: get('patient_client_email', 'patientClientEmail') || undefined,
@@ -337,63 +395,57 @@ function normalizeLead(l: any) {
       get('patient_phone_number', 'patientClientPhone') ||
       get('patientClientPhone', 'patientClientPhone') ||
       undefined,
-    patientAddress: get('patient_address', 'patientAddress') || undefined,
+    patientClientAddress: get('patient_client_address', 'patientClientAddress') || get('patient_address', 'patientClientAddress') || undefined,
     noOfSamples: get('no_of_samples', 'noOfSamples') ?? get('noOfSamples', 'noOfSamples') ?? undefined,
     age: get('age', 'age') ?? undefined,
     gender: get('gender', 'gender') || undefined,
     budget: get('budget', 'budget') ?? undefined,
-    serviceName: get('service_name', 'serviceName') || undefined,
     followUp: get('follow_up', 'followUp') || undefined,
-    pickupFrom:
-      get('pickup_from', 'pickupFrom') ||
-      get('sample_pickup_from', 'pickupFrom') ||
-      get('pickup_location', 'pickupFrom') ||
-      get('collection_point', 'pickupFrom') ||
+    samplePickUpFrom:
+      get('sample_pick_up_from', 'samplePickUpFrom') ||
+      get('pickup_from', 'samplePickUpFrom') ||
+      get('sample_pickup_from', 'samplePickUpFrom') ||
+      get('pickup_location', 'samplePickUpFrom') ||
+      get('collection_point', 'samplePickUpFrom') ||
       undefined,
-    pickupUpto:
-      get('pickup_upto', 'pickupUpto') ||
-      get('delivery_upto', 'pickupUpto') ||
-      get('deliveryUpto', 'pickupUpto') ||
-      get('pickupUpto', 'pickupUpto') ||
+    deliveryUpTo:
+      get('delivery_up_to', 'deliveryUpTo') ||
+      get('delivery_upto', 'deliveryUpTo') ||
+      get('pickup_upto', 'deliveryUpTo') ||
+      get('deliveryUpto', 'deliveryUpTo') ||
       undefined,
-    // sample shipped/date received may be returned under several names depending
-    // on whether the value comes from the `samples` table (sample_shipped_date)
-    // or from the `leads` table (date_sample_received / dateSampleReceived).
-    // Map shipped and received explicitly so UI columns can pick the correct one.
+    // sample shipped/date received
     sampleShippedDate:
       get('sample_shipped_date', 'sampleShippedDate') ||
       get('sampleShippedDate', 'sampleShippedDate') ||
       get('date_sample_shipped', 'sampleShippedDate') ||
       undefined,
-    // sampleReceivedDate: explicit mapping for date_sample_received and variants
+    // sampleReceivedDate from database column
     sampleReceivedDate:
+      get('sample_recevied_date', 'sampleReceivedDate') ||  // Note: DB typo
       get('sample_received_date', 'sampleReceivedDate') ||
       get('date_sample_received', 'sampleReceivedDate') ||
       get('dateSampleReceived', 'sampleReceivedDate') ||
       undefined,
-    // clinician / researcher address (various backend names)
-    clinicianAddress:
-      get('clinician_address', 'clinicianAddress') ||
-      get('clinic_hospital_address', 'clinicianAddress') ||
-      get('clinic_address', 'clinicianAddress') ||
-      get('clinician_org_address', 'clinicianAddress') ||
-      // Some exports place the hospital/organisation under `organisation_hospital` - use it as clinician address
-      get('organisation_hospital', 'clinicianAddress') ||
-      undefined,
-    shippingAmount:
-      get('shipping_amount', 'shippingAmount') ??
-      get('sample_shipment_amount', 'shippingAmount') ??
-      get('shipment_amount', 'shippingAmount') ??
-      get('courier_charges', 'shippingAmount') ??
-      get('courier_charge', 'shippingAmount') ??
+    sampleShipmentAmount:
+      get('sample_shipment_amount', 'sampleShipmentAmount') ??
+      get('shipping_amount', 'sampleShipmentAmount') ??
+      get('shipment_amount', 'sampleShipmentAmount') ??
+      get('courier_charges', 'sampleShipmentAmount') ??
+      get('courier_charge', 'sampleShipmentAmount') ??
       undefined,
     trackingId: get('tracking_id', 'trackingId') || undefined,
     courierCompany: get('courier_company', 'courierCompany') || undefined,
-    progenicsTRF: get('progenics_trf', 'progenicsTRF') || get('progenicsTRF', 'progenicsTRF') || undefined,
+    progenicsTrf: get('progenics_trf', 'progenicsTrf') || get('progenicsTRF', 'progenicsTrf') || undefined,
     phlebotomistCharges: get('phlebotomist_charges', 'phlebotomistCharges') ?? undefined,
     // pricing / misc
     amountQuoted: get('amount_quoted', 'amountQuoted') ?? get('amountQuoted', 'amountQuoted') ?? undefined,
     tat: get('tat', 'tat') ?? undefined,
+    remarkComment: get('remark_comment', 'remarkComment') || get('remarks', 'remarkComment') || get('comments', 'remarkComment') || undefined,
+    // audit fields - who created and when
+    leadCreatedBy: get('lead_created_by', 'leadCreatedBy') || get('createdBy', 'leadCreatedBy') || undefined,
+    leadCreated: get('lead_created', 'leadCreated') || get('createdAt', 'leadCreated') || undefined,
+    leadModified: get('lead_modified', 'leadModified') || get('modifiedAt', 'leadModified') || undefined,
     // keep raw original for debugging if needed
     _raw: l,
   };
@@ -402,6 +454,71 @@ function normalizeLead(l: any) {
 }
 
 export default function LeadManagement() {
+  // Helper: convert Date to YYYY-MM-DD string for date input
+  const formatDateForInput = (date: any): string => {
+    if (!date) return '';
+    try {
+      if (date instanceof Date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      if (typeof date === 'string') {
+        // If it's already a date string (YYYY-MM-DD format)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+        // If it's an ISO string, extract the date part
+        if (date.includes('T')) return date.split('T')[0];
+        return '';
+      }
+    } catch (e) {
+      return '';
+    }
+    return '';
+  };
+
+  // Helper: convert datetime-local string to Date object
+  const parseLocalDatetime = (value: string): Date | null => {
+    if (!value) return null;
+    try {
+      return new Date(value);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Helper: format Date to datetime-local format (YYYY-MM-DDTHH:mm)
+  const formatDatetimeForInput = (date: any): string => {
+    if (!date) return '';
+    try {
+      if (date instanceof Date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      }
+      if (typeof date === 'string') {
+        // If it's a datetime-local format already
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(date)) return date;
+        // If it's an ISO string, convert to datetime-local
+        if (date.includes('T')) {
+          const dt = new Date(date);
+          const year = dt.getFullYear();
+          const month = String(dt.getMonth() + 1).padStart(2, '0');
+          const day = String(dt.getDate()).padStart(2, '0');
+          const hours = String(dt.getHours()).padStart(2, '0');
+          const minutes = String(dt.getMinutes()).padStart(2, '0');
+          return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+      }
+    } catch (e) {
+      return '';
+    }
+    return '';
+  };
+
   // Helper: remove common honorifics from a name to avoid duplicated prefixes
   const stripHonorific = (name?: string) => {
     if (!name) return '';
@@ -417,7 +534,7 @@ export default function LeadManagement() {
   const [customSampleType, setCustomSampleType] = useState<string>('');
   const [showCustomSampleType, setShowCustomSampleType] = useState<boolean>(false);
   const [showCustomServiceName, setShowCustomServiceName] = useState<boolean>(false);
-  const [selectedTrfFile, setSelectedTrfFile] = useState<File | null>(null);
+
   const [selectedTitle, setSelectedTitle] = useState<string>('Dr');
   const [clinicianName, setClinicianName] = useState<string>('');
   const [editSelectedTitle, setEditSelectedTitle] = useState<string>('Dr');
@@ -439,7 +556,7 @@ export default function LeadManagement() {
   };
   const canDelete = () => ['admin', 'manager'].includes((user?.role || '').toLowerCase());
   const canView = () => true; // All authenticated users can view
-  
+
   // Filter leads based on user role
   const filterLeadsByRole = (allLeads: any[]) => {
     const userRole = (user?.role || '').toLowerCase();
@@ -453,8 +570,20 @@ export default function LeadManagement() {
     queryKey: ['/api/leads'],
   });
 
+  // Fetch all users to map user IDs to names
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ['/api/users'],
+  });
+
+  // Helper function to get user name by ID
+  const getUserNameById = (userId: string | undefined): string => {
+    if (!userId) return '-';
+    const user = allUsers.find(u => u.id === userId);
+    return user?.name ?? userId;
+  };
+
   // Project samples (new integration)
-  const { data: projectSamples = [] } = useQuery<any[]>({ queryKey: ['/api/project-samples'] });
+  const { data: projectSamples = [] } = useQuery<any[]>({ queryKey: ['/api/leads'] });
 
   // Normalize incoming leads to consistent camelCase shape
   const leadSource = (Array.isArray(projectSamples) && projectSamples.length > 0) ? projectSamples : leads;
@@ -479,12 +608,10 @@ export default function LeadManagement() {
     if (!searchQuery) return true;
     const s = searchQuery.toLowerCase();
     return (
-      (String(l.organization || '')).toLowerCase().includes(s) ||
-      // allow searching by sample id as well
-      (String(l.sampleId || '')).toLowerCase().includes(s) ||
-      (String(l.referredDoctor || '')).toLowerCase().includes(s) ||
-      (String(l.email || '')).toLowerCase().includes(s) ||
-      (String(l.phone || '')).toLowerCase().includes(s)
+      (String(l.uniqueId || '')).toLowerCase().includes(s) ||
+      (String(l.projectId || '')).toLowerCase().includes(s) ||
+      (String(l.patientClientName || '')).toLowerCase().includes(s) ||
+      (String(l.patientClientPhone || '')).toLowerCase().includes(s)
     );
   });
 
@@ -515,7 +642,7 @@ export default function LeadManagement() {
 
   const createLeadMutation = useMutation<any, any, LeadFormData>({
     mutationFn: async (data: LeadFormData) => {
-      const leadData = { ...coerceNumericFields(data), createdBy: user?.id } as Record<string, any>;
+      const leadData = { ...coerceNumericFields(data, user?.id, false) } as Record<string, any>;
       // Generate unique ID if not provided by the form
       try {
         if (!leadData.uniqueId && !leadData.unique_id) {
@@ -530,15 +657,11 @@ export default function LeadManagement() {
         console.warn('[LeadManagement] generateRoleId failed', e);
       }
 
-      // Debug: log payload so browser console shows what is being sent
-      // (helps trace UI wiring issues)
-      // eslint-disable-next-line no-console
-      console.debug('[LeadManagement] createLead payload:', leadData);
-      const response = await apiRequest('POST', '/api/project-samples', leadData);
+      const response = await apiRequest('POST', '/api/leads', leadData);
       return response.json();
     },
     onSuccess: async (createdLead: any, variables?: LeadFormData) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/project-samples'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       // Invalidate dashboard stats when lead is created
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
@@ -547,59 +670,19 @@ export default function LeadManagement() {
       // Reset title and name states
       setSelectedTitle('Dr');
       setClinicianName('');
-      // If a TRF file was selected, upload it to DB and associate with lead
-      (async () => {
-        try {
-          // Need to refetch created lead (latest) to find its id - simplistic approach: refetch list and pick the newest
-          const created = createdLead;
-          if (selectedTrfFile && created && created.id) {
-            const fd = new FormData();
-            fd.append('trf', selectedTrfFile);
-            fd.append('leadId', created.id);
-            const up = await fetch('/api/uploads/trf-db', { method: 'POST', body: fd });
-            if (up.ok) {
-              const body = await up.json();
-              // body contains { id }
-              const trfUrl = `/api/uploads/trf/${body.id}`;
-              // update lead to set progenicsTRF
-              await fetch(`/api/leads/${created.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ progenicsTRF: trfUrl }) });
-            }
-          }
-        } catch (err) {
-          console.error('Post-create TRF upload failed', err);
-        }
-      })();
-      setSelectedTrfFile(null);
+      // Reset title and name states
+      setSelectedTitle('Dr');
+      setClinicianName('');
+
       form.reset();
       toast({ title: "Lead created", description: "New lead has been successfully created" });
-      // If the form requested genetic counselling, create the GC record so it
-      // appears directly in the Genetic Counselling component.
-      try {
-        const requestedGc = !!variables?.geneticCounsellorRequired;
-        if (requestedGc && createdLead) {
-          const sampleId = createdLead.id || createdLead.sampleId || createdLead._id || null;
-          if (sampleId) {
-            const payload = { sample_id: sampleId, gc_name: '', approval_status: 'pending' };
-            const resp = await apiRequest('POST', '/api/gc-registration', payload);
-            let body: any = null;
-            try { body = await resp.json(); } catch (e) { /* ignore */ }
-            if (resp.ok) {
-              queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
-              toast({ title: 'Genetic counselling created', description: 'Record created for this lead' });
-            } else {
-              const msg = body?.message || body?.error || 'Failed to create genetic counselling record';
-              toast({ title: 'Genetic counselling error', description: msg, variant: 'destructive' });
-            }
-          }
-        }
-      } catch (err: any) {
-        // Non-fatal: log and notify
-        // eslint-disable-next-line no-console
-        console.error('[LeadManagement] create GC on create error:', err);
-        try {
-          toast({ title: 'Genetic counselling error', description: (err && err.message) || String(err), variant: 'destructive' });
-        } catch {}
+
+      // GC record auto-creation removed - backend now handles this automatically
+      // when geneticCounselorRequired=true is set during lead creation.
+      // Invalidate GC queries to show the auto-created record
+      if (variables?.geneticCounselorRequired) {
+        queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
       }
     },
     onError: (error: any) => {
@@ -624,7 +707,7 @@ export default function LeadManagement() {
 
   const updateLeadMutation = useMutation<any, any, { id: string; data: Partial<LeadFormData> }>({
     mutationFn: async ({ id, data }: { id: string; data: Partial<LeadFormData> }) => {
-      const leadDataRaw = { ...coerceNumericFields(data as LeadFormData) } as Record<string, any>;
+      const leadDataRaw = { ...coerceNumericFields(data as LeadFormData, user?.id, true) } as Record<string, any>;
       // Remove null/empty-string fields for update requests so the server's
       // partial schema validation doesn't fail on explicit nulls for fields
       // that the client didn't intend to update (notably date fields).
@@ -652,45 +735,15 @@ export default function LeadManagement() {
       editForm.reset();
       toast({ title: "Lead updated", description: "Lead has been successfully updated" });
 
-      // If Genetic Counsellor is required after edit, ensure a GC record exists
-      try {
-        const requestedGc = !!variables?.data?.geneticCounsellorRequired;
-        if (requestedGc) {
-          const leadOrSampleId = updatedLead?.id || variables?.id;
-          if (leadOrSampleId) {
-            // Check for existing GC record for this lead/sample id to avoid duplicates
-            let exists = false;
-            try {
-              const res = await fetch('/api/gc-registration', { credentials: 'include' });
-              if (res.ok) {
-                const list = await res.json();
-                exists = Array.isArray(list) && list.some((r: any) => {
-                  const sid = r?.sampleId ?? r?.sample_id;
-                  return String(sid || '') === String(leadOrSampleId);
-                });
-              }
-            } catch (e) {
-              // non-fatal; assume not exists and attempt create
-            }
+      // GC record auto-creation removed for lead updates.
+      // If user enables geneticCounselorRequired on an existing lead that doesn't have a GC record,
+      // they should manually create it from the Genetic Counselling page.
+      // This prevents duplicate GC records with wrong unique_id values.
 
-            if (!exists) {
-              const payload = { sample_id: leadOrSampleId, gc_name: '', approval_status: 'pending' };
-              const resp = await apiRequest('POST', '/api/gc-registration', payload);
-              let body: any = null;
-              try { body = await resp.json(); } catch {}
-              if (resp.ok) {
-                queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
-                toast({ title: 'Genetic counselling created', description: 'Record created for this lead' });
-              } else {
-                const msg = body?.message || body?.error || 'Failed to create genetic counselling record';
-                toast({ title: 'Genetic counselling error', description: msg, variant: 'destructive' });
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        // eslint-disable-next-line no-console
-        console.error('[LeadManagement] create GC on edit error:', err);
+      // Invalidate GC queries if geneticCounselorRequired changed
+      if (variables?.data?.geneticCounselorRequired !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
       }
     },
     onError: (error: any) => {
@@ -767,11 +820,11 @@ export default function LeadManagement() {
       // Also refresh lab processing, finance and bioinformatics endpoints so
       // those components immediately reflect the newly-created records
       queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/finance/records'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/finance/pending-approvals'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bioinformatics'] });
-      toast({ 
+      toast({
         title: "Lead converted",
         description: `Lead converted to sample ${data?.sample?.sampleId || '(no id returned)'}`
       });
@@ -783,7 +836,7 @@ export default function LeadManagement() {
           // Non-fatal: log and notify a warning so operator can investigate
           // eslint-disable-next-line no-console
           console.warn('[LeadManagement] downstream reconcile failed', e);
-          try { toast({ title: 'Partial sync', description: 'Some downstream systems could not be updated automatically' }); } catch (e) {}
+          try { toast({ title: 'Partial sync', description: 'Some downstream systems could not be updated automatically' }); } catch (e) { }
         }
       })();
     },
@@ -791,7 +844,7 @@ export default function LeadManagement() {
       toast({ title: "Error converting lead", description: error?.message || String(error), variant: "destructive" });
     },
   });
-  
+
   // Attempt to reconcile converted lead into other modules (best-effort).
   async function reconcileConvertedLead(convertResponse: any) {
     // convertResponse may contain a `lead` and/or `sample` object depending on API
@@ -818,22 +871,24 @@ export default function LeadManagement() {
     const common = {
       leadId: lead?.id || lead?.leadId || null,
       sampleId: sample?.sampleId || sample?.id || null,
-      organization: lead?.organization || lead?._raw?.organization || null,
-      referredDoctor: lead?.referredDoctor || lead?._raw?.referred_doctor || null,
-      patientName: lead?.patientClientName || lead?._raw?.patient_client_name || null,
+      projectId: lead?.projectId || lead?._raw?.project_id || sample?.projectId || sample?.project_id || null,
+      organisationHospital: lead?.organisationHospital || lead?._raw?.organisation_hospital || null,
+      clinicianResearcherName: lead?.clinicianResearcherName || lead?._raw?.clinician_researcher_name || null,
+      patientClientName: lead?.patientClientName || lead?._raw?.patient_client_name || null,
     };
 
     // Process Master: create/process a workflow entry
     await tryPost('/api/process-master', { ...common, action: 'create_from_conversion' });
 
-    // Genetic Counselling: ensure GC record exists
-    await tryPost('/api/gc-registration', { sample_id: common.sampleId || common.leadId, approval_status: 'pending' });
+    // Genetic Counselling: REMOVED - Backend handles GC creation during conversion
+    // (see server/routes.ts POST /api/leads/:id/convert)
+    // The frontend reconciliation was causing duplicate GC records with wrong unique_id values.
 
     // Sample Tracking: create sample record if API supports it
     await tryPost('/api/samples', { sampleId: common.sampleId, leadId: common.leadId, source: 'conversion' });
 
-    // Finance: create finance record placeholder
-    await tryPost('/api/finance/records', { sampleId: common.sampleId, amount: sample?.amount || lead?.amountQuoted || null, status: 'pending' });
+    // Finance: create finance record placeholder with projectId (use adapter)
+    await tryPost('/api/finance-sheet', { unique_id: common.leadId || '', sample_id: common.sampleId, project_id: common.projectId, invoice_amount: sample?.amount || lead?.amountQuoted || null, payment_status: 'pending' });
 
     // Lab Processing: create lab processing entry
     await tryPost('/api/lab-processing', { sampleId: common.sampleId, status: 'queued' });
@@ -850,7 +905,7 @@ export default function LeadManagement() {
     queryClient.invalidateQueries({ queryKey: ['/api/process-master'] });
     queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
     queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/finance/records'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
     queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'] });
     queryClient.invalidateQueries({ queryKey: ['/api/bioinformatics'] });
     queryClient.invalidateQueries({ queryKey: ['/api/nutrition/referrals'] });
@@ -864,96 +919,96 @@ export default function LeadManagement() {
     mode: 'onBlur', // Trigger validation when user leaves a field
     reValidateMode: 'onChange', // Re-validate on every change after first validation
     defaultValues: {
-    organization: '',
-    location: '',
-    clinicianAddress: '',
-      referredDoctor: '',
-      phone: '',
-      email: '',
-      clientEmail: '',
-      testName: '',
-      sampleType: '',
-      category: 'clinical',
-      amountQuoted: "",
-      tat: 14,
-      status: 'quoted',
-      specialty: '',
-      serviceName: '',
-      leadType: 'individual',
-      discoveryStatus: '',
-      followUp: '',
-      budget: '',
-      salesResponsiblePerson: '',
-      noOfSamples: undefined,
+      organisationHospital: '',
+      clinicianResearcherName: '',
+      clinicianResearcherAddress: '',
+      clinicianResearcherEmail: '',
+      clinicianResearcherPhone: '',
       patientClientName: '',
       age: undefined,
-      sampleId: '',
-      sampleShippedDate: '',
       gender: 'Male',
       patientClientPhone: '',
       patientClientEmail: '',
-  patientAddress: '',
-      // date fields
-      dateSampleCollected: '',
-      // tracking defaults
-      pickupFrom: '',
-      pickupUpto: '',
-      shippingAmount: '',
+      patientClientAddress: '',
+      sampleType: '',
+      noOfSamples: undefined,
+      budget: '',
+      amountQuoted: "",
+      tat: '14',
+      sampleShipmentAmount: '',
+      phlebotomistCharges: '',
+      geneticCounselorRequired: false,
+      nutritionalCounsellingRequired: false,
+      samplePickUpFrom: '',
+      deliveryUpTo: null,
+      sampleCollectionDate: null,
+      sampleShippedDate: null,
+      sampleReceivedDate: null,
       trackingId: '',
       courierCompany: '',
-      progenicsTRF: '',
-      phlebotomistCharges: '',
-      nutritionRequired: false,
+      progenicsTrf: '',
+      followUp: '',
+      remarkComment: '',
+      serviceName: '',
+      speciality: '',
+      leadType: 'individual',
+      status: 'quoted',
+      testCategory: 'clinical',
+      salesResponsiblePerson: '',
+      sampleId: '',
+      uniqueId: '',
+      projectId: '',
     },
   });
 
   const editForm = useForm<LeadFormData>({
-    resolver: zodResolver(leadFormSchema),
+    resolver: zodResolver(editLeadSchema),
     mode: 'onBlur', // Trigger validation when user leaves a field
     reValidateMode: 'onChange', // Re-validate on every change after first validation
     defaultValues: {
-    organization: '',
-    location: '',
-    clinicianAddress: '',
-      referredDoctor: '',
-      phone: '',
-      email: '',
-      clientEmail: '',
-      testName: '',
-      sampleType: '',
-      category: 'clinical',
-      amountQuoted: "",
-      tat: 14,
-      status: 'quoted',
-      specialty: '',
-      serviceName: '',
-      leadType: 'individual',
-      discoveryStatus: '',
-      followUp: '',
-      budget: '',
-      salesResponsiblePerson: '',
-      noOfSamples: undefined,
+      organisationHospital: '',
+      clinicianResearcherName: '',
+      clinicianResearcherAddress: '',
+      clinicianResearcherEmail: '',
+      clinicianResearcherPhone: '',
       patientClientName: '',
       age: undefined,
       gender: 'Male',
       patientClientPhone: '',
       patientClientEmail: '',
-  patientAddress: '',
-      // date fields
-      dateSampleCollected: '',
-      // tracking defaults
-      pickupFrom: '',
-      pickupUpto: '',
-      shippingAmount: '',
+      patientClientAddress: '',
+      sampleType: '',
+      noOfSamples: undefined,
+      budget: '',
+      amountQuoted: "",
+      tat: '14',
+      sampleShipmentAmount: '',
+      phlebotomistCharges: '',
+      geneticCounselorRequired: false,
+      nutritionalCounsellingRequired: false,
+      samplePickUpFrom: '',
+      deliveryUpTo: null,
+      sampleCollectionDate: null,
+      sampleShippedDate: null,
+      sampleReceivedDate: null,
       trackingId: '',
       courierCompany: '',
-      progenicsTRF: '',
-      phlebotomistCharges: '',
-      nutritionRequired: false,
+      progenicsTrf: '',
+      followUp: '',
+      remarkComment: '',
+      serviceName: '',
+      speciality: '',
+      leadType: 'individual',
+      status: 'quoted',
+      testCategory: 'clinical',
+      salesResponsiblePerson: '',
+      sampleId: '',
+      uniqueId: '',
+      projectId: '',
     },
   });
 
-  const onSubmit = async (data: LeadFormData) => {
+  const onSubmit = async (data: any) => {
     try {
       if (selectedLead) {
         await updateLeadMutation.mutateAsync({ id: selectedLead.id, data });
@@ -971,7 +1026,7 @@ export default function LeadManagement() {
     }
   };
 
-  const onEditSubmit = (data: LeadFormData) => {
+  const onEditSubmit = (data: any) => {
     if (!selectedLead) return;
     updateLeadMutation.mutate({ id: selectedLead.id, data });
   };
@@ -981,11 +1036,12 @@ export default function LeadManagement() {
   const handleEditLead = (lead: Lead) => {
     // lead may be normalized already; ensure UI selectedLead holds raw id
     setSelectedLead(lead as any);
-    setEditSelectedCategory((lead as any).category || 'clinical');
+    const category = (lead as any).testCategory || (lead as any).category || 'clinical';
+    setEditSelectedCategory(category === 'clinical' || category === 'discovery' ? category : 'clinical');
     setEditSelectedLeadType((lead as any).leadType || 'individual');
 
     // Parse referredDoctor into title and name for edit state
-    const referredDoctor = (lead as any).referredDoctor || '';
+    const referredDoctor = (lead as any).clinicianResearcherName || '';
     const nameParts = referredDoctor.split(' ');
     const titlePrefixes = ['Dr', 'Mr', 'Ms', 'Prof'];
     if (titlePrefixes.includes(nameParts[0]) && nameParts.length > 1) {
@@ -998,46 +1054,43 @@ export default function LeadManagement() {
 
     // Populate form with normalized lead data
     editForm.reset({
-      organization: (lead as any).organization || '',
-      location: (lead as any).location || '',
-      referredDoctor: (lead as any).referredDoctor || '',
-      clinicHospitalName: (lead as any).clinicHospitalName || '',
-      clinicianAddress: (lead as any).clinicianAddress || '',
-      phone: (lead as any).phone || '',
-      email: (lead as any).email || '',
-      clientEmail: (lead as any).clientEmail || (lead as any).patientClientEmail || '',
-      testName: (lead as any).testName || '',
+      organisationHospital: (lead as any).organisationHospital || '',
+      clinicianResearcherName: (lead as any).clinicianResearcherName || '',
+      clinicianResearcherAddress: (lead as any).clinicianResearcherAddress || '',
+      clinicianResearcherPhone: (lead as any).clinicianResearcherPhone || '',
+      clinicianResearcherEmail: (lead as any).clinicianResearcherEmail || '',
       sampleType: (lead as any).sampleType || '',
-      category: (lead as any).category || 'clinical',
       amountQuoted: (lead as any).amountQuoted != null ? String((lead as any).amountQuoted) : '',
-      tat: (lead as any).tat || 14,
+      tat: (lead as any).tat || '14',
       status: (lead as any).status || 'quoted',
-      specialty: (lead as any).specialty || '',
+      speciality: (lead as any).speciality || '',
       serviceName: (lead as any).serviceName || '',
       leadType: (lead as any).leadType || 'individual',
-      discoveryStatus: (lead as any).discoveryStatus || '',
+      testCategory: (lead as any).testCategory || 'clinical',
       followUp: (lead as any).followUp || '',
       budget: (lead as any).budget != null ? String((lead as any).budget) : '',
       salesResponsiblePerson: (lead as any).salesResponsiblePerson || '',
       noOfSamples: (lead as any).noOfSamples || undefined,
       patientClientName: (lead as any).patientClientName || '',
       age: (lead as any).age || undefined,
-  patientAddress: (lead as any).patientAddress || '',
+      patientClientAddress: (lead as any).patientClientAddress || '',
       gender: (lead as any).gender || 'Male',
       patientClientPhone: (lead as any).patientClientPhone || '',
       patientClientEmail: (lead as any).patientClientEmail || '',
-      // date fields
-      dateSampleCollected: (lead as any).dateSampleCollected ? new Date((lead as any).dateSampleCollected).toISOString().slice(0,10) : '',
-      // tracking fields - convert Date to ISO string for datetime-local input
-      pickupFrom: (lead as any).pickupFrom || '',
-      pickupUpto: (lead as any).pickupUpto ? new Date((lead as any).pickupUpto).toISOString().slice(0,16) : '',
-      sampleShippedDate: (lead as any).sampleShippedDate ? new Date((lead as any).sampleShippedDate).toISOString().slice(0,10) : '',
-      shippingAmount: (lead as any).shippingAmount != null ? String((lead as any).shippingAmount) : '',
+      // date fields - as Date objects
+      sampleCollectionDate: (lead as any).sampleCollectionDate ? new Date((lead as any).sampleCollectionDate) : null,
+      // tracking fields - as Date objects
+      samplePickUpFrom: (lead as any).samplePickUpFrom || '',
+      deliveryUpTo: (lead as any).deliveryUpTo ? new Date((lead as any).deliveryUpTo) : null,
+      sampleShippedDate: (lead as any).sampleShippedDate ? new Date((lead as any).sampleShippedDate) : null,
+      sampleShipmentAmount: (lead as any).sampleShipmentAmount != null ? String((lead as any).sampleShipmentAmount) : '',
       trackingId: (lead as any).trackingId || '',
       courierCompany: (lead as any).courierCompany || '',
-      progenicsTRF: (lead as any).progenicsTRF || '',
+      progenicsTrf: (lead as any).progenicsTrf || '',
       phlebotomistCharges: (lead as any).phlebotomistCharges != null ? String((lead as any).phlebotomistCharges) : '',
-      nutritionRequired: (lead as any).nutritionRequired != null ? !!(lead as any).nutritionRequired : false,
+      nutritionalCounsellingRequired: (lead as any).nutritionalCounsellingRequired != null ? !!(lead as any).nutritionalCounsellingRequired : false,
+      sampleReceivedDate: (lead as any).sampleReceivedDate ? new Date((lead as any).sampleReceivedDate) : null,
+      geneticCounselorRequired: (lead as any).geneticCounselorRequired != null ? !!(lead as any).geneticCounselorRequired : false,
     });
     setIsEditDialogOpen(true);
   };
@@ -1047,18 +1100,18 @@ export default function LeadManagement() {
   };
 
   const handleConvertLead = (leadId: string) => {
-  const lead = normalizedLeads.find(l => l.id === leadId);
+    const lead = normalizedLeads.find(l => l.id === leadId);
     if (!lead) return;
-    
+
     if (lead.status !== 'won') {
-      toast({ 
-        title: "Cannot convert lead", 
-        description: "Lead must be in 'won' status before conversion", 
-        variant: "destructive" 
+      toast({
+        title: "Cannot convert lead",
+        description: "Lead must be in 'won' status before conversion",
+        variant: "destructive"
       });
       return;
     }
-    
+
     const sampleData: any = {
       amount: lead.amountQuoted,
       status: 'pickup_scheduled'
@@ -1073,7 +1126,7 @@ export default function LeadManagement() {
     } catch (e) {
       // ignore errors and proceed with default conversion behavior
     }
-    
+
     convertLeadMutation.mutate({ id: leadId, sampleData });
   };
 
@@ -1106,325 +1159,254 @@ export default function LeadManagement() {
             Simplified lead management for individual tests (Gutgenics, AMR Profile, Molecular) and project-based leads
           </p>
         </div>
-        
+
         {/* Create Lead Dialog - Only visible to Admin, Manager, Sales */}
         {canCreate() && (
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Add New Lead</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Lead</DialogTitle>
-              <DialogDescription>Create leads for individual tests or projects with common organization details</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Common Organization Fields - Always shown */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-medium mb-4">Organization Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Organization / Hospital  <span className="text-red-500">*</span></Label>
-                    <Input {...form.register('organization')} placeholder="Hospital/Clinic Name" />
-                    {form.formState.errors.organization && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.organization.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Clinician  / Researcher Name <span className="text-red-500">*</span></Label>
-                    <div className="flex gap-2">
-                      <Select
-                        value={selectedTitle}
-                        onValueChange={(value) => {
-                          setSelectedTitle(value);
-                          form.setValue('referredDoctor', `${value} ${stripHonorific(clinicianName)}`.trim());
-                        }}
-                      >
-                        <SelectTrigger className="w-24">
-                          <SelectValue placeholder="Title" />
-                        </SelectTrigger>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button><Plus className="mr-2 h-4 w-4" />Add New Lead</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Lead</DialogTitle>
+                <DialogDescription>Create leads for individual tests or projects. Fields are organized to match the table structure.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+                {/* Section 1: Lead Info */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Lead Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Lead Type <span className="text-red-500">*</span></Label>
+                      <Select onValueChange={(value) => {
+                        form.setValue('leadType', value);
+                        setSelectedLeadType(value);
+                      }} defaultValue="individual">
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Dr">Dr</SelectItem>
-                          <SelectItem value="Mr">Mr</SelectItem>
-                          <SelectItem value="Ms">Ms</SelectItem>
+                          <SelectItem value="individual">Individual Test</SelectItem>
+                          <SelectItem value="project">Project/Bulk Testing</SelectItem>
+                          <SelectItem value="clinical_trial">Clinical Trial</SelectItem>
+                          <SelectItem value="R&D">R&D</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input
-                        value={clinicianName}
-                        onChange={(e) => {
-                          setClinicianName(e.target.value);
-                          form.setValue('referredDoctor', `${selectedTitle} ${stripHonorific(e.target.value)}`.trim());
-                        }}
-                        placeholder="Name"
-                        className="flex-1"
-                      />
+                      {form.formState.errors.leadType && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.leadType.message}</p>
+                      )}
                     </div>
-                    {form.formState.errors.referredDoctor && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.referredDoctor.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Clinician / Researcher Email <span className="text-red-500">*</span></Label>
-                    <Input {...form.register('email')} placeholder="doctor@hospital.com" />
-                    {form.formState.errors.email && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.email.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Clinician / Researcher Phone <span className="text-red-500">*</span></Label>
-                    <div className="phone-input-wrapper">
-                      <PhoneInput
-                        international
-                        countryCallingCodeEditable={false}
-                        defaultCountry="IN"
-                        value={form.watch('phone') || ''}
-                        onChange={(value) => form.setValue('phone', value || '')}
-                        placeholder="Enter phone number"
-                      />
+                    <div>
+                      <Label>Status</Label>
+                      <Select onValueChange={(value) => form.setValue('status', value)} defaultValue={form.getValues('status') || 'quoted'}>
+                        <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="quoted">Quoted</SelectItem>
+                          <SelectItem value="cold">Cold</SelectItem>
+                          <SelectItem value="hot">Hot</SelectItem>
+                          <SelectItem value="won">Won</SelectItem>
+                          <SelectItem value="converted">Converted</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    {form.formState.errors.phone && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.phone.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Clinician / Researcher Address</Label>
-                    <Input {...form.register('clinicianAddress')} placeholder="Clinic / Hospital address" />
-                  </div>
-                  <div>
-                    <Label>Specialty</Label>
-                    <Input {...form.register('specialty')} placeholder="Genetics, Oncology, etc." />
-                  </div>
-                  <div>
-                    <Label>Service Name</Label>
-                    <Select onValueChange={(value) => {
-                      if (value === 'other') {
-                        setShowCustomServiceName(true);
-                        form.setValue('serviceName', '');
-                      } else {
-                        setShowCustomServiceName(false);
-                        form.setValue('serviceName', value);
-                      }
-                    }}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-      <SelectItem value="WES">WES</SelectItem>
-                          <SelectItem value="CMA">CMA</SelectItem>
-                          <SelectItem value="MLPA">MLPA</SelectItem>
-                          <SelectItem value="NBS">NBS</SelectItem>
-                          <SelectItem value="Karyotyping">Karyotyping</SelectItem>
-                          <SelectItem value="Wellgenics">Wellgenics</SelectItem>
-                          <SelectItem value="Sanger">Sanger Sequencing - Clinical</SelectItem>
-                          <SelectItem value="Sanger">Sanger Sequencing - Discovery</SelectItem>
-                          <SelectItem value="Gut Genics">Gut Genics</SelectItem>
-                          <SelectItem value="WGS">Whole Genome Sequencing</SelectItem>
-                          <SelectItem value="Targeted Amplicons">Targeted Amplicons Sequencing</SelectItem>
-                          <SelectItem value="Shotgun">Shotgun Metagenomics Sequencing</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {showCustomServiceName && (
-                      <Input className="mt-2" placeholder="Enter service name" onChange={(e) => form.setValue('serviceName', e.target.value)} />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Lead Type Selection */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-medium mb-4">Lead Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Lead Type <span className="text-red-500">*</span></Label>
-                    <Select onValueChange={(value) => { 
-                      form.setValue('leadTypeDiscovery', value); 
-                      setSelectedLeadType(value); 
-                    }} defaultValue="individual">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="individual">Individual Test</SelectItem>
-                        <SelectItem value="project">Project/Bulk Testing</SelectItem>
-                        <SelectItem value="clinical_trial">Clinical Trial</SelectItem>
-                        <SelectItem value="r_and_d">R&D</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {form.formState.errors.leadTypeDiscovery && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.leadTypeDiscovery.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Test Category</Label>
-                    <Select
-                      onValueChange={(value) => {
-                        // value is either 'clinical' or 'discovery'
-                        form.setValue('category', value);
-
-                        // Auto-generate or update sampleId prefix
-                        try {
-                          const current = form.getValues('sampleId') || '';
-                          const prefix = value === 'clinical' ? 'PG' : 'DG';
-
-                          const hasCorrectPrefix = current && (current.startsWith(prefix) || current.startsWith(prefix + '-'));
-                          if (!current || !hasCorrectPrefix) {
-                            // generate a short unique suffix
-                            const suffix = Math.floor(100000 + Math.random() * 900000).toString();
-                            form.setValue('sampleId', `${prefix}-${suffix}`);
-                          } else if (current) {
-                            // current has some prefix, replace it with the new one but keep suffix if present
-                            const parts = current.split('-');
-                            if (parts.length > 1) {
-                              parts[0] = prefix;
-                              form.setValue('sampleId', parts.join('-'));
-                            } else {
-                              // no suffix, generate one
-                              const suffix = Math.floor(100000 + Math.random() * 900000).toString();
-                              form.setValue('sampleId', `${prefix}-${suffix}`);
-                            }
-                          }
-                        } catch (e) {
-                          // ignore
+                    <div>
+                      <Label>Sales / Responsible Person</Label>
+                      <Select onValueChange={(value) => form.setValue('salesResponsiblePerson', value)} defaultValue={form.getValues('salesResponsiblePerson') || ''}>
+                        <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SHIVA KUMAR Y M">SHIVA KUMAR Y M</SelectItem>
+                          <SelectItem value="Vakumulu Srikanth">Vakumulu Srikanth</SelectItem>
+                          <SelectItem value="Dr. Y Aruna Priya">Dr. Y Aruna Priya</SelectItem>
+                          <SelectItem value="Dr Krishnasai Reddy">Dr Krishnasai Reddy</SelectItem>
+                          <SelectItem value="S Karthik Iyer">S Karthik Iyer</SelectItem>
+                          <SelectItem value="Dr. Swapnil Chandrakant Kajale">Dr. Swapnil Chandrakant Kajale</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Sample Type <span className="text-red-500">*</span></Label>
+                      <Select onValueChange={(value) => {
+                        if (value === 'custom') {
+                          setShowCustomSampleType(true);
+                          form.setValue('sampleType', '');
+                        } else {
+                          setShowCustomSampleType(false);
+                          form.setValue('sampleType', value);
                         }
-                      }}
-                      defaultValue={form.getValues('category') || 'clinical'}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="clinical">Clinical</SelectItem>
-                        <SelectItem value="discovery">Discovery</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Lead Status</Label>
-                    <Select onValueChange={(value) => form.setValue('status', value)} defaultValue={form.getValues('status') || 'quoted'}>
-                      <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="quoted">Quoted</SelectItem>
-                        <SelectItem value="cold">Cold</SelectItem>
-                        <SelectItem value="hot">Hot</SelectItem>
-                        <SelectItem value="won">Won</SelectItem>
-                        <SelectItem value="converted">Converted</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Lead Created By</Label>
-                    <Input value={user?.name || String(user?.id || '')} disabled />
-                  </div>
-                    <div>
-                      <Label>Budget (INR)</Label>
-                      <Input {...form.register('budget')} type="number" step="0.01" placeholder="e.g., 10000" />
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="Select Sample Type" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="blood">Blood</SelectItem>
+                          <SelectItem value="soil">Soil</SelectItem>
+                          <SelectItem value="saliva">Saliva</SelectItem>
+                          <SelectItem value="stool">Stool</SelectItem>
+                          <SelectItem value="tissue">Tissue</SelectItem>
+                          <SelectItem value="urine">Urine</SelectItem>
+                          <SelectItem value="custom">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {showCustomSampleType && (
+                        <Input className="mt-2" placeholder="Enter sample type"
+                          onChange={(e) => form.setValue('sampleType', e.target.value)} />
+                      )}
+                      {form.formState.errors.sampleType && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.sampleType.message}</p>
+                      )}
                     </div>
-        
-                  <div>
-                    <Label>Sample Type <span className="text-red-500">*</span></Label>
-                    <Select onValueChange={(value) => {
-                      if (value === 'custom') {
-                        setShowCustomSampleType(true);
-                        form.setValue('sampleType', '');
-                      } else {
-                        setShowCustomSampleType(false);
-                        form.setValue('sampleType', value);
-                      }
-                    }}>
-                      <SelectTrigger><SelectValue placeholder="Select Sample Type" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="blood">Blood</SelectItem>
-                        <SelectItem value="soil">Soil</SelectItem>
-                        <SelectItem value="saliva">Saliva</SelectItem>
-                        <SelectItem value="stool">Stool</SelectItem>
-                        <SelectItem value="tissue">Tissue</SelectItem>
-                        <SelectItem value="urine">Urine</SelectItem>
-                        <SelectItem value="custom">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {showCustomSampleType && (
-                      <Input className="mt-2" placeholder="Enter sample type" 
-                             onChange={(e) => form.setValue('sampleType', e.target.value)} />
-                    )}
-                    {form.formState.errors.sampleType && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.sampleType.message}</p>
-                    )}
+                    <div>
+                      <Label>Test Category</Label>
+                      <Controller
+                        name="testCategory"
+                        control={form.control}
+                        defaultValue="clinical"
+                        render={({ field }) => (
+                          <Select value={field.value || "clinical"} onValueChange={(value) => {
+                            field.onChange(value);
+                            // Auto-generate sampleId logic based on testCategory
+                            try {
+                              const current = form.getValues('sampleId') || '';
+                              const prefix = value === 'clinical' ? 'PG' : 'DG';
+                              const hasCorrectPrefix = current && (current.startsWith(prefix) || current.startsWith(prefix + '-'));
+                              if (!current || !hasCorrectPrefix) {
+                                const suffix = Math.floor(100000 + Math.random() * 900000).toString();
+                                form.setValue('sampleId', `${prefix}-${suffix}`);
+                              }
+                            } catch (e) { }
+                          }}>
+                            <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="clinical">Clinical</SelectItem>
+                              <SelectItem value="discovery">Discovery</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <Label>Amount Quoted (INR) <span className="text-red-500">*</span></Label>
+                      <CurrencyInput
+                        value={parseFloat(form.watch('amountQuoted')) || 0}
+                        onValueChange={(value) => form.setValue('amountQuoted', (value || 0).toString())}
+                      />
+                      {form.formState.errors.amountQuoted && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.amountQuoted.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>TAT (Days)</Label>
+                      <Input type="number" {...form.register('tat')} placeholder="e.g., 14" />
+                    </div>
                   </div>
-                  <div>
-                    <Label>Amount Quoted (INR) <span className="text-red-500">*</span></Label>
-                    <CurrencyInput
-                      value={parseFloat(form.watch('amountQuoted')) || 0}
-                      onValueChange={(value) => form.setValue('amountQuoted', (value || 0).toString())}
-                    />
-                    {form.formState.errors.amountQuoted && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.amountQuoted.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>TAT (Days)</Label>
-                    <Input {...form.register('tat', { valueAsNumber: true })} type="number" placeholder="14" />
-                  </div>
-                  <div>
-                    <Label>Sales / Responsible Person</Label>
-                    <Select onValueChange={(value) => form.setValue('salesResponsiblePerson', value)} defaultValue={form.getValues('salesResponsiblePerson') || ''}>
-                      <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Shiva">SHIVA KUMAR Y M</SelectItem>
-                        <SelectItem value="Srikanth">Vakumulu Srikanth</SelectItem>
-                        <SelectItem value="Aruna Priya">Dr. Y Aruna Priya</SelectItem>
-                        <SelectItem value="Krishna">Dr Krishnasai Reddy</SelectItem>
-                        <SelectItem value="Karthik">S Karthik Iyer</SelectItem>
-                        <SelectItem value="Swapnil">Dr. Swapnil Chandrakant Kajale</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Genetic Counsellor Required</Label>
-                    <Select onValueChange={(value) => form.setValue('geneticCounsellorRequired', value === 'yes')} defaultValue={form.getValues('geneticCounsellorRequired') ? 'yes' : 'no'}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Nutrition Counsellor Required </Label>
-                    <Select onValueChange={(value) => form.setValue('nutritionRequired', value === 'yes')} defaultValue={form.getValues('nutritionRequired') ? 'yes' : 'no'}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
+                </div>              {/* Section 2: Organization / Clinician */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Organization & Clinician</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Organisation / Hospital <span className="text-red-500">*</span></Label>
+                      <Input {...form.register('organisationHospital')} placeholder="Hospital/Clinic Name" />
+                      {form.formState.errors.organisationHospital && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.organisationHospital.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Clinician / Researcher Name <span className="text-red-500">*</span></Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={selectedTitle}
+                          onValueChange={(value) => {
+                            setSelectedTitle(value);
+                            form.setValue('clinicianResearcherName', `${value} ${stripHonorific(clinicianName)}`.trim());
+                          }}
+                        >
+                          <SelectTrigger className="w-24">
+                            <SelectValue placeholder="Title" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Dr">Dr</SelectItem>
+                            <SelectItem value="Mr">Mr</SelectItem>
+                            <SelectItem value="Ms">Ms</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={clinicianName}
+                          onChange={(e) => {
+                            setClinicianName(e.target.value);
+                            form.setValue('clinicianResearcherName', `${selectedTitle} ${stripHonorific(e.target.value)}`.trim());
+                          }}
+                          placeholder="Name"
+                          className="flex-1"
+                        />
+                      </div>
+                      {form.formState.errors.clinicianResearcherName && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.clinicianResearcherName.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Speciality</Label>
+                      <Input {...form.register('speciality')} placeholder="Genetics, Oncology, etc." />
+                    </div>
+                    <div>
+                      <Label>Clinician / Researcher Email <span className="text-red-500">*</span></Label>
+                      <Input {...form.register('clinicianResearcherEmail')} placeholder="doctor@hospital.com" />
+                      {form.formState.errors.clinicianResearcherEmail && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.clinicianResearcherEmail.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Clinician / Researcher Phone <span className="text-red-500">*</span></Label>
+                      <div className="phone-input-wrapper">
+                        <PhoneInput
+                          international
+                          countryCallingCodeEditable={false}
+                          defaultCountry="IN"
+                          value={form.watch('clinicianResearcherPhone') || ''}
+                          onChange={(value) => form.setValue('clinicianResearcherPhone', value || '')}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                      {form.formState.errors.clinicianResearcherPhone && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.clinicianResearcherPhone.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Clinician / Researcher Address</Label>
+                      <Input {...form.register('clinicianResearcherAddress')} placeholder="Clinic / Hospital address" />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Project-specific fields - only for project type */}
-              {selectedLeadType === 'project' && (
+                {/* Section 3: Patient Details */}
                 <div className="border-b pb-6">
-                  <h3 className="text-lg font-medium mb-4">Project Details</h3>
-                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                    <p className="text-sm text-blue-700">
-                      📊 Additional details for project/bulk testing leads
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <h3 className="text-lg font-medium mb-4">Patient Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Project Budget (INR)</Label>
-                      <Input {...form.register('budget')} placeholder="500000" />
+                      <Label>Patient / Client Name <span className="text-red-500">*</span></Label>
+                      <Input {...form.register('patientClientName')} placeholder="Patient full name" />
+                      {form.formState.errors.patientClientName && (
+                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.patientClientName.message}</p>
+                      )}
                     </div>
                     <div>
-                      <Label>Expected No. of Samples</Label>
-                      <Input {...form.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="50" />
+                      <Label>Age</Label>
+                      <Input {...form.register('age', { valueAsNumber: true })} type="number" placeholder="e.g., 35" />
                     </div>
                     <div>
-                      <Label>Follow-up Schedule</Label>
-                      <Input {...form.register('followUp')} placeholder="Weekly updates" />
+                      <Label>Gender</Label>
+                      <Select onValueChange={(v) => form.setValue('gender', v as 'Male' | 'Female' | 'Other')} defaultValue={form.getValues('gender') || 'Male'}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
-                      <Label>Project Contact Name</Label>
-                      <Input {...form.register('patientClientName')} placeholder="Project Lead" />
+                      <Label>Patient / Client Email</Label>
+                      <Input {...form.register('patientClientEmail')} placeholder="patient@example.com" />
                     </div>
                     <div>
-                      <Label>Project Contact Phone</Label>
+                      <Label>Patient / Client Phone <span className="text-red-500">*</span></Label>
                       <div className="phone-input-wrapper">
                         <PhoneInput
                           international
@@ -1440,193 +1422,367 @@ export default function LeadManagement() {
                       )}
                     </div>
                     <div>
-                      <Label>Project Contact Email</Label>
-                      <Input {...form.register('patientClientEmail')} placeholder="project@org.com" />
+                      <Label>Patient / Client Address</Label>
+                      <Input {...form.register('patientClientAddress')} placeholder="Patient address" />
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* Patient Details Section */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-medium mb-4">Patient Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Sample Collected Date</Label>
-                    <Input type="date" {...form.register('dateSampleCollected')} />
-                  </div>
-                  <div>
-                    <Label>Sample Shipped Date</Label>
-                    <Input type="date" {...form.register('sampleShippedDate')} />
-                  </div>
-                  {/* Patient-specific fields (avoid duplicates of organization/lead-level controls) */}
-                  <div>
-                    <Label>Patient / Client Name <span className="text-red-500">*</span></Label>
-                    <Input {...form.register('patientClientName')} placeholder="Patient full name" />
-                    {form.formState.errors.patientClientName && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.patientClientName.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Patient / Client Email</Label>
-                    <Input {...form.register('patientClientEmail')} placeholder="patient@example.com" />
-                  </div>
-                  <div>
-                    <Label>Patient / Client Address</Label>
-                    <Input {...form.register('patientAddress')} placeholder="Patient address" />
-                  </div>
-                  <div>
-                    <Label>Patient / Client Phone<span className="text-red-500">*</span></Label>
-                    <div className="phone-input-wrapper">
-                      <PhoneInput
-                        international
-                        countryCallingCodeEditable={false}
-                        defaultCountry="IN"
-                        value={form.watch('patientClientPhone') || ''}
-                        onChange={(value) => form.setValue('patientClientPhone', value || '')}
-                        placeholder="Enter phone number"
-                      />
+                {/* Section 4: Sample & Logistics */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Sample & Logistics</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>No of Samples</Label>
+                      <Input {...form.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="e.g., 1" />
                     </div>
-                    {form.formState.errors.patientClientPhone && (
-                      <p className="text-sm text-red-600 mt-1">{form.formState.errors.patientClientPhone.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Age</Label>
-                    <Input {...form.register('age', { valueAsNumber: true })} type="number" placeholder="e.g., 35" />
-                  </div>
-                   <div>
-                    <Label>No of Samples</Label>
-                      <Input {...form.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="e.g., 20" />
-                  </div>
-                  <div>
-                    <Label>Gender</Label>
-                    <Select onValueChange={(v) => form.setValue('gender', v as 'Male' | 'Female' | 'Other')} defaultValue={form.getValues('gender') || 'Male'}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Male">Male</SelectItem>
-                        <SelectItem value="Female">Female</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                    {/* (duplicates removed) */}
-                  </div>
-              </div>
-
-              {/* Tracking / Pickup Details */}
-              <div className="border-b pb-6">
-                <h3 className="text-lg font-medium mb-4">Tracking & Pickup Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Follow Up</Label>
-                    <Input {...form.register('followUp')} placeholder="Follow up notes / schedule" />
-                  </div>
-                  <div>
-                    <Label> Sample Pickup From (Address)</Label>
-                    <Input {...form.register('pickupFrom')} placeholder="Pickup address" />
-                  </div>
-                  <div>
-                    <Label>Pickup Upto (deadline)</Label>
-                    <Input 
-                      {...form.register('pickupUpto')} 
-                      type="datetime-local" 
-                      min={form.watch('dateSampleCollected') ? `${form.watch('dateSampleCollected')}T00:00` : undefined}
-                      onChange={(e) => {
-                        // Keep the datetime-local value format (YYYY-MM-DDTHH:mm)
-                        // so edits and initial values remain consistent. The
-                        // coerceNumericFields will convert the string to a Date
-                        // object before submission.
-                        if (e.target.value) {
-                          const sampleDate = form.watch('dateSampleCollected');
-                          if (sampleDate) {
-                            const pickupDate = new Date(e.target.value);
-                            const collectionDate = new Date(sampleDate);
-                            if (pickupDate < collectionDate) {
-                              // If pickup date is before sample collection date, set it to sample collection date
-                              form.setValue('pickupUpto', `${sampleDate}T00:00`);
-                              return;
-                            }
-                          }
-                          form.setValue('pickupUpto', e.target.value);
-                        } else {
-                          form.setValue('pickupUpto', '');
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label>Sample Shipping Amount (INR)</Label>
-                    <Input {...form.register('shippingAmount')} type="number" step="0.01" placeholder="e.g., 500" />
-                  </div>
-                  <div>
-                    <Label>Tracking ID</Label>
-                    <Input {...form.register('trackingId')} placeholder="Courier tracking number" />
-                  </div>
-                  <div>
-                    <Label>Courier Company</Label>
-                    <Input {...form.register('courierCompany')} placeholder="DHL, BlueDart, etc." />
-                  </div>
-                  <div>
-                    <Label>Progenics TRF</Label>
-                    <div className="flex items-center space-x-2">
-                      <Input {...form.register('progenicsTRF')} placeholder="TRF reference" />
-                      <input
-                        type="file"
-                        accept="application/pdf"
+                    <div>
+                      <Label>Budget (INR)</Label>
+                      <Input {...form.register('budget')} type="number" step="0.01" placeholder="e.g., 10000" />
+                    </div>
+                    <div>
+                      <Label>Follow up</Label>
+                      <Input {...form.register('followUp')} placeholder="Follow up notes / schedule" />
+                    </div>
+                    <div>
+                      <Label>Sample Pick up from</Label>
+                      <Input {...form.register('samplePickUpFrom')} placeholder="Pickup address" />
+                    </div>
+                    <div>
+                      <Label>Delivery upto</Label>
+                      <Input
+                        {...form.register('deliveryUpTo')}
+                        type="datetime-local"
+                        value={formatDatetimeForInput(form.watch('deliveryUpTo'))}
                         onChange={(e) => {
-                          const f = e.target.files && e.target.files[0];
-                          if (!f) return;
-                          setSelectedTrfFile(f);
-                          // optionally show the filename in the progenicsTRF input
-                          form.setValue('progenicsTRF', f.name);
+                          if (e.target.value) {
+                            const sampleDate = form.watch('sampleCollectionDate');
+                            if (sampleDate) {
+                              const pickupDate = new Date(e.target.value);
+                              const collectionDate = sampleDate instanceof Date ? sampleDate : new Date(sampleDate);
+                              if (pickupDate < collectionDate) {
+                                const correctedDate = new Date(collectionDate);
+                                correctedDate.setHours(0, 0, 0, 0);
+                                form.setValue('deliveryUpTo', correctedDate);
+                                return;
+                              }
+                            }
+                            form.setValue('deliveryUpTo', parseLocalDatetime(e.target.value));
+                          } else {
+                            form.setValue('deliveryUpTo', null);
+                          }
                         }}
                       />
                     </div>
-                  </div>
-                  <div>
-                    <Label>Phlebotomist Charges (INR)</Label>
-                    <Input {...form.register('phlebotomistCharges')} type="number" step="0.01" placeholder="e.g., 200" />
+                    <div>
+                      <Label>Sample Shipped Date</Label>
+                      <Input
+                        type="date"
+                        {...form.register('sampleShippedDate')}
+                        value={formatDateForInput(form.watch('sampleShippedDate'))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Sample Shipment Amount</Label>
+                      <Input {...form.register('sampleShipmentAmount')} type="number" step="0.01" placeholder="e.g., 500" />
+                    </div>
+                    <div>
+                      <Label>Sample Collected Date</Label>
+                      <Input
+                        type="date"
+                        {...form.register('sampleCollectionDate')}
+                        value={formatDateForInput(form.watch('sampleCollectionDate'))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Sample Received Date</Label>
+                      <Input
+                        type="date"
+                        {...form.register('sampleReceivedDate')}
+                        value={formatDateForInput(form.watch('sampleReceivedDate'))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Tracking ID</Label>
+                      <Input {...form.register('trackingId')} placeholder="Courier tracking number" />
+                    </div>
+                    <div>
+                      <Label>Courier Company</Label>
+                      <Input {...form.register('courierCompany')} placeholder="DHL, BlueDart, etc." />
+                    </div>
+                    <div>
+                      <Label>Progenics TRF</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input {...form.register('progenicsTrf')} placeholder="TRF reference" />
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={async (e) => {
+                            const f = e.target.files && e.target.files[0];
+                            if (!f) return;
+
+                            // Validate file type
+                            if (!f.type || !f.type.includes('pdf')) {
+                              toast({ title: 'Error', description: 'Please select a PDF file', variant: 'destructive' });
+                              return;
+                            }
+
+                            const fd = new FormData();
+                            fd.append('file', f);
+                            try {
+                              // Use the new categorized upload API
+                              const res = await fetch('/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=' + (form.getValues('id') || 'new'), { 
+                                method: 'POST', 
+                                body: fd 
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                // Store the file path from the new API response
+                                form.setValue('progenicsTrf', data.filePath);
+                                console.log('✅ File uploaded successfully:', {
+                                  filePath: data.filePath,
+                                  uploadId: data.uploadId,
+                                  category: data.category,
+                                  fileSize: data.fileSize
+                                });
+                                toast({ 
+                                  title: 'Success', 
+                                  description: `TRF uploaded successfully to ${data.category} folder` 
+                                });
+                              } else {
+                                const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+                                toast({ title: 'Error', description: errorData.message || 'Failed to upload TRF', variant: 'destructive' });
+                              }
+                            } catch (err) {
+                              const errorMessage = err instanceof Error ? err.message : 'Failed to upload TRF';
+                              toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Phlebotomist Charges</Label>
+                      <Input {...form.register('phlebotomistCharges')} type="number" step="0.01" placeholder="e.g., 200" />
+                    </div>
+                    <div>
+                      <Label>Service Name</Label>
+                      <Select onValueChange={(value) => {
+                        if (value === 'other') {
+                          setShowCustomServiceName(true);
+                          form.setValue('serviceName', '');
+                        } else {
+                          setShowCustomServiceName(false);
+                          form.setValue('serviceName', value);
+                        }
+                      }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="WES">WES</SelectItem>
+                          <SelectItem value="CMA">CMA</SelectItem>
+                          <SelectItem value="MLPA">MLPA</SelectItem>
+                          <SelectItem value="NBS">NBS</SelectItem>
+                          <SelectItem value="Karyotyping">Karyotyping</SelectItem>
+                          <SelectItem value="Wellgenics">Wellgenics</SelectItem>
+                          <SelectItem value="Sanger Clinical">Sanger Sequencing - Clinical</SelectItem>
+                          <SelectItem value="Sanger Discovery">Sanger Sequencing - Discovery</SelectItem>
+                          <SelectItem value="Gut Genics">Gut Genics</SelectItem>
+                          <SelectItem value="WGS">Whole Genome Sequencing</SelectItem>
+                          <SelectItem value="Targeted Amplicons">Targeted Amplicons Sequencing</SelectItem>
+                          <SelectItem value="Shotgun">Shotgun Metagenomics Sequencing</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {showCustomServiceName && (
+                        <Input className="mt-2" placeholder="Enter service name" onChange={(e) => form.setValue('serviceName', e.target.value)} />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex justify-end space-x-3 mt-4">
-                <Button type="button" variant="outline" onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setSelectedTitle('Dr');
-                  setClinicianName('');
-                  form.reset();
-                }}>Cancel</Button>
-                <Button
-                  type="submit"
-                  disabled={createLeadMutation.isPending}
-                
-                >
-                  {createLeadMutation.isPending ? "Creating..." : "Create Lead"}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+
+                {/* Section 5: Requirements & Remarks */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Requirements & Remarks</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Genetic Counsellor Required</Label>
+                      <Select onValueChange={(value) => form.setValue('geneticCounselorRequired', value === 'yes')} defaultValue={form.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Nutrition Counsellor Required</Label>
+                      <Select onValueChange={(value) => form.setValue('nutritionalCounsellingRequired', value === 'yes')} defaultValue={form.getValues('nutritionalCounsellingRequired') ? 'yes' : 'no'}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label>Remarks</Label>
+                      <Input {...form.register('remarkComment')} placeholder="Any additional remarks or comments" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-4">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setSelectedTitle('Dr');
+                    setClinicianName('');
+                    form.reset();
+                  }}>Cancel</Button>
+                  <Button
+                    type="submit"
+                    disabled={createLeadMutation.isPending}
+                  >
+                    {createLeadMutation.isPending ? "Creating..." : "Create Lead"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         )}
 
         {/* Edit Lead Dialog - Only visible to users who can edit this lead */}
         {isEditDialogOpen && selectedLead && canEdit(selectedLead) && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Lead</DialogTitle>
                 <DialogDescription>Edit existing lead details. Changes will be saved to the server.</DialogDescription>
               </DialogHeader>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+
+                {/* Section 1: Lead Info */}
                 <div className="border-b pb-6">
-                  <h3 className="text-lg font-medium mb-4">Organization Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <h3 className="text-lg font-medium mb-4">Lead Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Organization / Hospital *</Label>
-                      <Input {...editForm.register('organization')} placeholder="Hospital/Clinic Name" />
-                      {editForm.formState.errors.organization && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.organization.message}</p>
+                      <Label>Lead Type <span className="text-red-500">*</span></Label>
+                      <Select onValueChange={(value) => { editForm.setValue('leadType', value); setEditSelectedLeadType(value); }} defaultValue={editSelectedLeadType}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="individual">Individual Test</SelectItem>
+                          <SelectItem value="project">Project/Bulk Testing</SelectItem>
+                          <SelectItem value="clinical_trial">Clinical Trial</SelectItem>
+                          <SelectItem value="R&D">R&D</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {editForm.formState.errors.leadType && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.leadType.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Status</Label>
+                      <Select onValueChange={(value) => editForm.setValue('status', value)} defaultValue={editForm.watch('status') || 'quoted'}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="quoted">Quoted</SelectItem>
+                          <SelectItem value="cold">Cold</SelectItem>
+                          <SelectItem value="hot">Hot</SelectItem>
+                          <SelectItem value="won">Won</SelectItem>
+                          <SelectItem value="converted">Converted</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Sales / Responsible Person</Label>
+                      <Select onValueChange={(value) => editForm.setValue('salesResponsiblePerson', value)} defaultValue={editForm.getValues('salesResponsiblePerson') || ''}>
+                        <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SHIVA KUMAR Y M">SHIVA KUMAR Y M</SelectItem>
+                          <SelectItem value="Vakumulu Srikanth">Vakumulu Srikanth</SelectItem>
+                          <SelectItem value="Dr. Y Aruna Priya">Dr. Y Aruna Priya</SelectItem>
+                          <SelectItem value="Dr Krishnasai Reddy">Dr Krishnasai Reddy</SelectItem>
+                          <SelectItem value="S Karthik Iyer">S Karthik Iyer</SelectItem>
+                          <SelectItem value="Dr. Swapnil Chandrakant Kajale">Dr. Swapnil Chandrakant Kajale</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Sample Type <span className="text-red-500">*</span></Label>
+                      <Select onValueChange={(value) => {
+                        if (value === 'custom') {
+                          setShowCustomSampleType(true);
+                          editForm.setValue('sampleType', '');
+                        } else {
+                          setShowCustomSampleType(false);
+                          editForm.setValue('sampleType', value);
+                        }
+                      }} defaultValue={editForm.getValues('sampleType') || ''}>
+                        <SelectTrigger><SelectValue placeholder="Select Sample Type" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="blood">Blood</SelectItem>
+                          <SelectItem value="soil">Soil</SelectItem>
+                          <SelectItem value="saliva">Saliva</SelectItem>
+                          <SelectItem value="stool">Stool</SelectItem>
+                          <SelectItem value="tissue">Tissue</SelectItem>
+                          <SelectItem value="urine">Urine</SelectItem>
+                          <SelectItem value="custom">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {showCustomSampleType && (
+                        <Input className="mt-2" placeholder="Enter sample type" onChange={(e) => editForm.setValue('sampleType', e.target.value)} defaultValue={editForm.getValues('sampleType') || ''} />
+                      )}
+                      {editForm.formState.errors.sampleType && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.sampleType.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Test Category</Label>
+                      <Controller
+                        name="testCategory"
+                        control={editForm.control}
+                        defaultValue={
+                          editSelectedCategory === 'clinical' || editSelectedCategory === 'discovery'
+                            ? editSelectedCategory
+                            : 'clinical'
+                        }
+                        render={({ field }) => (
+                          <Select value={field.value || editSelectedCategory} onValueChange={(value) => {
+                            field.onChange(value);
+                            setEditSelectedCategory(value);
+                          }}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="clinical">Clinical</SelectItem>
+                              <SelectItem value="discovery">Discovery</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <Label>Amount Quoted (INR) <span className="text-red-500">*</span></Label>
+                      <CurrencyInput value={editForm.watch('amountQuoted') as any} onValueChange={(v: any) => editForm.setValue('amountQuoted', v)} />
+                      {editForm.formState.errors.amountQuoted && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.amountQuoted.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>TAT (Days)</Label>
+                      <Input type="number" {...editForm.register('tat')} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Organization / Clinician */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Organization & Clinician</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Organization / Hospital <span className="text-red-500">*</span></Label>
+                      <Input {...editForm.register('organisationHospital')} placeholder="Hospital/Clinic Name" />
+                      {editForm.formState.errors.organisationHospital && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.organisationHospital.message}</p>
                       )}
                     </div>
                     <div>
@@ -1636,7 +1792,7 @@ export default function LeadManagement() {
                           value={editSelectedTitle}
                           onValueChange={(value) => {
                             setEditSelectedTitle(value);
-                            editForm.setValue('referredDoctor', `${value} ${stripHonorific(editClinicianName)}`.trim());
+                            editForm.setValue('clinicianResearcherName', `${value} ${stripHonorific(editClinicianName)}`.trim());
                           }}
                         >
                           <SelectTrigger className="w-24">
@@ -1652,45 +1808,230 @@ export default function LeadManagement() {
                           value={editClinicianName}
                           onChange={(e) => {
                             setEditClinicianName(e.target.value);
-                            editForm.setValue('referredDoctor', `${editSelectedTitle} ${stripHonorific(e.target.value)}`.trim());
+                            editForm.setValue('clinicianResearcherName', `${editSelectedTitle} ${stripHonorific(e.target.value)}`.trim());
                           }}
                           placeholder="Name"
                           className="flex-1"
                         />
                       </div>
-                      {editForm.formState.errors.referredDoctor && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.referredDoctor.message}</p>
+                      {editForm.formState.errors.clinicianResearcherName && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.clinicianResearcherName.message}</p>
                       )}
                     </div>
                     <div>
+                      <Label>Specialty</Label>
+                      <Input {...editForm.register('speciality')} placeholder="Genetics, Oncology, etc." />
+                    </div>
+                    <div>
                       <Label>Clinician / Researcher Email <span className="text-red-500">*</span></Label>
-                      <Input {...editForm.register('email')} placeholder="doctor@hospital.com" />
-                      {editForm.formState.errors.email && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.email.message}</p>
+                      <Input {...editForm.register('clinicianResearcherEmail')} placeholder="doctor@hospital.com" />
+                      {editForm.formState.errors.clinicianResearcherEmail && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.clinicianResearcherEmail.message}</p>
                       )}
                     </div>
                     <div>
                       <Label>Clinician / Researcher Phone <span className="text-red-500">*</span></Label>
-                      <PhoneInput
-                        international
-                        countryCallingCodeEditable={false}
-                        defaultCountry="IN"
-                        value={editForm.watch('phone') || ''}
-                        onChange={(value) => editForm.setValue('phone', value || '')}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder="Enter phone number"
-                      />
-                      {editForm.formState.errors.phone && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.phone.message}</p>
+                      <div className="phone-input-wrapper">
+                        <PhoneInput
+                          international
+                          countryCallingCodeEditable={false}
+                          defaultCountry="IN"
+                          value={editForm.watch('clinicianResearcherPhone') || ''}
+                          onChange={(value) => editForm.setValue('clinicianResearcherPhone', value || '')}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                      {editForm.formState.errors.clinicianResearcherPhone && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.clinicianResearcherPhone.message}</p>
                       )}
                     </div>
                     <div>
                       <Label>Clinician / Researcher Address</Label>
-                      <Input {...editForm.register('clinicianAddress')} placeholder="Clinic / Hospital address" defaultValue={editForm.getValues('clinicianAddress')} />
+                      <Input {...editForm.register('clinicianResearcherAddress')} placeholder="Clinic / Hospital address" defaultValue={editForm.getValues('clinicianResearcherAddress')} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Patient Details */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Patient Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Patient / Client Name <span className="text-red-500">*</span></Label>
+                      <Input {...editForm.register('patientClientName')} placeholder="Patient full name" />
+                      {editForm.formState.errors.patientClientName && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.patientClientName.message}</p>
+                      )}
                     </div>
                     <div>
-                      <Label>Specialty</Label>
-                      <Input {...editForm.register('specialty')} placeholder="Genetics, Oncology, etc." />
+                      <Label>Age</Label>
+                      <Input {...editForm.register('age', { valueAsNumber: true })} type="number" placeholder="e.g., 35" />
+                    </div>
+                    <div>
+                      <Label>Gender</Label>
+                      <Select onValueChange={(v) => editForm.setValue('gender', v as 'Male' | 'Female' | 'Other')} defaultValue={editForm.getValues('gender') || 'Male'}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Patient / Client Email</Label>
+                      <Input {...editForm.register('patientClientEmail')} placeholder="patient@example.com" />
+                    </div>
+                    <div>
+                      <Label>Patient / Client Phone <span className="text-red-500">*</span></Label>
+                      <div className="phone-input-wrapper">
+                        <PhoneInput
+                          international
+                          countryCallingCodeEditable={false}
+                          defaultCountry="IN"
+                          value={editForm.watch('patientClientPhone') || ''}
+                          onChange={(value) => editForm.setValue('patientClientPhone', value || '')}
+                          placeholder="Enter phone number"
+                        />
+                      </div>
+                      {editForm.formState.errors.patientClientPhone && (
+                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.patientClientPhone.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>Patient / Client Address</Label>
+                      <Input
+                        {...editForm.register('patientClientAddress')}
+                        placeholder="Patient address"
+                        value={editForm.watch('patientClientAddress') || ''}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4: Sample & Logistics */}
+                <div className="border-b pb-6">
+                  <h3 className="text-lg font-medium mb-4">Sample & Logistics</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label>No of Samples</Label>
+                      <Input {...editForm.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="e.g., 1" />
+                    </div>
+                    <div>
+                      <Label>Budget (INR)</Label>
+                      <Input {...editForm.register('budget')} type="number" step="0.01" placeholder="e.g., 10000" />
+                    </div>
+                    <div>
+                      <Label>Follow up</Label>
+                      <Input {...editForm.register('followUp')} placeholder="Follow up notes / schedule" />
+                    </div>
+                    <div>
+                      <Label>Sample Pick up from</Label>
+                      <Input {...editForm.register('samplePickUpFrom')} placeholder="Pickup address" />
+                    </div>
+                    <div>
+                      <Label>Delivery upto</Label>
+                      <Input
+                        {...editForm.register('deliveryUpTo')}
+                        type="datetime-local"
+                        value={formatDatetimeForInput(editForm.watch('deliveryUpTo'))}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const sampleDate = editForm.watch('sampleCollectionDate');
+                            if (sampleDate) {
+                              const pickupDate = new Date(e.target.value);
+                              const collectionDate = sampleDate instanceof Date ? sampleDate : new Date(sampleDate);
+                              if (pickupDate < collectionDate) {
+                                const correctedDate = new Date(collectionDate);
+                                correctedDate.setHours(0, 0, 0, 0);
+                                editForm.setValue('deliveryUpTo', correctedDate);
+                                return;
+                              }
+                            }
+                            editForm.setValue('deliveryUpTo', parseLocalDatetime(e.target.value));
+                          } else {
+                            editForm.setValue('deliveryUpTo', null);
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Label>Sample Shipped Date</Label>
+                      <Input
+                        type="date"
+                        {...editForm.register('sampleShippedDate')}
+                        value={formatDateForInput(editForm.watch('sampleShippedDate'))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Sample Shipment Amount</Label>
+                      <Input {...editForm.register('sampleShipmentAmount')} type="number" step="0.01" placeholder="e.g., 500" />
+                    </div>
+                    <div>
+                      <Label>Sample Collected Date</Label>
+                      <Input
+                        type="date"
+                        {...editForm.register('sampleCollectionDate')}
+                        value={formatDateForInput(editForm.watch('sampleCollectionDate'))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Sample Received Date</Label>
+                      <Input
+                        type="date"
+                        {...editForm.register('sampleReceivedDate')}
+                        value={formatDateForInput(editForm.watch('sampleReceivedDate'))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Tracking ID</Label>
+                      <Input {...editForm.register('trackingId')} placeholder="Courier tracking number" />
+                    </div>
+                    <div>
+                      <Label>Courier Company</Label>
+                      <Input {...editForm.register('courierCompany')} placeholder="DHL, BlueDart, etc." />
+                    </div>
+                    <div>
+                      <Label>Progenics TRF</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input {...editForm.register('progenicsTrf')} placeholder="TRF reference" />
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={async (e) => {
+                            const f = e.target.files && e.target.files[0];
+                            if (!f) return;
+
+                            // Validate file type
+                            if (!f.type || !f.type.includes('pdf')) {
+                              toast({ title: 'Error', description: 'Please select a PDF file', variant: 'destructive' });
+                              return;
+                            }
+
+                            const fd = new FormData();
+                            fd.append('file', f);
+                            const leadId = selectedLead?.id || 'new';
+                            try {
+                              const res = await fetch(`/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=${leadId}`, { method: 'POST', body: fd });
+                              if (res.ok) {
+                                const data = await res.json();
+                                editForm.setValue('progenicsTrf', data.filePath);
+                                toast({ title: 'Success', description: `TRF uploaded successfully to ${data.category} folder` });
+                              } else {
+                                const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+                                toast({ title: 'Error', description: errorData.message || 'Failed to upload TRF', variant: 'destructive' });
+                              }
+                            } catch (err) {
+                              const errorMessage = err instanceof Error ? err.message : 'Failed to upload TRF';
+                              toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Phlebotomist Charges</Label>
+                      <Input {...editForm.register('phlebotomistCharges')} type="number" step="0.01" placeholder="e.g., 200" />
                     </div>
                     <div>
                       <Label>Service Name</Label>
@@ -1715,8 +2056,8 @@ export default function LeadManagement() {
                           <SelectItem value="NBS">NBS</SelectItem>
                           <SelectItem value="Karyotyping">Karyotyping</SelectItem>
                           <SelectItem value="Wellgenics">Wellgenics</SelectItem>
-                          <SelectItem value="Sanger">Sanger Sequencing - Clinical</SelectItem>
-                          <SelectItem value="Sanger">Sanger Sequencing - Discovery</SelectItem>
+                          <SelectItem value="Sanger Clinical">Sanger Sequencing - Clinical</SelectItem>
+                          <SelectItem value="Sanger Discovery">Sanger Sequencing - Discovery</SelectItem>
                           <SelectItem value="Gut Genics">Gut Genics</SelectItem>
                           <SelectItem value="WGS">Whole Genome Sequencing</SelectItem>
                           <SelectItem value="Targeted Amplicons">Targeted Amplicons Sequencing</SelectItem>
@@ -1731,104 +2072,13 @@ export default function LeadManagement() {
                   </div>
                 </div>
 
+                {/* Section 5: Requirements & Remarks */}
                 <div className="border-b pb-6">
-                  <h3 className="text-lg font-medium mb-4">Lead Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <Label>Lead Type *</Label>
-                        <Select onValueChange={(value) => { editForm.setValue('leadTypeDiscovery', value); setEditSelectedLeadType(value); }} defaultValue={editSelectedLeadType}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="individual">Individual Test</SelectItem>
-                            <SelectItem value="project">Project</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {editForm.formState.errors.leadTypeDiscovery && (
-                          <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.leadTypeDiscovery.message}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Budget (INR)</Label>
-                        <Input {...editForm.register('budget')} type="number" step="0.01" placeholder="e.g., 10000" />
-                      </div>
-                      <div>
-                        <Label>Sample Type *</Label>
-                        <Select onValueChange={(value) => {
-                          if (value === 'custom') {
-                            setShowCustomSampleType(true);
-                            editForm.setValue('sampleType', '');
-                          } else {
-                            setShowCustomSampleType(false);
-                            editForm.setValue('sampleType', value);
-                          }
-                        }}>
-                          <SelectTrigger><SelectValue placeholder="Select Sample Type" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="blood">Blood</SelectItem>
-                            <SelectItem value="saliva">Saliva</SelectItem>
-                            <SelectItem value="stool">Stool</SelectItem>
-                            <SelectItem value="tissue">Tissue</SelectItem>
-                            <SelectItem value="urine">Urine</SelectItem>
-                            <SelectItem value="soil">Soil</SelectItem>
-                            <SelectItem value="custom">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {showCustomSampleType && (
-                          <Input className="mt-2" placeholder="Enter sample type" onChange={(e) => editForm.setValue('sampleType', e.target.value)} />
-                        )}
-                        {editForm.formState.errors.sampleType && (
-                          <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.sampleType.message}</p>
-                        )}
-                      </div>
-                    <div>
-                      <Label>Test Category</Label>
-                      <Select onValueChange={(value) => { editForm.setValue('category', value); setEditSelectedCategory(value); }} defaultValue={editSelectedCategory}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="clinical">Clinical</SelectItem>
-                          <SelectItem value="discovery">Discovery</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Amount Quoted *</Label>
-                      <CurrencyInput value={editForm.watch('amountQuoted') as any} onValueChange={(v: any) => editForm.setValue('amountQuoted', v)} />
-                      {editForm.formState.errors.amountQuoted && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.amountQuoted.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>TAT (days)</Label>
-                      <Input type="number" {...editForm.register('tat', { valueAsNumber: true })} />
-                    </div>
-                    <div>
-                      <Label>Status</Label>
-                      <Select onValueChange={(value) => editForm.setValue('status', value)} defaultValue={editForm.watch('status') || 'quoted'}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="quoted">Quoted</SelectItem>
-                          <SelectItem value="cold">Cold</SelectItem>
-                          <SelectItem value="hot">Hot</SelectItem>
-                          <SelectItem value="won">Won</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Sales / Responsible Person</Label>
-                      <Select onValueChange={(value) => editForm.setValue('salesResponsiblePerson', value)} defaultValue={editForm.getValues('salesResponsiblePerson') || ''}>
-                        <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Shiva">Shiva</SelectItem>
-                          <SelectItem value="Srikanth">Srikanth</SelectItem>
-                          <SelectItem value="Aruna Priya">Aruna Priya</SelectItem>
-                          <SelectItem value="Krishna">Krishna</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <h3 className="text-lg font-medium mb-4">Requirements & Remarks</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <Label>Genetic Counsellor Required</Label>
-                      <Select onValueChange={(value) => editForm.setValue('geneticCounsellorRequired', value === 'yes')} defaultValue={editForm.getValues('geneticCounsellorRequired') ? 'yes' : 'no'}>
+                      <Select onValueChange={(value) => editForm.setValue('geneticCounselorRequired', value === 'yes')} defaultValue={editForm.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="yes">Yes</SelectItem>
@@ -1838,7 +2088,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>Nutrition Counsellor Required</Label>
-                      <Select onValueChange={(value) => editForm.setValue('nutritionRequired', value === 'yes')} defaultValue={editForm.getValues('nutritionRequired') ? 'yes' : 'no'}>
+                      <Select onValueChange={(value) => editForm.setValue('nutritionalCounsellingRequired', value === 'yes')} defaultValue={editForm.getValues('nutritionalCounsellingRequired') ? 'yes' : 'no'}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="yes">Yes</SelectItem>
@@ -1846,189 +2096,9 @@ export default function LeadManagement() {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                </div>
-
-                {/* Project-specific fields - only for project type (edit) */}
-                {editSelectedLeadType === 'project' && (
-                  <div className="border-b pb-6">
-                    <h3 className="text-lg font-medium mb-4">Project Details</h3>
-                    <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                      <p className="text-sm text-blue-700">📊 Additional details for project/bulk testing leads</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Project Budget (INR)</Label>
-                        <Input {...editForm.register('budget')} placeholder="500000" />
-                      </div>
-                      <div>
-                        <Label>Expected No. of Samples</Label>
-                        <Input {...editForm.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="50" />
-                      </div>
-                      <div>
-                        <Label>Follow-up Schedule</Label>
-                        <Input {...editForm.register('followUp')} placeholder="Weekly updates" />
-                      </div>
-                      <div>
-                        <Label>Project Contact Name</Label>
-                        <Input {...editForm.register('patientClientName')} placeholder="Project Lead" />
-                      </div>
-                      <div>
-                        <Label>Project Contact Phone</Label>
-                        <PhoneInput
-                          international
-                          countryCallingCodeEditable={false}
-                          defaultCountry="IN"
-                          value={editForm.watch('patientClientPhone') || ''}
-                          onChange={(value) => editForm.setValue('patientClientPhone', value || '')}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          placeholder="Enter phone number"
-                        />
-                        {editForm.formState.errors.patientClientPhone && (
-                          <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.patientClientPhone.message}</p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Project Contact Email</Label>
-                        <Input {...editForm.register('patientClientEmail')} placeholder="project@org.com" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Patient Details Section (edit) */}
-                <div className="border-b pb-6">
-                  <h3 className="text-lg font-medium mb-4">Patient Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Sample Collected Date</Label>
-                      <Input type="date" {...editForm.register('dateSampleCollected')} />
-                    </div>
-                     <div>
-                       <Label>Sample Shipped Date</Label>
-                       <Input type="date" {...editForm.register('sampleShippedDate')} />
-                     </div>
-                    <div>
-                      <Label>Patient /Client Name *</Label>
-                      <Input {...editForm.register('patientClientName')} placeholder="Patient full name" />
-                      {editForm.formState.errors.patientClientName && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.patientClientName.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Patient /Client Email ID</Label>
-                      <Input {...editForm.register('patientClientEmail')} placeholder="patient@example.com" />
-                    </div>
-                    <div>
-                      <Label>Patient /Client Address</Label>
-                      <Input {...editForm.register('patientAddress')} placeholder="Patient address" />
-                    </div>
-                    <div>
-                      <Label>Patient / Client Phone Number</Label>
-                      <PhoneInput
-                        international
-                        countryCallingCodeEditable={false}
-                        defaultCountry="IN"
-                        value={editForm.watch('patientClientPhone') || ''}
-                        onChange={(value) => editForm.setValue('patientClientPhone', value || '')}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder="Enter phone number"
-                      />
-                      {editForm.formState.errors.patientClientPhone && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.patientClientPhone.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Age</Label>
-                      <Input {...editForm.register('age', { valueAsNumber: true })} type="number" placeholder="e.g., 35" />
-                    </div>
-                    <div>
-                      <Label>No of Samples</Label>
-                      <Input {...editForm.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="e.g., 20" />
-                    </div>
-                    <div>
-                      <Label>Gender</Label>
-                      <Select onValueChange={(v) => editForm.setValue('gender', v as 'Male' | 'Female' | 'Other')} defaultValue={editForm.getValues('gender') || 'Male'}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Male">Male</SelectItem>
-                          <SelectItem value="Female">Female</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {/* Patient details kept minimal here; tracking/pickup fields are in the Tracking section below */}
-                  </div>
-                </div>
-
-                {/* Tracking & Pickup Details */}
-                <div className="border-b pb-6">
-                  <h3 className="text-lg font-medium mb-4">Tracking & Pickup Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Follow Up</Label>
-                      <Input {...editForm.register('followUp')} placeholder="Follow up notes / schedule" />
-                    </div>
-                    <div>
-                      <Label>Pickup From (Address)</Label>
-                      <Input {...editForm.register('pickupFrom')} placeholder="Pickup address" />
-                    </div>
-                    <div>
-                      <Label>Pickup Upto (deadline)</Label>
-                      <Input
-                        {...editForm.register('pickupUpto')}
-                        type="datetime-local"
-                        min={editForm.watch('dateSampleCollected') ? `${editForm.watch('dateSampleCollected')}T00:00` : undefined}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            const sampleDate = editForm.watch('dateSampleCollected');
-                            if (sampleDate) {
-                              const pickupDate = new Date(e.target.value);
-                              const collectionDate = new Date(sampleDate);
-                              if (pickupDate < collectionDate) {
-                                // If pickup date is before sample collection date, set it to sample collection date
-                                editForm.setValue('pickupUpto', `${sampleDate}T00:00`);
-                                return;
-                              }
-                            }
-                            editForm.setValue('pickupUpto', e.target.value);
-                          } else {
-                            editForm.setValue('pickupUpto', '');
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Label>Shipping Amount (INR)</Label>
-                      <Input {...editForm.register('shippingAmount')} type="number" step="0.01" placeholder="e.g., 500" />
-                    </div>
-                    <div>
-                      <Label>Tracking ID</Label>
-                      <Input {...editForm.register('trackingId')} placeholder="Courier tracking number" />
-                    </div>
-                    <div>
-                      <Label>Courier Company</Label>
-                      <Input {...editForm.register('courierCompany')} placeholder="DHL, BlueDart, etc." />
-                    </div>
-                    <div>
-                      <Label>Progenics TRF</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input {...editForm.register('progenicsTRF')} placeholder="TRF reference" />
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={(e) => {
-                            const f = e.target.files && e.target.files[0];
-                            if (!f) return;
-                            setSelectedTrfFile(f);
-                            editForm.setValue('progenicsTRF', f.name);
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Phlebotomist Charges (INR)</Label>
-                      <Input {...editForm.register('phlebotomistCharges')} type="number" step="0.01" placeholder="e.g., 200" />
+                    <div className="md:col-span-3">
+                      <Label>Remarks</Label>
+                      <Input {...editForm.register('remarkComment')} placeholder="Any additional remarks or comments" />
                     </div>
                   </div>
                 </div>
@@ -2105,10 +2175,10 @@ export default function LeadManagement() {
       {/* Pie chart: Leads by service name */}
       {(() => {
         const serviceCounts: Record<string, number> = normalizedLeads.reduce((acc: Record<string, number>, l: any) => {
-          
+
           // Try multiple approaches to get the actual test/service name
           let key = null;
-          
+
           // Approach 1: Check serviceName first
           if (l.serviceName && l.serviceName !== 'Unknown' && !l.serviceName.toLowerCase().includes('unknown')) {
             key = l.serviceName;
@@ -2120,10 +2190,10 @@ export default function LeadManagement() {
           // Approach 3: Check raw data fields
           else if (l._raw) {
             const raw = l._raw;
-            key = raw.serviceName || raw.service_name || raw.testName || raw.test_name || 
-                  raw.service || raw.test || raw.type || raw.testType || raw.test_type;
+            key = raw.serviceName || raw.service_name || raw.testName || raw.test_name ||
+              raw.service || raw.test || raw.type || raw.testType || raw.test_type;
           }
-          
+
           // Approach 4: Smart inference from related fields
           if (!key || key === 'Unknown Test' || key === 'Unknown') {
             // Try to infer from organization name
@@ -2131,10 +2201,10 @@ export default function LeadManagement() {
             const doctor = (l.referredDoctor || l._raw?.referredDoctor || l._raw?.referred_doctor || '').toLowerCase();
             const location = (l.location || l._raw?.location || '').toLowerCase();
             const specialty = (l.specialty || l._raw?.specialty || '').toLowerCase();
-            
+
             // Use pattern matching to infer test type
             const allText = `${org} ${doctor} ${location} ${specialty}`.toLowerCase();
-            
+
             if (allText.includes('wes') || allText.includes('exome') || specialty.includes('genetic')) {
               key = 'WES (Whole Exome Sequencing)';
             } else if (allText.includes('genome') && !allText.includes('exome')) {
@@ -2162,7 +2232,7 @@ export default function LeadManagement() {
               key = 'Clinical Testing (Unspecified)';
             }
           }
-          
+
           // Clean up and standardize the key names
           if (key && key !== 'Unknown' && key !== 'Unknown Test') {
             // Convert technical names to user-friendly names
@@ -2189,140 +2259,140 @@ export default function LeadManagement() {
             else if (key.toLowerCase().includes('nipt')) key = 'NIPT';
             else if (key.toLowerCase().includes('hboc')) key = 'HBOC Gene Panel';
           }
-          
+
           // Final fallback - should rarely happen now
           if (!key || key === 'Unknown Test' || key === 'Unknown') {
             key = 'Clinical Testing (Unspecified)';
           }
-          
+
           acc[key] = (acc[key] || 0) + 1;
           return acc;
         }, {});
 
-  const serviceData = Object.entries(serviceCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  // Use a high-contrast categorical palette (D3 category10) so slices are visually distinct
-  const COLORS = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+        const serviceData = Object.entries(serviceCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+        // Use a high-contrast categorical palette (D3 category10) so slices are visually distinct
+        const COLORS = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
 
-  // Aggregate very small slices into an "Other" bucket and only label the top slices
-  const MAX_LABEL_SLICES = 8;
-  const totalCount = serviceData.reduce((s, d) => s + d.value, 0);
-  const labeledServiceData = (() => {
-    if (serviceData.length <= MAX_LABEL_SLICES) return serviceData;
-    const top = serviceData.slice(0, MAX_LABEL_SLICES);
-    const rest = serviceData.slice(MAX_LABEL_SLICES);
-    const restSum = rest.reduce((s, d) => s + d.value, 0);
-    top.push({ name: 'Other', value: restSum });
-    return top;
-  })();
+        // Aggregate very small slices into an "Other" bucket and only label the top slices
+        const MAX_LABEL_SLICES = 8;
+        const totalCount = serviceData.reduce((s, d) => s + d.value, 0);
+        const labeledServiceData = (() => {
+          if (serviceData.length <= MAX_LABEL_SLICES) return serviceData;
+          const top = serviceData.slice(0, MAX_LABEL_SLICES);
+          const rest = serviceData.slice(MAX_LABEL_SLICES);
+          const restSum = rest.reduce((s, d) => s + d.value, 0);
+          top.push({ name: 'Other', value: restSum });
+          return top;
+        })();
 
-  // Chart overlay for outside labels: measure container, compute label positions
-  const chartRef = useRef<HTMLDivElement | null>(null);
-  const [overlayLabels, setOverlayLabels] = useState<any[]>([]);
+        // Chart overlay for outside labels: measure container, compute label positions
+        const chartRef = useRef<HTMLDivElement | null>(null);
+        const [overlayLabels, setOverlayLabels] = useState<any[]>([]);
 
-  useEffect(() => {
-    const compute = () => {
-      if (!chartRef.current) return;
-      const el = chartRef.current;
-      const rect = el.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-      if (width === 0 || height === 0) return;
+        useEffect(() => {
+          const compute = () => {
+            if (!chartRef.current) return;
+            const el = chartRef.current;
+            const rect = el.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+            if (width === 0 || height === 0) return;
 
-      const centerX = width * 0.40; // matches cx="40%" used by the Pie
-      const centerY = height * 0.50; // matches cy="50%"
-      const radius = Math.min(width, height) * 0.28; // outer radius px (approx)
+            const centerX = width * 0.40; // matches cx="40%" used by the Pie
+            const centerY = height * 0.50; // matches cy="50%"
+            const radius = Math.min(width, height) * 0.28; // outer radius px (approx)
 
-      const total = labeledServiceData.reduce((s: number, d: any) => s + d.value, 0) || 1;
-      let acc = 0;
-      const left: any[] = [];
-      const right: any[] = [];
+            const total = labeledServiceData.reduce((s: number, d: any) => s + d.value, 0) || 1;
+            let acc = 0;
+            const left: any[] = [];
+            const right: any[] = [];
 
-      labeledServiceData.forEach((d: any, i: number) => {
-        const start = (acc / total) * 360;
-        const angle = (d.value / total) * 360;
-        const mid = start + angle / 2;
-        acc += d.value;
-        const RAD = Math.PI / 180;
-        const midRad = -mid * RAD;
-        const sx = centerX + radius * Math.cos(midRad);
-        const sy = centerY + radius * Math.sin(midRad);
+            labeledServiceData.forEach((d: any, i: number) => {
+              const start = (acc / total) * 360;
+              const angle = (d.value / total) * 360;
+              const mid = start + angle / 2;
+              acc += d.value;
+              const RAD = Math.PI / 180;
+              const midRad = -mid * RAD;
+              const sx = centerX + radius * Math.cos(midRad);
+              const sy = centerY + radius * Math.sin(midRad);
 
-        const outerOffset = 36; // distance from slice edge to label anchor
-        const lx = centerX + (radius + outerOffset) * Math.cos(midRad);
-        const ly = centerY + (radius + outerOffset) * Math.sin(midRad);
-        const side = lx < centerX ? 'left' : 'right';
-        const color = COLORS[i % COLORS.length];
-        const pct = Math.round((d.value / total) * 100);
-        const labelText = d.name;
+              const outerOffset = 36; // distance from slice edge to label anchor
+              const lx = centerX + (radius + outerOffset) * Math.cos(midRad);
+              const ly = centerY + (radius + outerOffset) * Math.sin(midRad);
+              const side = lx < centerX ? 'left' : 'right';
+              const color = COLORS[i % COLORS.length];
+              const pct = Math.round((d.value / total) * 100);
+              const labelText = d.name;
 
-        const item = { index: i, sx, sy, lx, ly, side, color, pct, labelText };
-        if (side === 'left') left.push(item); else right.push(item);
-      });
+              const item = { index: i, sx, sy, lx, ly, side, color, pct, labelText };
+              if (side === 'left') left.push(item); else right.push(item);
+            });
 
-      const MIN_DY = 18;
-      const adjust = (arr: any[], side: 'left' | 'right') => {
-        // sort by ly
-        arr.sort((a, b) => a.ly - b.ly);
-        // enforce min spacing top->bottom
-        for (let i = 1; i < arr.length; i++) {
-          const prev = arr[i - 1];
-          if (arr[i].ly < prev.ly + MIN_DY) {
-            arr[i].ly = prev.ly + MIN_DY;
+            const MIN_DY = 18;
+            const adjust = (arr: any[], side: 'left' | 'right') => {
+              // sort by ly
+              arr.sort((a, b) => a.ly - b.ly);
+              // enforce min spacing top->bottom
+              for (let i = 1; i < arr.length; i++) {
+                const prev = arr[i - 1];
+                if (arr[i].ly < prev.ly + MIN_DY) {
+                  arr[i].ly = prev.ly + MIN_DY;
+                }
+              }
+              // push up if bottom overflow
+              const bottomLimit = height - 8;
+              const overflow = arr.length ? (arr[arr.length - 1].ly - bottomLimit) : 0;
+              if (overflow > 0) {
+                for (let i = arr.length - 1; i >= 0; i--) {
+                  arr[i].ly -= overflow;
+                  if (i > 0 && arr[i].ly < arr[i - 1].ly + MIN_DY) {
+                    arr[i - 1].ly = arr[i].ly - MIN_DY;
+                  }
+                }
+              }
+              // ensure top bound
+              if (arr.length && arr[0].ly < 8) {
+                const shift = 8 - arr[0].ly;
+                for (let i = 0; i < arr.length; i++) arr[i].ly += shift;
+              }
+              // compute final label anchor X (a bit inside the label box)
+              const LABEL_W = 140;
+              arr.forEach(it => {
+                it.labelX = side === 'left' ? Math.max(8, centerX - radius - LABEL_W - 8) : Math.min(width - LABEL_W - 8, centerX + radius + 8);
+                it.labelY = it.ly - 10; // shift so text baseline lines up nicely
+                // anchor point on label box (where the leader line will meet)
+                it.anchorX = side === 'left' ? it.labelX + LABEL_W : it.labelX;
+              });
+            };
+
+            adjust(left, 'left');
+            adjust(right, 'right');
+
+            const merged = [...left, ...right];
+            setOverlayLabels(merged);
+          };
+
+          compute();
+          // recompute on container resize
+          let ro: ResizeObserver | null = null;
+          try {
+            ro = new ResizeObserver(() => compute());
+            if (chartRef.current) ro.observe(chartRef.current);
+          } catch (e) {
+            // ResizeObserver may not be available in some test environments; fallback to window resize
+            const onResize = () => compute();
+            window.addEventListener('resize', onResize);
+            return () => window.removeEventListener('resize', onResize);
           }
-        }
-        // push up if bottom overflow
-        const bottomLimit = height - 8;
-        const overflow = arr.length ? (arr[arr.length - 1].ly - bottomLimit) : 0;
-        if (overflow > 0) {
-          for (let i = arr.length - 1; i >= 0; i--) {
-            arr[i].ly -= overflow;
-            if (i > 0 && arr[i].ly < arr[i - 1].ly + MIN_DY) {
-              arr[i - 1].ly = arr[i].ly - MIN_DY;
-            }
-          }
-        }
-        // ensure top bound
-        if (arr.length && arr[0].ly < 8) {
-          const shift = 8 - arr[0].ly;
-          for (let i = 0; i < arr.length; i++) arr[i].ly += shift;
-        }
-        // compute final label anchor X (a bit inside the label box)
-        const LABEL_W = 140;
-        arr.forEach(it => {
-          it.labelX = side === 'left' ? Math.max(8, centerX - radius - LABEL_W - 8) : Math.min(width - LABEL_W - 8, centerX + radius + 8);
-          it.labelY = it.ly - 10; // shift so text baseline lines up nicely
-          // anchor point on label box (where the leader line will meet)
-          it.anchorX = side === 'left' ? it.labelX + LABEL_W : it.labelX;
-        });
-      };
 
-      adjust(left, 'left');
-      adjust(right, 'right');
+          return () => {
+            if (ro && chartRef.current) ro.unobserve(chartRef.current);
+          };
+        }, [JSON.stringify(labeledServiceData)]);
 
-      const merged = [...left, ...right];
-      setOverlayLabels(merged);
-    };
-
-    compute();
-    // recompute on container resize
-    let ro: ResizeObserver | null = null;
-    try {
-      ro = new ResizeObserver(() => compute());
-      if (chartRef.current) ro.observe(chartRef.current);
-    } catch (e) {
-      // ResizeObserver may not be available in some test environments; fallback to window resize
-      const onResize = () => compute();
-      window.addEventListener('resize', onResize);
-      return () => window.removeEventListener('resize', onResize);
-    }
-
-    return () => {
-      if (ro && chartRef.current) ro.unobserve(chartRef.current);
-    };
-  }, [JSON.stringify(labeledServiceData)]);
-
-  // Inline/internal pie labels removed: we render outside labels via an SVG overlay
-  // (overlayLabels) so disable Recharts built-in labels and label lines below.
+        // Inline/internal pie labels removed: we render outside labels via an SVG overlay
+        // (overlayLabels) so disable Recharts built-in labels and label lines below.
 
         return (
           <Card className="mt-4">
@@ -2337,18 +2407,18 @@ export default function LeadManagement() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                            data={labeledServiceData}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="40%" /* shift pie left so labels/legend don't overlap page content */
-                            cy="50%"
-                            outerRadius={100}
-                            fill="#8884d8"
-                            label={false}
-                            labelLine={false}
-                            stroke="#ffffff"
-                            strokeWidth={2}
-                          >
+                          data={labeledServiceData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="40%" /* shift pie left so labels/legend don't overlap page content */
+                          cy="50%"
+                          outerRadius={100}
+                          fill="#8884d8"
+                          label={false}
+                          labelLine={false}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        >
                           {labeledServiceData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
@@ -2360,7 +2430,7 @@ export default function LeadManagement() {
                     {/* Overlay: SVG leader lines + absolute labels (ensures all names are visible and non-overlapping) */}
                     <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                       {overlayLabels.map((it: any, idx: number) => (
-                        <g key={`line-${idx}`}> 
+                        <g key={`line-${idx}`}>
                           <line x1={it.sx} y1={it.sy} x2={it.anchorX} y2={it.ly} stroke={it.color} strokeWidth={1} strokeOpacity={0.9} />
                           <circle cx={it.sx} cy={it.sy} r={2} fill={it.color} />
                         </g>
@@ -2402,7 +2472,7 @@ export default function LeadManagement() {
         <CardContent className="p-0">
           <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center space-x-2">
-              <Input placeholder="Search org / doctor / email / phone / sample id" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} />
+              <Input placeholder="Search Unique ID / Project ID / Patient Name / Phone " value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} />
               <Select onValueChange={(v) => { setStatusFilter(v); setPage(1); }} value={statusFilter}>
                 <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
@@ -2416,7 +2486,7 @@ export default function LeadManagement() {
                 </SelectContent>
               </Select>
             </div>
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
               <Label>Page size</Label>
               <Select onValueChange={(v) => { setPageSize(parseInt(v || '25', 10)); setPage(1); }} value={String(pageSize)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -2427,10 +2497,10 @@ export default function LeadManagement() {
                   <SelectItem value="100">100</SelectItem>
                 </SelectContent>
               </Select>
-              
+
             </div>
           </div>
-          
+
           <div className="border rounded-lg max-h-[60vh] overflow-auto">
             <Table>
               <TableHeader className="sticky top-0 bg-white dark:bg-gray-900 z-20 border-b-2">
@@ -2439,12 +2509,12 @@ export default function LeadManagement() {
                   <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('leadType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Type{sortKey === 'leadType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('organization'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Organisation / Hospital{sortKey === 'organization' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('referredDoctor'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Clinician / Researcher Name{sortKey === 'referredDoctor' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('specialty'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Speciality{sortKey === 'specialty' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('email'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Clinician / Researcher Email{sortKey === 'email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('phone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Clinician / Researcher Phone{sortKey === 'phone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('clinicianAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[140px]">Clinician / Researcher Address{sortKey === 'clinicianAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Organisation / Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Clinician / Researcher Name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('speciality'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Speciality{sortKey === 'speciality' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('clinicianResearcherEmail'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Clinician / Researcher Email{sortKey === 'clinicianResearcherEmail' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('clinicianResearcherPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Clinician / Researcher Phone{sortKey === 'clinicianResearcherPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('clinicianResearcherAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[140px]">Clinician / Researcher Address{sortKey === 'clinicianResearcherAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Patient / Client Name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[200px]">Age</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Gender</TableHead>
@@ -2454,6 +2524,8 @@ export default function LeadManagement() {
                   <TableHead onClick={() => { setSortKey('geneticCounsellorRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Genetic Counselling Required{sortKey === 'geneticCounsellorRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[200px]">Nutritional Counselling Required</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Service Name</TableHead>
+                  <TableHead onClick={() => { setSortKey('amountQuoted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Amount Quoted{sortKey === 'amountQuoted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">TAT(Days){sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Budget</TableHead>
@@ -2468,10 +2540,10 @@ export default function LeadManagement() {
                   <TableHead className="whitespace-nowrap font-semibold min-w-[140px]">Phlebotomist Charges</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Progenics TRF</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Follow up</TableHead>
-                  <TableHead onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Lead Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('leadCreatedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Lead Created By{sortKey === 'leadCreatedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Sales / Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Created{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('updatedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Modified{sortKey === 'updatedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('leadCreated'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Created{sortKey === 'leadCreated' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('leadModified'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Modified{sortKey === 'leadModified' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Remark / Comment</TableHead>
                   <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold min-w-[200px]">Actions</TableHead>
                 </TableRow>
@@ -2479,15 +2551,15 @@ export default function LeadManagement() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={41} className="text-center py-8">Loading...</TableCell>
+                    <TableCell colSpan={43} className="text-center py-8">Loading...</TableCell>
                   </TableRow>
                 ) : visibleLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={41} className="text-center py-8">No leads found</TableCell>
+                    <TableCell colSpan={43} className="text-center py-8">No leads found</TableCell>
                   </TableRow>
                 ) : (
                   visibleLeads.map((lead) => (
-                    <TableRow key={lead.id}>
+                    <TableRow key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
                       <TableCell className="whitespace-nowrap">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">
@@ -2500,73 +2572,59 @@ export default function LeadManagement() {
                           {lead.status || 'Quoted'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.organization ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.referredDoctor ? `Dr. ${stripHonorific(lead.referredDoctor)}` : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.specialty ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.email ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.phone ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.clinicianAddress ?? lead.clinicHospitalName ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.organisationHospital ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.clinicianResearcherName ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.speciality ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.clinicianResearcherEmail ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.clinicianResearcherPhone ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.clinicianResearcherAddress ?? lead.clinicHospitalName ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.patientClientName ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.age != null ? String(lead.age) : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.gender ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.patientClientEmail ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.patientClientPhone ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.patientAddress ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.geneticCounsellorRequired ? 'Yes' : 'No'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.nutritionRequired ? 'Yes' : 'No'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.patientClientAddress ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.geneticCounselorRequired ? 'Yes' : 'No'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.nutritionalCounsellingRequired ? 'Yes' : 'No'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.serviceName ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.amountQuoted != null ? `₹${formatINR(Number(lead.amountQuoted))}` : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.tat != null ? String(lead.tat) : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.sampleType ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.noOfSamples != null ? String(lead.noOfSamples) : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.budget != null ? `₹${formatINR(Number(lead.budget))}` : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.pickupFrom ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.pickupUpto ? new Date(lead.pickupUpto).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.dateSampleCollected ? new Date(lead.dateSampleCollected).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.samplePickUpFrom ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.deliveryUpTo ? new Date(lead.deliveryUpTo).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.sampleShippedDate ? new Date(lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.shippingAmount != null ? `₹${formatINR(Number(lead.shippingAmount))}` : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.sampleShipmentAmount != null ? `₹${formatINR(Number(lead.sampleShipmentAmount))}` : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.trackingId ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.courierCompany ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : (lead.convertedAt ? new Date(lead.convertedAt).toLocaleDateString() : (lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'))}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.phlebotomistCharges != null ? `₹${formatINR(Number(lead.phlebotomistCharges))}` : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {(() => {
-                          const v = lead.progenicsTRF;
-                          if (!v) return '-';
-                          try {
-                            const parsed = typeof v === 'string' ? JSON.parse(v) : v;
-                            if (parsed && parsed.name && parsed.data) {
-                              return (
-                                <a className="text-blue-600 underline" href={parsed.data} download={parsed.name}>
-                                  {parsed.name}
-                                </a>
-                              );
-                            }
-                          } catch (e) {
-                            // not JSON, fall back to plain text
-                          }
-                          return v;
-                        })()}
+                        {lead.progenicsTrf ? <PDFViewer pdfUrl={lead.progenicsTrf} fileName="Progenics_TRF.pdf" /> : '-'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{lead.followUp ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{typeof lead.createdBy === 'object' ? (lead.createdBy as any)?.name ?? '-' : lead.createdBy ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson ?? '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{(lead as any).remark ?? (lead as any).remarks ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{getUserNameById(lead.leadCreatedBy)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson ? (lead.salesResponsiblePerson.trim() || '-') : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{lead.leadModified ? new Date(lead.leadModified).toLocaleString() : '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{(lead as any).remarkComment ?? (lead as any).remarks ?? (lead as any).remark ?? (lead as any).comments ?? '-'}</TableCell>
                       <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2">
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-2 cursor-pointer">
                           {canEdit(lead) && (
-                          <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)} className="cursor-pointer">
+                              <Edit className="h-4 w-4" />
+                            </Button>
                           )}
                           {canDelete() && (
-                          <Button variant="ghost" size="sm" onClick={() => {
-                            if (!confirm('Delete this lead? This action cannot be undone.')) return;
-                            // Server will create the recycle snapshot; do not create a duplicate on the client
-                            deleteLeadMutation.mutate({ id: lead.id });
-                          }}>
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              if (!confirm('Delete this lead? This action cannot be undone.')) return;
+                              // Server will create the recycle snapshot; do not create a duplicate on the client
+                              deleteLeadMutation.mutate({ id: lead.id });
+                            }}>
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
                           )}
                           {/* Quick status badge in Actions for faster visibility and context */}
                           {/* Treat backend `completed` as visually `Converted` here. We show a badge
@@ -2578,7 +2636,7 @@ export default function LeadManagement() {
                           {lead.status !== 'converted' && lead.status !== 'closed' && (
                             <>
                               {getNextStatus(lead.status || 'quoted') && (
-                                <Button 
+                                <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleStatusChange(lead.id, getNextStatus(lead.status || 'quoted')!)}
@@ -2590,7 +2648,7 @@ export default function LeadManagement() {
                                 </Button>
                               )}
                               {lead.status === 'won' && (
-                                <Button 
+                                <Button
                                   size="sm"
                                   onClick={() => handleConvertLead(lead.id)}
                                   disabled={convertLeadMutation.isPending}
@@ -2599,7 +2657,7 @@ export default function LeadManagement() {
                                   Convert
                                 </Button>
                               )}
-                              </>
+                            </>
                           )}
                         </div>
                       </TableCell>

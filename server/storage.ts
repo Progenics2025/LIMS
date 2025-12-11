@@ -1,4 +1,4 @@
-import { 
+import {
   users,
   leads,
   samples,
@@ -10,6 +10,11 @@ import {
   pricing,
   salesActivities,
   clients,
+  labProcessDiscoverySheet,
+  labProcessClinicalSheet,
+  bioinformaticsSheetDiscovery,
+  bioinformaticsSheetClinical,
+  processMasterSheet,
   type User,
   type InsertUser,
   type Lead,
@@ -38,11 +43,19 @@ import {
   type ReportWithSample,
   type FinanceRecordWithSample,
   type LogisticsTrackingWithSample,
+  type BioinformaticsSheetClinical,
+  type BioinformaticsSheetDiscovery,
+  type InsertBioinformaticsSheetClinical,
+  type InsertBioinformaticsSheetDiscovery,
+  type ProcessMasterSheet,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 import { db, pool } from "./db";
 import { and, eq, sql, asc, desc } from "drizzle-orm";
+
+const collateUtf8Unicode = (column: any) => sql`${column} COLLATE utf8mb4_unicode_ci`;
+const eqUtf8Columns = (left: any, right: any) => eq(collateUtf8Unicode(left), collateUtf8Unicode(right));
 
 export interface IStorage {
   // User management
@@ -55,9 +68,8 @@ export interface IStorage {
   deleteUser(id: string): Promise<boolean>;
   // Delete a lead
   deleteLead(id: string): Promise<boolean>;
-  createLeadTrf(leadTrf: { leadId: string; filename: string; data: Buffer }): Promise<{ id: string; filename: string }>;
-  getLeadTrf(id: string): Promise<{ id: string; filename: string; data: Buffer } | undefined>;
-  
+
+
   // Lead management
   createLead(lead: InsertLead): Promise<Lead>;
   getLeads(userRole?: string | null, userId?: string | null): Promise<LeadWithUser[]>;
@@ -66,7 +78,7 @@ export interface IStorage {
   updateLeadStatus(id: string, status: string): Promise<Lead | undefined>;
   findLeadByEmailPhone(email: string, phone: string): Promise<Lead | undefined>;
   convertLead(leadId: string, sampleData: Omit<InsertSample, 'leadId'>): Promise<{ lead: Lead; sample: Sample; finance?: FinanceRecord; labProcessing?: LabProcessing }>;
-  
+
   // Sample management
   getSamples(): Promise<SampleWithLead[]>;
   getSampleById(id: string): Promise<Sample | undefined>;
@@ -74,7 +86,7 @@ export interface IStorage {
   generateSampleId(category: string): string;
   // Delete a sample
   deleteSample(id: string): Promise<boolean>;
-  
+
   // Lab processing
   createLabProcessing(labData: InsertLabProcessing): Promise<LabProcessing>;
   getLabProcessingBySampleId(sampleId: string): Promise<LabProcessing | undefined>;
@@ -83,37 +95,41 @@ export interface IStorage {
   updateLabProcessing(id: string, updates: Partial<LabProcessing>): Promise<LabProcessing | undefined>;
   // Delete a lab processing record
   deleteLabProcessing(id: string): Promise<boolean>;
-  
+
   // Reports
   createReport(report: InsertReport): Promise<Report>;
   getReports(): Promise<ReportWithSample[]>;
   getReportById(id: string): Promise<Report | undefined>;
   updateReport(id: string, updates: Partial<Report>): Promise<Report | undefined>;
-  
+
   // Finance records
   createFinanceRecord(financeData: InsertFinanceRecord): Promise<FinanceRecord>;
   getFinanceRecords(opts?: { page?: number; pageSize?: number; sortBy?: string | null; sortDir?: 'asc' | 'desc' | null; query?: string | null; }): Promise<{ rows: FinanceRecordWithSample[]; total: number }>;
   getFinanceRecordById(id: string): Promise<FinanceRecord | undefined>;
   updateFinanceRecord(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord | undefined>;
-  
+
+  // Bioinformatics sheets
+  sendLabProcessingToBioinformatics(recordId: string, tableType: 'discovery' | 'clinical'): Promise<BioinformaticsSheetDiscovery | BioinformaticsSheetClinical | undefined>;
+  createBioinformaticsRecord(data: InsertBioinformaticsSheetDiscovery | InsertBioinformaticsSheetClinical, tableType: 'discovery' | 'clinical'): Promise<BioinformaticsSheetDiscovery | BioinformaticsSheetClinical>;
+
   // Logistics tracking
   createLogisticsTracking(logisticsData: InsertLogisticsTracking): Promise<LogisticsTracking>;
   getLogisticsTracking(): Promise<LogisticsTrackingWithSample[]>;
   getLogisticsTrackingById(id: string): Promise<LogisticsTracking | undefined>;
   updateLogisticsTracking(id: string, updates: Partial<LogisticsTracking>): Promise<LogisticsTracking | undefined>;
-  
+
   // Pricing
   createPricing(pricingData: InsertPricing): Promise<Pricing>;
   getPricing(): Promise<Pricing[]>;
   getPricingById(id: string): Promise<Pricing | undefined>;
   updatePricing(id: string, updates: Partial<Pricing>): Promise<Pricing | undefined>;
-  
+
   // Sales activities
   createSalesActivity(activityData: InsertSalesActivity): Promise<SalesActivity>;
   getSalesActivities(): Promise<SalesActivity[]>;
   getSalesActivityById(id: string): Promise<SalesActivity | undefined>;
   updateSalesActivity(id: string, updates: Partial<SalesActivity>): Promise<SalesActivity | undefined>;
-  
+
   // Clients
   createClient(clientData: InsertClient): Promise<Client>;
   getClients(): Promise<Client[]>;
@@ -121,17 +137,33 @@ export interface IStorage {
   updateClient(id: string, updates: Partial<Client>): Promise<Client | undefined>;
 
   // Genetic counselling
-  createGeneticCounselling(record: { sampleId: string; gcName: string; counsellingType?: string; counsellingStartTime?: Date | string | null; counsellingEndTime?: Date | string | null; gcSummary?: string | null; extendedFamilyTesting?: boolean; approvalStatus?: string; }): Promise<any>;
+  createGeneticCounselling(record: Partial<any>): Promise<any>;
   getGeneticCounselling(): Promise<any[]>;
   updateGeneticCounselling(id: string, updates: Partial<any>): Promise<any | undefined>;
   deleteGeneticCounselling(id: string): Promise<boolean>;
-  
+
   // Notifications
   createNotification(notification: InsertNotification): Promise<Notification>;
   getNotificationsByUserId(userId: string): Promise<Notification[]>;
   markNotificationAsRead(id: string): Promise<boolean>;
   deleteNotification(id: string): Promise<boolean>;
-  
+
+  // File uploads tracking
+  createFileUpload(uploadData: {
+    filename: string;
+    originalName: string;
+    storagePath: string;
+    category: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedBy?: string;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
+  }): Promise<any>;
+  getFileUploadsByCategory(category: string): Promise<any[]>;
+  getFileUploadsByEntity(entityType: string, entityId: string): Promise<any[]>;
+  getFileUploadById(id: string): Promise<any | undefined>;
+
   // Dashboard stats
   getDashboardStats(): Promise<{
     activeLeads: number;
@@ -139,14 +171,14 @@ export interface IStorage {
     pendingRevenue: number;
     reportsPending: number;
   }>;
-  
+
   // Finance
   getFinanceStats(): Promise<{
     totalRevenue: number;
     pendingPayments: number;
     pendingApprovals: number;
   }>;
-  
+
   getPendingFinanceApprovals(): Promise<SampleWithLead[]>;
 
   // Recycle bin operations
@@ -159,7 +191,7 @@ export interface IStorage {
 
 export class DBStorage implements IStorage {
   private connectionWorking = false;
-  
+
   constructor() {
     this.initializeConnection();
   }
@@ -311,85 +343,55 @@ export class DBStorage implements IStorage {
 
   async createLead(insertLead: InsertLead): Promise<Lead> {
     const id = randomUUID();
+    // Insert using the updated columns from shared/schema.ts (lead_management)
     await db.insert(leads).values({
       id,
-      organization: insertLead.organization,
-      location: insertLead.location,
-      referredDoctor: insertLead.referredDoctor,
-      clinicHospitalName: insertLead.clinicHospitalName ?? null,
-      phone: insertLead.phone,
-      email: insertLead.email,
-      clientEmail: insertLead.clientEmail,
-      testName: insertLead.testName,
-      sampleType: insertLead.sampleType,
-      category: insertLead.category ?? "clinical",
-      amountQuoted: insertLead.amountQuoted,
-      tat: insertLead.tat,
-      status: insertLead.status ?? "quoted",
-      createdBy: insertLead.createdBy ?? null,
-      convertedAt: null,
-      // Discovery-specific fields
-      discoveryOrganization: insertLead.discoveryOrganization ?? null,
-      clinicianName: insertLead.clinicianName ?? null,
-      specialty: insertLead.specialty ?? null,
-      clinicianOrgEmail: insertLead.clinicianOrgEmail ?? null,
-      clinicianOrgPhone: insertLead.clinicianOrgPhone ?? null,
-      serviceName: insertLead.serviceName ?? null,
-      discoveryStatus: insertLead.discoveryStatus ?? null,
-      followUp: insertLead.followUp ?? null,
+      uniqueId: insertLead.uniqueId,
+      projectId: insertLead.projectId ?? null,
       leadType: insertLead.leadType ?? null,
-      budget: insertLead.budget ?? null,
-      noOfSamples: insertLead.noOfSamples ?? null,
+      status: insertLead.status ?? "quoted",
+      organisationHospital: insertLead.organisationHospital ?? null,
+      clinicianResearcherName: insertLead.clinicianResearcherName ?? null,
+      speciality: insertLead.speciality ?? null,
+      clinicianResearcherEmail: insertLead.clinicianResearcherEmail ?? null,
+      clinicianResearcherPhone: insertLead.clinicianResearcherPhone ?? null,
+      clinicianResearcherAddress: insertLead.clinicianResearcherAddress ?? null,
       patientClientName: insertLead.patientClientName ?? null,
       age: insertLead.age ?? null,
       gender: insertLead.gender ?? null,
-      patientClientPhone: insertLead.patientClientPhone ?? null,
       patientClientEmail: insertLead.patientClientEmail ?? null,
-      salesResponsiblePerson: insertLead.salesResponsiblePerson ?? null,
-      geneticCounsellorRequired: (insertLead as any).geneticCounsellorRequired ?? false,
-      dateSampleReceived: insertLead.dateSampleReceived ?? null,
-      dateSampleCollected: (insertLead as any).dateSampleCollected ?? null,
-      // Pickup / tracking fields
-      pickupFrom: insertLead.pickupFrom ?? null,
-      pickupUpto: insertLead.pickupUpto ?? null,
-      shippingAmount: insertLead.shippingAmount ?? null,
+      patientClientPhone: insertLead.patientClientPhone ?? null,
+      patientClientAddress: insertLead.patientClientAddress ?? null,
+      serviceName: insertLead.serviceName ?? null,
+      sampleType: insertLead.sampleType ?? null,
+      testCategory: (insertLead as any).testCategory ?? null,
+      noOfSamples: insertLead.noOfSamples ?? null,
+      budget: insertLead.budget ?? null,
+      amountQuoted: insertLead.amountQuoted ?? null,
+      tat: insertLead.tat ?? null,
+      sampleShipmentAmount: insertLead.sampleShipmentAmount ?? null,
+      phlebotomistCharges: insertLead.phlebotomistCharges ?? null,
+      geneticCounselorRequired: (insertLead as any).geneticCounselorRequired ?? false,
+      nutritionalCounsellingRequired: (insertLead as any).nutritionalCounsellingRequired ?? false,
+      samplePickUpFrom: (insertLead as any).samplePickUpFrom ?? null,
+      deliveryUpTo: (insertLead as any).deliveryUpTo ?? null,
+      sampleCollectionDate: (insertLead as any).sampleCollectionDate ?? null,
+      sampleShippedDate: (insertLead as any).sampleShippedDate ?? null,
+      sampleReceivedDate: (insertLead as any).sampleReceivedDate ?? null,
       trackingId: insertLead.trackingId ?? null,
       courierCompany: insertLead.courierCompany ?? null,
-      progenicsTRF: insertLead.progenicsTRF ?? null,
-      phlebotomistCharges: insertLead.phlebotomistCharges ?? null,
-    });
+      progenicsTrf: (insertLead as any).progenicsTrf ?? null,
+      followUp: insertLead.followUp ?? null,
+      remarkComment: (insertLead as any).remarkComment ?? null,
+      leadCreatedBy: (insertLead as any).leadCreatedBy ?? null,
+      salesResponsiblePerson: insertLead.salesResponsiblePerson ?? null,
+    } as any);
     const created = await this.getLeadById(id);
     if (!created) throw new Error("Failed to create lead");
     return created;
   }
 
-  async createLeadTrf(leadTrf: { leadId: string; filename: string; data: Buffer }): Promise<{ id: string; filename: string }> {
-    const id = randomUUID();
-    try {
-      // store binary data as base64 string in lead_trfs.data text column
-      const base64 = leadTrf.data.toString('base64');
-      await db.insert((await import('@shared/schema')).leadTrfs).values({ id, leadId: leadTrf.leadId, filename: leadTrf.filename, data: base64 });
-      return { id, filename: leadTrf.filename };
-    } catch (error) {
-      console.error('Failed to insert lead TRF into DB', (error as Error).message);
-      throw error;
-    }
-  }
 
-  async getLeadTrf(id: string): Promise<{ id: string; filename: string; data: Buffer } | undefined> {
-    try {
-  const schema = await import('@shared/schema');
-  const rows = await db.select().from(schema.leadTrfs).where(eq(schema.leadTrfs.id, id)).limit(1);
-      const row = rows[0] as any;
-      if (!row) return undefined;
-      // data stored as base64 string
-      const buf = Buffer.from(row.data || '', 'base64');
-      return { id: row.id, filename: row.filename, data: buf };
-    } catch (error) {
-      console.error('Failed to fetch lead TRF from DB', (error as Error).message);
-      return undefined;
-    }
-  }
 
   async getLeads(userRole?: string | null, userId?: string | null): Promise<LeadWithUser[]> {
     if (!this.connectionWorking) {
@@ -397,115 +399,111 @@ export class DBStorage implements IStorage {
       return [
         {
           id: "1",
-          organization: "Apollo Hospitals",
-          location: "Chennai",
-          referredDoctor: "Dr. Smith",
-          clinicHospitalName: "Apollo Main",
-          phone: "+91-9876543210",
-          email: "contact@apollo.com",
-          clientEmail: "patient@apollo.com",
-          testName: "Whole Genome Sequencing",
-          sampleType: "Blood",
-          category: "clinical",
-          amountQuoted: "45000",
-          tat: 14,
+          uniqueId: "LEAD001",
+          projectId: null,
+          leadType: "clinical",
           status: "hot",
-          createdAt: new Date(),
-          createdBy: null,
-          convertedAt: null,
-          discoveryOrganization: null,
-          clinicianName: null,
-          specialty: null,
-          clinicianOrgEmail: null,
-          clinicianOrgPhone: null,
-          serviceName: null,
-          discoveryStatus: null,
-          followUp: null,
-          leadType: null,
-          budget: null,
-          noOfSamples: null,
+          organisationHospital: "Apollo Hospitals",
+          clinicianResearcherName: "Dr. Smith",
+          speciality: null,
+          clinicianResearcherEmail: "contact@apollo.com",
+          clinicianResearcherPhone: "+91-9876543210",
+          clinicianResearcherAddress: null,
           patientClientName: null,
           age: null,
           gender: null,
+          patientClientEmail: "patient@apollo.com",
           patientClientPhone: null,
-          patientClientEmail: null,
-          // Pickup/tracking fields
-          pickupFrom: null,
-          pickupUpto: null,
-          shippingAmount: null,
+          patientClientAddress: null,
+          serviceName: "Whole Genome Sequencing",
+          sampleType: "Blood",
+          testCategory: null,
+          noOfSamples: 1,
+          budget: null,
+          amountQuoted: "45000",
+          tat: "14",
+          sampleShipmentAmount: null,
+          phlebotomistCharges: null,
+          geneticCounselorRequired: false,
+          nutritionalCounsellingRequired: false,
+          samplePickUpFrom: null,
+          deliveryUpTo: null,
+          sampleCollectionDate: null,
+          sampleShippedDate: null,
+          sampleReceivedDate: null,
           trackingId: null,
           courierCompany: null,
-          progenicsTRF: null,
-          phlebotomistCharges: null,
+          progenicsTrf: null,
+          followUp: null,
+          remarkComment: null,
+          leadCreatedBy: null,
           salesResponsiblePerson: null,
-          geneticCounsellorRequired: false,
-          dateSampleReceived: null,
-          dateSampleCollected: null
+          leadCreated: new Date(),
+          leadModified: new Date(),
+          createdBy: null,
         },
         {
           id: "2",
-          organization: "Fortis Healthcare",
-          location: "Mumbai",
-          referredDoctor: "Dr. Patel",
-          clinicHospitalName: "Fortis Mulund",
-          phone: "+91-9876543211",
-          email: "contact@fortis.com",
-          clientEmail: "patient@fortis.com",
-          testName: "Exome Sequencing",
-          sampleType: "Saliva",
-          category: "discovery",
-          amountQuoted: "25000",
-          tat: 10,
-          status: "quoted",
-          createdAt: new Date(),
-          createdBy: null,
-          convertedAt: null,
-          discoveryOrganization: "Research Institute",
-          clinicianName: "Dr. Research Lead",
-          specialty: "Genetics Research",
-          clinicianOrgEmail: "research@fortis.com",
-          clinicianOrgPhone: "+91-9876543212",
-          serviceName: "Discovery Sequencing Service",
-          discoveryStatus: "In Progress",
-          followUp: "Weekly updates",
+          uniqueId: "LEAD002",
+          projectId: null,
           leadType: "Research",
-          budget: "50000",
-          noOfSamples: 20,
+          status: "quoted",
+          organisationHospital: "Fortis Healthcare",
+          clinicianResearcherName: "Dr. Patel",
+          speciality: "Genetics Research",
+          clinicianResearcherEmail: "contact@fortis.com",
+          clinicianResearcherPhone: "+91-9876543211",
+          clinicianResearcherAddress: null,
           patientClientName: "Research Subject 001",
           age: 35,
           gender: "Male",
-          patientClientPhone: "+91-9876543213",
           patientClientEmail: "subject@research.com",
-          // Pickup/tracking fields
-          pickupFrom: null,
-          pickupUpto: null,
-          shippingAmount: null,
+          patientClientPhone: "+91-9876543213",
+          patientClientAddress: null,
+          serviceName: "Discovery Sequencing Service",
+          sampleType: "Saliva",
+          testCategory: null,
+          noOfSamples: 20,
+          budget: "50000",
+          amountQuoted: "25000",
+          tat: "10",
+          sampleShipmentAmount: null,
+          phlebotomistCharges: null,
+          geneticCounselorRequired: false,
+          nutritionalCounsellingRequired: false,
+          samplePickUpFrom: null,
+          deliveryUpTo: null,
+          sampleCollectionDate: null,
+          sampleShippedDate: null,
+          sampleReceivedDate: new Date(),
           trackingId: null,
           courierCompany: null,
-          progenicsTRF: null,
-          phlebotomistCharges: null,
+          progenicsTrf: null,
+          followUp: "Weekly updates",
+          remarkComment: null,
+          leadCreatedBy: null,
           salesResponsiblePerson: "John Sales Manager",
-          geneticCounsellorRequired: false,
-          dateSampleReceived: new Date(),
-          dateSampleCollected: null
+          leadCreated: new Date(),
+          leadModified: new Date(),
+          createdBy: null,
         }
       ];
     }
-    
+
     try {
       // Include the sample row (if any) so UI can show the generated sample_id immediately
       // Build optional where condition based on role
       let whereCondition = undefined;
       if (userRole && userRole.toLowerCase() === 'sales' && userId) {
-        whereCondition = eq(leads.createdBy, userId);
+        whereCondition = eq(leads.leadCreatedBy, userId);
       }
 
       // Construct query with conditional where clause
       let queryBuilder = db
         .select({ lead: leads, user: users, sample: samples })
         .from(leads)
-        .leftJoin(samples, eq(samples.leadId, leads.id))
-        .leftJoin(users, eq(leads.createdBy, users.id)) as any;
+        .leftJoin(samples, eqUtf8Columns(samples.projectId, leads.projectId))
+        .leftJoin(users, eq(leads.leadCreatedBy, users.id)) as any;
 
       // Apply where if condition exists (for sales users only)
       if (whereCondition) {
@@ -526,56 +524,8 @@ export class DBStorage implements IStorage {
       });
     } catch (error) {
       console.error('Error fetching leads:', error);
-      // Return mock data on error
-      return [
-        {
-          id: "1",
-          organization: "Apollo Hospitals",
-          location: "Chennai",
-          referredDoctor: "Dr. Smith",
-          clinicHospitalName: "Apollo Main",
-          phone: "+91-9876543210",
-          email: "contact@apollo.com",
-          clientEmail: "patient@apollo.com",
-          testName: "Whole Genome Sequencing",
-          sampleType: "Blood",
-          category: "clinical",
-          amountQuoted: "45000",
-          tat: 14,
-          status: "hot",
-          createdAt: new Date(),
-          createdBy: null,
-          convertedAt: null,
-          discoveryOrganization: null,
-          clinicianName: null,
-          specialty: null,
-          clinicianOrgEmail: null,
-          clinicianOrgPhone: null,
-          serviceName: null,
-          discoveryStatus: null,
-          followUp: null,
-          leadType: null,
-          budget: null,
-          noOfSamples: null,
-          patientClientName: null,
-          age: null,
-          gender: null,
-          patientClientPhone: null,
-          patientClientEmail: null,
-          // tracking fields
-          pickupFrom: null,
-          pickupUpto: null,
-          shippingAmount: null,
-          trackingId: null,
-          courierCompany: null,
-          progenicsTRF: null,
-          phlebotomistCharges: null,
-          salesResponsiblePerson: null,
-          geneticCounsellorRequired: false,
-          dateSampleReceived: null,
-          dateSampleCollected: null
-        }
-      ];
+      // Return empty array on error
+      return [];
     }
   }
 
@@ -599,7 +549,7 @@ export class DBStorage implements IStorage {
     const rows = await db
       .select()
       .from(leads)
-      .where(and(eq(leads.email, email), eq(leads.phone, phone)))
+      .where(and(eq(leads.clinicianResearcherEmail, email), eq(leads.clinicianResearcherPhone, phone)))
       .limit(1);
     return rows[0];
   }
@@ -620,204 +570,171 @@ export class DBStorage implements IStorage {
     try {
       const lead = await this.getLeadById(leadId);
       if (!lead) throw new Error("Lead not found");
-      
-      console.log('Converting lead:', lead.id, 'category:', lead.category);
+
+      console.log('Converting lead:', lead.id);
       console.log('Sample data:', sampleData);
 
       return await db.transaction(async (tx) => {
         // Update lead status
-        await tx.update(leads).set({ status: "converted", convertedAt: new Date() } as any).where(eq(leads.id, leadId));
+        await tx.update(leads).set({ status: "converted" } as any).where(eq(leads.id, leadId));
         console.log('✅ Lead status updated to converted');
-        
-        // Generate sample ID
-        const sampleIdStr = this.generateSampleId(lead.category || "clinical");
-        const sampleId = randomUUID();
-        console.log('✅ Generated sample ID:', sampleIdStr, 'UUID:', sampleId);
-        
-    // Create sample
-  await tx.insert(samples).values({
-          id: sampleId,
-          sampleId: sampleIdStr,
-          leadId: leadId,
-              status: sampleData.status ?? "pickup_scheduled",
-              courierDetails: sampleData.courierDetails ?? null,
-              amount: sampleData.amount,
-              paidAmount: sampleData.paidAmount ?? "0",
-              // New tracking fields
-      // Extra tracking fields (may not be in InsertSample type) - cast to any
-      ...( { titleUniqueId: sampleData.titleUniqueId ?? null } as any),
-      ...( { sampleUniqueId: sampleData.sampleUniqueId ?? null } as any),
-              sampleCollectedDate: sampleData.sampleCollectedDate ?? null,
-              sampleShippedDate: sampleData.sampleShippedDate ?? null,
-              sampleDeliveryDate: sampleData.sampleDeliveryDate ?? null,
-              responsiblePerson: sampleData.responsiblePerson ?? null,
-              organization: sampleData.organization ?? null,
-              senderCity: sampleData.senderCity ?? null,
-              senderContact: sampleData.senderContact ?? null,
-              receiverAddress: sampleData.receiverAddress ?? null,
-              trackingId: sampleData.trackingId ?? null,
-              courierCompany: sampleData.courierCompany ?? null,
-              labAlertStatus: sampleData.labAlertStatus ?? null,
-              thirdPartyName: sampleData.thirdPartyName ?? null,
-              thirdPartyContractDetails: sampleData.thirdPartyContractDetails ?? null,
-              thirdPartySentDate: sampleData.thirdPartySentDate ?? null,
-              thirdPartyReceivedDate: sampleData.thirdPartyReceivedDate ?? null,
-              comments: sampleData.comments ?? null,
-        });
-        console.log('✅ Sample created in database');
-        
-            // Create a minimal finance record linked to this sample
-            const financeId = randomUUID();
-            await tx.insert(financeRecords).values({
-              id: financeId,
-              sampleId: sampleId,
-              leadId: leadId,
-              invoiceNumber: sampleData.invoiceNumber ?? null,
-              amount: sampleData.amount ?? "0",
-              taxAmount: sampleData.taxAmount ?? "0",
-              totalAmount: sampleData.totalAmount ?? sampleData.amount ?? "0",
-              paymentStatus: 'pending',
-              paymentMethod: sampleData.paymentMethod ?? null,
-              paymentDate: null,
-              dueDate: null,
-              createdAt: new Date(),
-              currency: sampleData.currency ?? 'INR',
-              discountAmount: sampleData.discountAmount ?? "0",
-              billingAddress: sampleData.billingAddress ?? null,
-              billingContact: sampleData.billingContact ?? null,
-              notes: sampleData.notes ?? null,
-              titleUniqueId: sampleData.titleUniqueId ?? null,
-              dateSampleCollected: sampleData.sampleCollectedDate ?? null,
-              organization: sampleData.organization ?? null,
-              clinician: sampleData.clinician ?? null,
-              city: sampleData.city ?? null,
-              patientName: sampleData.patientClientName ?? null,
-              patientEmail: sampleData.patientClientEmail ?? null,
-              patientPhone: sampleData.patientClientPhone ?? null,
-              serviceName: sampleData.serviceName ?? null,
-            });
 
-            // Create a minimal lab_processing record linked to this sample
-            const labId = randomUUID();
-      await tx.insert(labProcessingTable).values({
-              id: labId,
-              sampleId: sampleId,
-              labId: sampleData.labId ?? 'default',
-              qcStatus: sampleData.qcStatus ?? 'pending',
-              dnaRnaQuantity: sampleData.dnaRnaQuantity ?? null,
-              runId: sampleData.runId ?? null,
-              libraryPrepared: false,
-              sequencingId: null,
-              isOutsourced: false,
-              outsourceDetails: null,
-              processedAt: null,
-              processedBy: null,
-              titleUniqueId: sampleData.titleUniqueId ?? null,
-              sampleDeliveryDate: sampleData.sampleDeliveryDate ?? null,
-              serviceName: sampleData.serviceName ?? null,
-              protocol1: sampleData.protocol1 ?? null,
-              isolationMethod: sampleData.isolationMethod ?? null,
-              qualityCheckDNA: sampleData.qualityCheckDNA ?? null,
-              statusDNAExtraction: sampleData.statusDNAExtraction ?? null,
-              protocol2: sampleData.protocol2 ?? null,
-              libraryPreparationProtocol: sampleData.libraryPreparationProtocol ?? null,
-              qualityCheck2: sampleData.qualityCheck2 ?? null,
-              purificationProtocol: sampleData.purificationProtocol ?? null,
-              productQualityCheck: sampleData.productQualityCheck ?? null,
-              statusLibraryPreparation: sampleData.statusLibraryPreparation ?? null,
-              transitStatus: sampleData.transitStatus ?? null,
-              financeApproval: null,
-              completeStatus: null,
-              progenicsTrf: sampleData.progenicsTRF ?? null,
-              sampleType: sampleData.sampleType ?? null,
-              extractionMethod: sampleData.extractionMethod ?? null,
-              concentration: sampleData.concentration ?? null,
-              purity: sampleData.purity ?? null,
-              volume: sampleData.volume ?? null,
-              qualityScore: sampleData.qualityScore ?? null,
-              processingNotes: sampleData.processingNotes ?? null,
-              equipmentUsed: sampleData.equipmentUsed ?? null,
-              reagents: sampleData.reagents ?? null,
-              processingTime: sampleData.processingTime ?? null,
-              temperature: sampleData.temperature ?? null,
-              humidity: sampleData.humidity ?? null,
-            });
+        // Create sample_tracking row using fields available on lead
+        await tx.insert(samples).values({
+          uniqueId: (lead as any).uniqueId ?? null,
+          projectId: (lead as any).projectId ?? null,
+          sampleCollectionDate: (lead as any).sampleCollectionDate ?? null,
+          sampleShippedDate: (lead as any).sampleShippedDate ?? null,
+          sampleDeliveryDate: (lead as any).sampleReceivedDate ?? null,
+          samplePickUpFrom: (lead as any).samplePickUpFrom ?? null,
+          deliveryUpTo: (lead as any).deliveryUpTo ?? null,
+          trackingId: (lead as any).trackingId ?? null,
+          courierCompany: (lead as any).courierCompany ?? null,
+          sampleShipmentAmount: (lead as any).sampleShipmentAmount ?? null,
+          organisationHospital: (lead as any).organisationHospital ?? null,
+          clinicianResearcherName: (lead as any).clinicianResearcherName ?? null,
+          clinicianResearcherPhone: (lead as any).clinicianResearcherPhone ?? null,
+          patientClientName: (lead as any).patientClientName ?? null,
+          patientClientPhone: (lead as any).patientClientPhone ?? null,
+          sampleReceivedDate: (lead as any).sampleReceivedDate ?? null,
+          salesResponsiblePerson: (lead as any).salesResponsiblePerson ?? null,
+        } as any);
+        console.log('✅ Sample tracking created from lead');
 
-            console.log('✅ Finance and lab_processing placeholders created');
+        // Fetch the created sample (latest by uniqueId/projectId)
+        const createdSamples = await tx
+          .select()
+          .from(samples)
+          .where(eq(samples.uniqueId as any, (lead as any).uniqueId))
+          .orderBy(desc(samples.createdAt as any))
+          .limit(1);
+        const createdSample = (createdSamples && createdSamples[0]) ? (createdSamples[0] as any) : null;
 
-            // Create genetic counselling record if requested or if this lead requires it (WES + gc required)
-            let createdGc: any = null;
-            try {
-              const leadServiceName = (lead as any).serviceName || (lead as any).service_name || '';
-              const gcRequired = (lead as any).geneticCounsellorRequired ?? (lead as any).genetic_counsellor_required ?? false;
-              const leadFollowUp = (lead as any).followUp || (lead as any).follow_up || '';
-              // allow callers to force creation via convert payload flags
-              const requestGcFlag = !!sampleData?.createGeneticCounselling || !!sampleData?.createGc || !!sampleData?.create_genetic_counselling;
+        // Create a finance_sheet record from the converted lead with comprehensive field mapping
+        let createdFinanceRecord: any = null;
+        try {
+          const financeData: any = {
+            uniqueId: (lead as any).uniqueId,
+            projectId: (lead as any).projectId ?? '', // Required field - NOT NULL in database
+            sampleCollectionDate: (lead as any).sampleCollectionDate ?? null,
+            organisationHospital: (lead as any).organisationHospital ?? null,
+            clinicianResearcherName: (lead as any).clinicianResearcherName ?? null,
+            clinicianResearcherEmail: (lead as any).clinicianResearcherEmail ?? null,
+            clinicianResearcherPhone: (lead as any).clinicianResearcherPhone ?? null,
+            clinicianResearcherAddress: (lead as any).clinicianResearcherAddress ?? null,
+            patientClientName: (lead as any).patientClientName ?? null,
+            patientClientEmail: (lead as any).patientClientEmail ?? null,
+            patientClientPhone: (lead as any).patientClientPhone ?? null,
+            patientClientAddress: (lead as any).patientClientAddress ?? null,
+            serviceName: (lead as any).serviceName ?? null,
+            budget: (lead as any).amountQuoted ? String((lead as any).amountQuoted) : null,
+            phlebotomistCharges: (lead as any).phlebotomistCharges ?? null,
+            salesResponsiblePerson: (lead as any).salesResponsiblePerson ?? null,
+            sampleShipmentAmount: (lead as any).sampleShipmentAmount ?? null,
+            createdBy: (lead as any).leadCreatedBy || 'system',
+            createdAt: new Date(),
+          };
 
-              const shouldCreateGc = requestGcFlag || ((String(leadServiceName).toLowerCase().includes('wes') || String(leadFollowUp).toLowerCase().includes('gc')) && !!gcRequired);
+          console.log('Creating finance_sheet with data:', { uniqueId: financeData.uniqueId, projectId: financeData.projectId });
+          const insertResult = await tx.insert(financeRecords).values(financeData as any);
+          console.log('✅ Finance sheet record created from converted lead:', financeData.uniqueId);
 
-              console.log('GC decision: leadServiceName=', leadServiceName, 'leadFollowUp=', leadFollowUp, 'gcRequired=', gcRequired, 'requestGcFlag=', requestGcFlag, 'shouldCreateGc=', shouldCreateGc);
+          // Fetch the created record
+          const createdRecords = await tx
+            .select()
+            .from(financeRecords)
+            .where(eq(financeRecords.uniqueId as any, (lead as any).uniqueId))
+            .orderBy(desc(financeRecords.createdAt as any))
+            .limit(1);
+          createdFinanceRecord = (createdRecords && createdRecords[0]) ? (createdRecords[0] as any) : null;
+          console.log('✅ Fetched finance record:', createdFinanceRecord?.id ?? 'No record found');
+        } catch (e) {
+          console.error('❌ Failed to create finance_sheet record:', (e as Error).message);
+          console.error('Error details:', (e as Error));
+        }
 
-              if (shouldCreateGc) {
-                const gcId = randomUUID();
-                await tx.insert((await import('@shared/schema')).geneticCounselling).values({
-                  id: gcId,
-                  sampleId: sampleIdStr,
-                  gcName: '',
-                  counsellingType: null,
-                  counsellingStartTime: null,
-                  counsellingEndTime: null,
-                  gcSummary: null,
-                  extendedFamilyTesting: false,
-                  approvalStatus: 'pending',
-                });
-                const gcRows = await tx.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id, gcId)).limit(1);
-                createdGc = gcRows[0] ?? null;
-                console.log('✅ Genetic counselling record created for sample', sampleIdStr);
-              }
-            } catch (err) {
-              console.error('Failed to create genetic counselling record during conversion:', (err as Error).message);
-            }
+        // Create a process_master_sheet record from the converted lead
+        try {
+          await tx.insert(processMasterSheet).values({
+            uniqueId: (lead as any).uniqueId ?? null,
+            projectId: (lead as any).projectId ?? null,
+            sampleId: (createdSample as any)?.uniqueId ?? null,
+            clientId: (lead as any).clientId ?? null,
+            organisationHospital: (lead as any).organisationHospital ?? null,
+            clinicianResearcherName: (lead as any).clinicianResearcherName ?? null,
+            speciality: (lead as any).speciality ?? null,
+            clinicianResearcherEmail: (lead as any).clinicianResearcherEmail ?? null,
+            clinicianResearcherPhone: (lead as any).clinicianResearcherPhone ?? null,
+            clinicianResearcherAddress: (lead as any).clinicianResearcherAddress ?? null,
+            patientClientName: (lead as any).patientClientName ?? null,
+            age: (lead as any).age ?? null,
+            gender: (lead as any).gender ?? null,
+            patientClientEmail: (lead as any).patientClientEmail ?? null,
+            patientClientPhone: (lead as any).patientClientPhone ?? null,
+            patientClientAddress: (lead as any).patientClientAddress ?? null,
+            sampleCollectionDate: (lead as any).sampleCollectionDate ?? null,
+            sampleReceviedDate: (lead as any).sampleReceivedDate ?? null,
+            serviceName: (lead as any).serviceName ?? null,
+            sampleType: (lead as any).sampleType ?? null,
+            noOfSamples: (lead as any).noOfSamples ?? null,
+            tat: (lead as any).tat ?? null,
+            salesResponsiblePerson: (lead as any).salesResponsiblePerson ?? null,
+            progenicsTrf: null,
+            thirdPartyTrf: null,
+            progenicsReport: null,
+            sampleSentToThirdPartyDate: null,
+            thirdPartyName: null,
+            thirdPartyReport: null,
+            resultsRawDataReceivedFromThirdPartyDate: null,
+            logisticStatus: 'pending',
+            financeStatus: 'pending',
+            labProcessStatus: 'pending',
+            bioinformaticsStatus: 'pending',
+            nutritionalManagementStatus: (lead as any).nutritionalCounsellingRequired ? 'pending' : 'not_required',
+            progenicsReportReleaseDate: null,
+            remarkComment: null,
+            createdBy: (lead as any).leadCreatedBy || 'system',
+            modifiedAt: null,
+            modifiedBy: null,
+          } as any);
+          console.log('✅ Process master sheet record created from converted lead');
+        } catch (e) {
+          console.error('Failed to create process_master_sheet record:', (e as Error).message);
+          console.error('Error details:', JSON.stringify(e));
+        }
 
-            // Fetch the updated lead, created finance and lab rows to return a complete response
-            const updatedLeadRows = await tx.select().from(leads).where(eq(leads.id, leadId)).limit(1);
-            const updatedLead = updatedLeadRows[0] as Lead;
+        // Create genetic counselling record if requested or if this lead requires it (WES + gc required)
+        let createdGc: any = null;
+        try {
+          const leadServiceName = (lead as any).serviceName || (lead as any).service_name || '';
+          const gcRequired = (lead as any).geneticCounsellorRequired ?? (lead as any).genetic_counsellor_required ?? false;
+          const leadFollowUp = (lead as any).followUp || (lead as any).follow_up || '';
+          // allow callers to force creation via convert payload flags
+          const requestGcFlag = !!sampleData?.createGeneticCounselling || !!sampleData?.createGc || !!sampleData?.create_genetic_counselling;
 
-            const financeRows = await tx.select().from(financeRecords).where(eq(financeRecords.id, financeId)).limit(1);
-            const createdFinance = financeRows[0] as FinanceRecord | undefined;
+          const shouldCreateGc = requestGcFlag || ((String(leadServiceName).toLowerCase().includes('wes') || String(leadFollowUp).toLowerCase().includes('gc')) && !!gcRequired);
 
-            const labRows = await tx.select().from(labProcessingTable).where(eq(labProcessingTable.id, labId)).limit(1);
-            const createdLab = labRows[0] as LabProcessing | undefined;
+          console.log('GC decision: leadServiceName=', leadServiceName, 'leadFollowUp=', leadFollowUp, 'gcRequired=', gcRequired, 'requestGcFlag=', requestGcFlag, 'shouldCreateGc=', shouldCreateGc);
 
-            return { lead: updatedLead, sample: { 
-          id: sampleId,
-          sampleId: sampleIdStr,
-          leadId: leadId,
-          status: sampleData.status ?? "pickup_scheduled",
-          courierDetails: sampleData.courierDetails ?? null,
-          amount: sampleData.amount,
-          paidAmount: sampleData.paidAmount ?? "0",
-          // New tracking fields echoed back
-          titleUniqueId: sampleData.titleUniqueId ?? null,
-          sampleUniqueId: sampleData.sampleUniqueId ?? null,
-          sampleCollectedDate: sampleData.sampleCollectedDate ?? null,
-          sampleShippedDate: sampleData.sampleShippedDate ?? null,
-          sampleDeliveryDate: sampleData.sampleDeliveryDate ?? null,
-          responsiblePerson: sampleData.responsiblePerson ?? null,
-          organization: sampleData.organization ?? null,
-          senderCity: sampleData.senderCity ?? null,
-          senderContact: sampleData.senderContact ?? null,
-          receiverAddress: sampleData.receiverAddress ?? null,
-          trackingId: sampleData.trackingId ?? null,
-          courierCompany: sampleData.courierCompany ?? null,
-          labAlertStatus: sampleData.labAlertStatus ?? null,
-          thirdPartyName: sampleData.thirdPartyName ?? null,
-          thirdPartyContractDetails: sampleData.thirdPartyContractDetails ?? null,
-          thirdPartySentDate: sampleData.thirdPartySentDate ?? null,
-          thirdPartyReceivedDate: sampleData.thirdPartyReceivedDate ?? null,
-          comments: sampleData.comments ?? null,
-    createdAt: new Date()
-  } as any, finance: createdFinance, labProcessing: createdLab, geneticCounselling: createdGc };
+          if (shouldCreateGc) {
+            // genetic_counselling_records schema does not include sampleId; create a minimal row is handled via dedicated APIs
+            console.log('ℹ️ Skipping automatic genetic counselling creation due to schema change');
+          }
+        } catch (err) {
+          console.error('Failed to create genetic counselling record during conversion:', (err as Error).message);
+        }
+
+        // Fetch the updated lead
+        const updatedLeadRows = await tx.select().from(leads).where(eq(leads.id, leadId)).limit(1);
+        const updatedLead = updatedLeadRows[0] as Lead;
+
+        return {
+          lead: updatedLead,
+          sample: createdSample as any,
+          finance: createdFinanceRecord,
+          labProcessing: undefined as any,
+          geneticCounselling: createdGc
+        };
       });
     } catch (error) {
       console.error('❌ Error in convertLead:', error);
@@ -829,7 +746,7 @@ export class DBStorage implements IStorage {
     const rows = await db
       .select({ sample: samples, lead: leads })
       .from(samples)
-      .leftJoin(leads, eq(samples.leadId, leads.id));
+      .leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row: any) => ({
       ...(row.sample as any),
       lead: row.lead as any,
@@ -837,19 +754,19 @@ export class DBStorage implements IStorage {
   }
 
   async getSampleById(id: string): Promise<Sample | undefined> {
-    const rows = await db.select().from(samples).where(eq(samples.id, id)).limit(1);
+    const rows = await db.select().from(samples).where(eq(samples.id, Number(id))).limit(1);
     return rows[0];
   }
 
   async updateSample(id: string, updates: Partial<Sample>): Promise<Sample | undefined> {
-    await db.update(samples).set(updates as any).where(eq(samples.id, id));
+    await db.update(samples).set(updates as any).where(eq(samples.id, Number(id)));
     return this.getSampleById(id);
   }
 
   async deleteSample(id: string): Promise<boolean> {
     try {
       try {
-        const rows = await db.select().from(samples).where(eq(samples.id, id)).limit(1);
+        const rows = await db.select().from(samples).where(eq(samples.id, Number(id))).limit(1);
         if (rows[0]) {
           const { recycleBin } = await import('@shared/schema');
           await db.insert(recycleBin).values({ id: randomUUID(), entityType: 'samples', entityId: id, data: rows[0], originalPath: `/samples/${id}` });
@@ -858,7 +775,7 @@ export class DBStorage implements IStorage {
         console.error('Failed to create recycle snapshot for sample:', (e as Error).message);
       }
 
-      await db.delete(samples).where(eq(samples.id, id));
+      await db.delete(samples).where(eq(samples.id, Number(id)));
       return true;
     } catch (error) {
       console.error('Failed to delete sample:', (error as Error).message);
@@ -868,16 +785,34 @@ export class DBStorage implements IStorage {
 
   async createLabProcessing(labData: InsertLabProcessing): Promise<LabProcessing> {
     const id = randomUUID();
-    // Resolve sampleId: callers may provide either the internal UUID (samples.id)
-    // or the human-readable sample code (samples.sampleId). Try to resolve to
-    // the internal UUID so joins in getLabProcessingQueue() work reliably.
-    let resolvedSampleId = labData.sampleId;
+    // Resolve sampleId: callers may provide either the internal ID (samples.id as number)
+    // or the human-readable sample code (samples.uniqueId). Try to resolve to
+    // the internal ID so joins in getLabProcessingQueue() work reliably.
+    let resolvedSampleId: any = labData.sampleId;
     try {
-      const byId = await db.select().from(samples).where(eq(samples.id, labData.sampleId)).limit(1);
-      if (!byId[0]) {
-        const byHuman = await db.select().from(samples).where(eq(samples.sampleId, labData.sampleId)).limit(1);
-        if (byHuman[0]) resolvedSampleId = (byHuman[0] as any).id;
-        else throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+      // First try to parse as a number and match against samples.id (bigint)
+      const sampleIdNum = Number(labData.sampleId);
+      if (!isNaN(sampleIdNum)) {
+        const byId = await db.select().from(samples).where(eq(samples.id, sampleIdNum)).limit(1);
+        if (byId[0]) {
+          resolvedSampleId = sampleIdNum.toString();
+        } else {
+          // If not found by ID, try to find by uniqueId
+          const byUnique = await db.select().from(samples).where(eq(samples.uniqueId, labData.sampleId)).limit(1);
+          if (byUnique[0]) {
+            resolvedSampleId = (byUnique[0].id as number).toString();
+          } else {
+            throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+          }
+        }
+      } else {
+        // Not a number, so try to find by uniqueId
+        const byUnique = await db.select().from(samples).where(eq(samples.uniqueId, labData.sampleId)).limit(1);
+        if (byUnique[0]) {
+          resolvedSampleId = (byUnique[0].id as number).toString();
+        } else {
+          throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+        }
       }
     } catch (err) {
       // Bubble up - route handler will translate to 500/400 as appropriate
@@ -948,7 +883,7 @@ export class DBStorage implements IStorage {
       .select({ lp: labProcessingTable, sample: samples, lead: leads })
       .from(labProcessingTable)
       .leftJoin(samples, eq(labProcessingTable.sampleId, samples.id))
-      .leftJoin(leads, eq(samples.leadId, leads.id));
+      .leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row: any) => ({
       ...(row.lp as any),
       sample: {
@@ -1043,7 +978,7 @@ export class DBStorage implements IStorage {
       .select({ r: reportsTable, sample: samples, lead: leads })
       .from(reportsTable)
       .leftJoin(samples, eq(reportsTable.sampleId, samples.id))
-      .leftJoin(leads, eq(samples.leadId, leads.id));
+      .leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row: any) => ({
       ...(row.r as any),
       sample: {
@@ -1065,60 +1000,52 @@ export class DBStorage implements IStorage {
 
   // Finance Records
   async createFinanceRecord(financeData: InsertFinanceRecord): Promise<FinanceRecord> {
-    const id = randomUUID();
+    // Insert only columns that exist in finance_sheet per shared/schema.ts
     await db.insert(financeRecords).values({
-      id,
-      sampleId: financeData.sampleId ?? null,
-      leadId: financeData.leadId ?? null,
-      invoiceNumber: financeData.invoiceNumber,
-      amount: financeData.amount,
-      taxAmount: financeData.taxAmount ?? "0",
-      totalAmount: financeData.totalAmount,
-      paymentStatus: financeData.paymentStatus ?? "pending",
-      paymentMethod: financeData.paymentMethod ?? null,
-      paymentDate: financeData.paymentDate ?? null,
-      dueDate: financeData.dueDate ?? null,
-      currency: financeData.currency ?? "INR",
-      discountAmount: financeData.discountAmount ?? "0",
-      discountReason: financeData.discountReason ?? null,
-      billingAddress: financeData.billingAddress ?? null,
-      billingContact: financeData.billingContact ?? null,
-      paymentTerms: financeData.paymentTerms ?? null,
-      lateFees: financeData.lateFees ?? "0",
-      refundAmount: financeData.refundAmount ?? "0",
-      refundReason: financeData.refundReason ?? null,
-      notes: financeData.notes ?? null,
-      // Additional UI fields
-      titleUniqueId: financeData.titleUniqueId ?? null,
-      dateSampleCollected: financeData.dateSampleCollected ?? null,
-      organization: financeData.organization ?? null,
-      clinician: financeData.clinician ?? null,
-      city: financeData.city ?? null,
-      patientName: financeData.patientName ?? null,
-      patientEmail: financeData.patientEmail ?? null,
-      patientPhone: financeData.patientPhone ?? null,
-      serviceName: financeData.serviceName ?? null,
-      budget: financeData.budget ?? null,
-      salesResponsiblePerson: financeData.salesResponsiblePerson ?? null,
-      invoiceAmount: financeData.invoiceAmount ?? null,
-      invoiceDate: financeData.invoiceDate ?? null,
-      paymentReceivedAmount: financeData.paymentReceivedAmount ?? null,
-      utrDetails: financeData.utrDetails ?? null,
-      balanceAmountReceivedDate: financeData.balanceAmountReceivedDate ?? null,
-      totalPaymentReceivedStatus: financeData.totalPaymentReceivedStatus ?? null,
-      phlebotomistCharges: financeData.phlebotomistCharges ?? null,
-      sampleShipmentAmount: financeData.sampleShipmentAmount ?? null,
-      thirdPartyCharges: financeData.thirdPartyCharges ?? null,
-      otherCharges: financeData.otherCharges ?? null,
-      thirdPartyName: financeData.thirdPartyName ?? null,
-      thirdPartyContractDetails: financeData.thirdPartyContractDetails ?? null,
-      thirdPartyPaymentStatus: financeData.thirdPartyPaymentStatus ?? null,
-      progenicsTrf: financeData.progenicsTrf ?? null,
-      approveToLabProcess: financeData.approveToLabProcess ?? false,
-      approveToReportProcess: financeData.approveToReportProcess ?? false,
-      createdBy: financeData.createdBy ?? null,
-    });
-    const created = await this.getFinanceRecordById(id);
+      uniqueId: financeData.uniqueId,
+      projectId: (financeData as any).projectId ?? null,
+      sampleCollectionDate: (financeData as any).sampleCollectionDate ?? null,
+      organisationHospital: (financeData as any).organisationHospital ?? null,
+      clinicianResearcherName: (financeData as any).clinicianResearcherName ?? null,
+      clinicianResearcherEmail: (financeData as any).clinicianResearcherEmail ?? null,
+      clinicianResearcherPhone: (financeData as any).clinicianResearcherPhone ?? null,
+      clinicianResearcherAddress: (financeData as any).clinicianResearcherAddress ?? null,
+      patientClientName: (financeData as any).patientClientName ?? null,
+      patientClientEmail: (financeData as any).patientClientEmail ?? null,
+      patientClientPhone: (financeData as any).patientClientPhone ?? null,
+      patientClientAddress: (financeData as any).patientClientAddress ?? null,
+      serviceName: (financeData as any).serviceName ?? null,
+      budget: (financeData as any).budget ?? null,
+      phlebotomistCharges: (financeData as any).phlebotomistCharges ?? null,
+      salesResponsiblePerson: (financeData as any).salesResponsiblePerson ?? null,
+      sampleShipmentAmount: (financeData as any).sampleShipmentAmount ?? null,
+      invoiceNumber: (financeData as any).invoiceNumber ?? null,
+      invoiceAmount: (financeData as any).invoiceAmount ?? null,
+      invoiceDate: (financeData as any).invoiceDate ?? null,
+      paymentReceiptAmount: (financeData as any).paymentReceiptAmount ?? null,
+      balanceAmount: (financeData as any).balanceAmount ?? null,
+      paymentReceiptDate: (financeData as any).paymentReceiptDate ?? null,
+      modeOfPayment: (financeData as any).modeOfPayment ?? null,
+      transactionalNumber: (financeData as any).transactionalNumber ?? null,
+      balanceAmountReceivedDate: (financeData as any).balanceAmountReceivedDate ?? null,
+      totalAmountReceivedStatus: (financeData as any).totalAmountReceivedStatus ?? false,
+      utrDetails: (financeData as any).utrDetails ?? null,
+      thirdPartyCharges: (financeData as any).thirdPartyCharges ?? null,
+      otherCharges: (financeData as any).otherCharges ?? null,
+      otherChargesReason: (financeData as any).otherChargesReason ?? null,
+      thirdPartyName: (financeData as any).thirdPartyName ?? null,
+      thirdPartyPhone: (financeData as any).thirdPartyPhone ?? null,
+      thirdPartyPaymentDate: (financeData as any).thirdPartyPaymentDate ?? null,
+      thirdPartyPaymentStatus: (financeData as any).thirdPartyPaymentStatus ?? false,
+      alertToLabprocessTeam: (financeData as any).alertToLabprocessTeam ?? false,
+      alertToReportTeam: (financeData as any).alertToReportTeam ?? false,
+      alertToTechnicalLead: (financeData as any).alertToTechnicalLead ?? false,
+      createdBy: (financeData as any).createdBy ?? null,
+      remarkComment: (financeData as any).remarkComment ?? null,
+    } as any);
+    // Fetch created by uniqueId
+    const rows = await db.select().from(financeRecords).where(eq(financeRecords.uniqueId as any, financeData.uniqueId)).limit(1);
+    const created = rows[0] as any;
     if (!created) throw new Error("Failed to create finance record");
     return created;
   }
@@ -1139,8 +1066,8 @@ export class DBStorage implements IStorage {
 
     // determine ordering expression
     const mapping: Record<string, any> = {
-      invoiceDate: financeRecords.paymentDate,
-      invoiceAmount: financeRecords.totalAmount,
+      invoiceDate: financeRecords.invoiceDate,
+      invoiceAmount: financeRecords.invoiceAmount,
       createdAt: financeRecords.createdAt,
     };
     const orderExpr: any = sortBy ? (mapping[sortBy] ?? (financeRecords as any)[sortBy as string] ?? undefined) : undefined;
@@ -1152,19 +1079,24 @@ export class DBStorage implements IStorage {
       const like = `%${q}%`;
       // build safe SQL with parameter placeholders programmatically to avoid mismatch bugs
       const searchCols = [
+        'fr.unique_id',
         'fr.invoice_number',
-        'fr.id',
-        // ensure we match sample id whether it's stored on finance_records or samples
-        'fr.sample_id',
-        's.sample_id',
-        'fr.patient_name',
-        'fr.organization',
-        'l.organization',
+        'fr.patient_client_name',
+        'fr.organisation_hospital',
+        'fr.service_name',
+        'fr.sales_responsible_person',
+        'fr.mode_of_payment',
+        'fr.transactional_number',
+        'fr.third_party_name',
+        's.organisation_hospital',
+        's.patient_client_name',
+        'l.organisation_hospital',
+        'l.patient_client_name',
       ];
       const whereParts = searchCols.map(() => `?`).map((p, i) => `${searchCols[i]} LIKE ${p}`);
       const whereClause = `WHERE ${whereParts.join(' OR ')}`;
       const orderClause = orderExpr ? `ORDER BY ${typeof orderExpr === 'string' ? orderExpr : 'fr.created_at'} ${sortDir === 'asc' ? 'ASC' : 'DESC'}` : `ORDER BY fr.created_at DESC`;
-  const sqlQuery = `SELECT fr.*, s.id as s_id, s.sample_id as s_sample_id, s.*, l.*, lp.title_unique_id as lp_title_unique_id FROM finance_records fr LEFT JOIN samples s ON fr.sample_id = s.id LEFT JOIN leads l ON fr.lead_id = l.id LEFT JOIN lab_processing lp ON lp.sample_id = s.id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`;
+      const sqlQuery = `SELECT fr.*, s.organisation_hospital AS sample_organisation, l.organisation_hospital AS lead_organisation FROM finance_sheet fr LEFT JOIN sample_tracking s ON s.project_id = fr.project_id LEFT JOIN lead_management l ON l.project_id = fr.project_id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`;
       // bindings: one 'like' per search column, followed by pageSize and offset
       const likeBindings = searchCols.map(() => like);
       const bindings: any[] = [...likeBindings, pageSize, offset];
@@ -1172,7 +1104,7 @@ export class DBStorage implements IStorage {
         const [resultRows] = await pool.execute(sqlQuery, bindings) as any;
         rows = resultRows as any[];
         // count total matching - reuse whereClause and likeBindings
-        const countSql = `SELECT COUNT(*) as cnt FROM finance_records fr LEFT JOIN samples s ON fr.sample_id = s.id LEFT JOIN leads l ON fr.lead_id = l.id ${whereClause}`;
+        const countSql = `SELECT COUNT(DISTINCT fr.id) as cnt FROM finance_sheet fr LEFT JOIN sample_tracking s ON s.project_id = fr.project_id LEFT JOIN lead_management l ON l.project_id = fr.project_id ${whereClause}`;
         const [countRes] = await pool.execute(countSql, likeBindings) as any;
         total = (countRes && countRes[0] && countRes[0].cnt) ? Number(countRes[0].cnt) : 0;
       } catch (err) {
@@ -1185,8 +1117,8 @@ export class DBStorage implements IStorage {
       const qb = db
         .select({ fr: financeRecords, sample: samples, lead: leads, lp: labProcessingTable })
         .from(financeRecords)
-        .leftJoin(samples, eq(financeRecords.sampleId, samples.id))
-        .leftJoin(leads, eq(financeRecords.leadId, leads.id))
+        .leftJoin(samples, eq(financeRecords.projectId, samples.projectId))
+        .leftJoin(leads, eq(financeRecords.projectId, leads.projectId))
         .leftJoin(labProcessingTable, eq(labProcessingTable.sampleId, samples.id))
         .limit(pageSize)
         .offset(offset)
@@ -1207,9 +1139,12 @@ export class DBStorage implements IStorage {
         const lp = row.lp ? { ...(row.lp as any) } : null;
         // Server-side fallback for titleUniqueId: finance -> sample -> lab_processing
         const titleUniqueId = fr.titleUniqueId ?? sample?.titleUniqueId ?? lp?.titleUniqueId ?? (row.lead as any)?.id ?? null;
+        // Server-side fallback for projectId: finance -> sample
+        const projectId = fr.projectId ?? sample?.projectId ?? null;
         return {
           ...fr,
           ...(titleUniqueId != null ? { titleUniqueId } : {}),
+          ...(projectId != null ? { projectId } : {}),
           sample: sample ? { ...sample, lead: row.lead as any } : null,
         };
       });
@@ -1217,10 +1152,15 @@ export class DBStorage implements IStorage {
       // Raw SQL flat rows
       mapped = rows.map((r: any) => {
         const title_unique_id = r.title_unique_id ?? r.lp_title_unique_id ?? r.id /* lead.id may shadow; raw rows include l.* so r.id might be ambiguous */ ?? null;
+        const project_id = r.project_id ?? r.projectId ?? null;
         const obj: any = { ...r };
         if (title_unique_id != null) {
           obj.title_unique_id = title_unique_id;
           if (obj.titleUniqueId == null) obj.titleUniqueId = title_unique_id;
+        }
+        if (project_id != null) {
+          obj.project_id = project_id;
+          if (obj.projectId == null) obj.projectId = project_id;
         }
         return obj;
       });
@@ -1229,7 +1169,7 @@ export class DBStorage implements IStorage {
   }
 
   async getFinanceRecordById(id: string): Promise<FinanceRecord | undefined> {
-    const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, id)).limit(1);
+    const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, Number(id))).limit(1);
     return rows[0];
   }
 
@@ -1264,7 +1204,7 @@ export class DBStorage implements IStorage {
         console.error('Failed to build typesReport', e);
       }
       try {
-        await db.update(financeRecords).set(safeUpdates as any).where(eq(financeRecords.id, id));
+        await db.update(financeRecords).set(safeUpdates as any).where(eq(financeRecords.id, Number(id)));
       } catch (dbErr) {
         console.error('DB update failed in updateFinanceRecord');
         try { console.error('Safe updates:', JSON.stringify(safeUpdates, null, 2)); } catch (e) { console.error('SafeUpdates stringify failed', e); }
@@ -1283,16 +1223,16 @@ export class DBStorage implements IStorage {
   async deleteFinanceRecord(id: string): Promise<boolean> {
     try {
       try {
-        const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, id)).limit(1);
+        const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, Number(id))).limit(1);
         if (rows[0]) {
           const { recycleBin } = await import('@shared/schema');
-          await db.insert(recycleBin).values({ id: randomUUID(), entityType: 'finance_records', entityId: id, data: rows[0], originalPath: `/finance/records/${id}` });
+          await db.insert(recycleBin).values({ id: randomUUID(), entityType: 'finance_sheet', entityId: id, data: rows[0], originalPath: `/finance/records/${id}` });
         }
       } catch (e) {
         console.error('Failed to create recycle snapshot for finance record:', (e as Error).message);
       }
 
-      await db.delete(financeRecords).where(eq(financeRecords.id, id));
+      await db.delete(financeRecords).where(eq(financeRecords.id, Number(id)));
       return true;
     } catch (error) {
       console.error('Failed to delete finance record:', (error as Error).message);
@@ -1334,7 +1274,7 @@ export class DBStorage implements IStorage {
       .select({ lt: logisticsTracking, sample: samples, lead: leads })
       .from(logisticsTracking)
       .leftJoin(samples, eq(logisticsTracking.sampleId, samples.id))
-      .leftJoin(leads, eq(samples.leadId, leads.id));
+      .leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row: any) => ({
       ...(row.lt as any),
       sample: row.sample ? {
@@ -1396,26 +1336,103 @@ export class DBStorage implements IStorage {
   }
 
   // Genetic counselling implementations
-  async createGeneticCounselling(record: { sampleId: string; gcName: string; counsellingType?: string; counsellingStartTime?: Date | string | null; counsellingEndTime?: Date | string | null; gcSummary?: string | null; extendedFamilyTesting?: boolean; approvalStatus?: string; }): Promise<any> {
-    const id = randomUUID();
+  async createGeneticCounselling(record: Partial<any>): Promise<any> {
     const toDbDate = (v: any) => {
       if (!v) return null;
       if (v instanceof Date) return v;
       const d = new Date(v);
       return isNaN(d.getTime()) ? null : d;
     };
-    await db.insert((await import('@shared/schema')).geneticCounselling).values({
-      id,
-      sampleId: record.sampleId,
-      gcName: record.gcName,
-      counsellingType: record.counsellingType ?? null,
-      counsellingStartTime: toDbDate(record.counsellingStartTime),
-      counsellingEndTime: toDbDate(record.counsellingEndTime),
-      gcSummary: record.gcSummary ?? null,
-      extendedFamilyTesting: record.extendedFamilyTesting ?? false,
-      approvalStatus: record.approvalStatus ?? 'pending',
+    const toDecimal = (v: any) => {
+      if (v === null || v === undefined || v === '') return null;
+      const num = Number(v);
+      return isNaN(num) ? null : String(num);
+    };
+    const toBoolean = (v: any) => !!v;
+    const toString = (v: any) => {
+      if (v === null || v === undefined) return null;
+      return String(v).trim() === '' ? null : String(v).trim();
+    };
+
+    // Debug: log incoming record
+    console.log('createGeneticCounselling received record:', {
+      uniqueId: record.uniqueId,
+      patientClientName: record.patientClientName,
+      age: record.age,
+      serviceName: record.serviceName,
+      budget: record.budget,
+      sampleType: record.sampleType
     });
-    const rows = await db.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id, id)).limit(1);
+
+    // Map incoming fields (from frontend camelCase or snake_case) to schema fields
+    // Properly handle all field mappings from lead data
+    const dbRecord: any = {
+      uniqueId: toString(record.uniqueId || record.unique_id || record.sampleId || record.sample_id) || '',
+      projectId: record.projectId || record.project_id ? Number(record.projectId || record.project_id) : null,
+      counsellingDate: toDbDate(record.counsellingDate || record.counselling_date || record.createdAt),
+      gcRegistrationStartTime: toString(record.gcRegistrationStartTime || record.gc_registration_start_time),
+      gcRegistrationEndTime: toString(record.gcRegistrationEndTime || record.gc_registration_end_time),
+      patientClientName: toString(record.patientClientName || record.patient_client_name),
+      age: record.age ? Number(record.age) : null,
+      gender: toString(record.gender),
+      patientClientEmail: toString(record.patientClientEmail || record.patient_client_email),
+      patientClientPhone: toString(record.patientClientPhone || record.patient_client_phone),
+      patientClientAddress: toString(record.patientClientAddress || record.patient_client_address),
+      paymentStatus: toString(record.paymentStatus || record.payment_status),
+      modeOfPayment: toString(record.modeOfPayment || record.mode_of_payment),
+      approvalFromHead: toBoolean(record.approvalFromHead ?? record.approval_from_head ?? record.approvalStatus === 'approved'),
+      clinicianResearcherName: toString(record.clinicianResearcherName || record.clinician_researcher_name),
+      organisationHospital: toString(record.organisationHospital || record.organisation_hospital),
+      speciality: toString(record.speciality),
+      querySuspection: toString(record.querySuspection || record.query_suspection),
+      gcName: toString(record.gcName || record.gc_name) || '',
+      gcOtherMembers: toString(record.gcOtherMembers || record.gc_other_members),
+      serviceName: toString(record.serviceName || record.service_name),
+      counselingType: toString(record.counselingType || record.counselling_type),
+      counselingStartTime: toString(record.counselingStartTime || record.counselling_start_time),
+      counselingEndTime: toString(record.counselingEndTime || record.counselling_end_time),
+      budgetForTestOpted: toDecimal(record.budgetForTestOpted || record.budget_for_test_opted),
+      testingStatus: toString(record.testingStatus || record.testing_status),
+      actionRequired: toString(record.actionRequired || record.action_required),
+      potentialPatientForTestingInFuture: toBoolean(record.potentialPatientForTestingInFuture ?? record.potential_patient_for_testing_in_future),
+      extendedFamilyTestingRequirement: toBoolean(record.extendedFamilyTestingRequirement ?? record.extended_family_testing_requirement),
+      budget: toDecimal(record.budget),
+      sampleType: toString(record.sampleType || record.sample_type),
+      gcSummarySheet: toString(record.gcSummarySheet || record.gc_summary || record.gc_summary_sheet),
+      gcVideoLink: toString(record.gcVideoLink || record.gc_video_link),
+      gcAudioLink: toString(record.gcAudioLink || record.gc_audio_link),
+      salesResponsiblePerson: toString(record.salesResponsiblePerson || record.sales_responsible_person),
+      createdBy: toString(record.createdBy || record.created_by),
+      modifiedBy: toString(record.modifiedBy || record.modified_by),
+      remarkComment: toString(record.remarkComment || record.remark_comment),
+    };
+
+    // Debug: log mapped record before insert
+    console.log('createGeneticCounselling mapped dbRecord:', {
+      uniqueId: dbRecord.uniqueId,
+      patientClientName: dbRecord.patientClientName,
+      age: dbRecord.age,
+      serviceName: dbRecord.serviceName,
+      budget: dbRecord.budget,
+      sampleType: dbRecord.sampleType
+    });
+
+    // Check if record already exists for this uniqueId to prevent duplicates
+    const existingRows = await db.select().from((await import('@shared/schema')).geneticCounselling)
+      .where(eq((await import('@shared/schema')).geneticCounselling.uniqueId as any, dbRecord.uniqueId))
+      .limit(1);
+
+    if (existingRows && existingRows.length > 0) {
+      console.log('GC record already exists for uniqueId:', dbRecord.uniqueId, '- returning existing record instead of creating duplicate');
+      return existingRows[0];
+    }
+
+    await db.insert((await import('@shared/schema')).geneticCounselling).values(dbRecord as any);
+    // Return the latest row for this uniqueId
+    const rows = await db.select().from((await import('@shared/schema')).geneticCounselling)
+      .where(eq((await import('@shared/schema')).geneticCounselling.uniqueId as any, dbRecord.uniqueId))
+      .orderBy(desc((await import('@shared/schema')).geneticCounselling.id as any))
+      .limit(1);
     return rows[0];
   }
 
@@ -1425,18 +1442,70 @@ export class DBStorage implements IStorage {
   }
 
   async updateGeneticCounselling(id: string, updates: Partial<any>): Promise<any | undefined> {
-    const safe: any = { ...updates };
-    if (safe.counsellingStartTime) safe.counsellingStartTime = new Date(safe.counsellingStartTime);
-    if (safe.counsellingEndTime) safe.counsellingEndTime = new Date(safe.counsellingEndTime);
-    await db.update((await import('@shared/schema')).geneticCounselling).set(safe).where(eq((await import('@shared/schema')).geneticCounselling.id, id));
-    const rows = await db.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id, id)).limit(1);
+    const toDecimal = (v: any) => {
+      if (v === null || v === undefined || v === '') return null;
+      const num = Number(v);
+      return isNaN(num) ? null : String(num);
+    };
+    const toBoolean = (v: any) => v !== null && v !== undefined && v !== '' ? !!v : undefined;
+
+    const safe: any = {};
+    // Map incoming fields to schema fields, handling both camelCase and snake_case
+    if (updates.uniqueId || updates.unique_id) safe.uniqueId = updates.uniqueId || updates.unique_id;
+    if (updates.projectId || updates.project_id) safe.projectId = Number(updates.projectId || updates.project_id);
+    if (updates.counsellingDate || updates.counselling_date) safe.counsellingDate = updates.counsellingDate || updates.counselling_date;
+    if (updates.gcRegistrationStartTime || updates.gc_registration_start_time) safe.gcRegistrationStartTime = updates.gcRegistrationStartTime || updates.gc_registration_start_time;
+    if (updates.gcRegistrationEndTime || updates.gc_registration_end_time) safe.gcRegistrationEndTime = updates.gcRegistrationEndTime || updates.gc_registration_end_time;
+    if (updates.patientClientName || updates.patient_client_name) safe.patientClientName = updates.patientClientName || updates.patient_client_name;
+    if (updates.age !== undefined) safe.age = updates.age ? Number(updates.age) : null;
+    if (updates.gender) safe.gender = updates.gender;
+    if (updates.patientClientEmail || updates.patient_client_email) safe.patientClientEmail = updates.patientClientEmail || updates.patient_client_email;
+    if (updates.patientClientPhone || updates.patient_client_phone) safe.patientClientPhone = updates.patientClientPhone || updates.patient_client_phone;
+    if (updates.patientClientAddress || updates.patient_client_address) safe.patientClientAddress = updates.patientClientAddress || updates.patient_client_address;
+    if (updates.paymentStatus || updates.payment_status) safe.paymentStatus = updates.paymentStatus || updates.payment_status;
+    if (updates.modeOfPayment || updates.mode_of_payment) safe.modeOfPayment = updates.modeOfPayment || updates.mode_of_payment;
+    if (updates.approvalFromHead !== undefined || updates.approval_from_head !== undefined) safe.approvalFromHead = toBoolean(updates.approvalFromHead ?? updates.approval_from_head);
+    if (updates.clinicianResearcherName || updates.clinician_researcher_name) safe.clinicianResearcherName = updates.clinicianResearcherName || updates.clinician_researcher_name;
+    if (updates.organisationHospital || updates.organisation_hospital) safe.organisationHospital = updates.organisationHospital || updates.organisation_hospital;
+    if (updates.speciality) safe.speciality = updates.speciality;
+    if (updates.querySuspection || updates.query_suspection) safe.querySuspection = updates.querySuspection || updates.query_suspection;
+    if (updates.gcName || updates.gc_name) safe.gcName = updates.gcName || updates.gc_name;
+    if (updates.gcOtherMembers || updates.gc_other_members) safe.gcOtherMembers = updates.gcOtherMembers || updates.gc_other_members;
+    if (updates.serviceName || updates.service_name) safe.serviceName = updates.serviceName || updates.service_name;
+    if (updates.counselingType || updates.counselling_type) safe.counselingType = updates.counselingType || updates.counselling_type;
+    if (updates.counselingStartTime || updates.counselling_start_time) safe.counselingStartTime = updates.counselingStartTime || updates.counselling_start_time;
+    if (updates.counselingEndTime || updates.counselling_end_time) safe.counselingEndTime = updates.counselingEndTime || updates.counselling_end_time;
+    if (updates.budgetForTestOpted || updates.budget_for_test_opted) safe.budgetForTestOpted = toDecimal(updates.budgetForTestOpted || updates.budget_for_test_opted);
+    if (updates.testingStatus || updates.testing_status) safe.testingStatus = updates.testingStatus || updates.testing_status;
+    if (updates.actionRequired || updates.action_required) safe.actionRequired = updates.actionRequired || updates.action_required;
+    if (updates.potentialPatientForTestingInFuture !== undefined || updates.potential_patient_for_testing_in_future !== undefined) safe.potentialPatientForTestingInFuture = toBoolean(updates.potentialPatientForTestingInFuture ?? updates.potential_patient_for_testing_in_future);
+    if (updates.extendedFamilyTestingRequirement !== undefined || updates.extended_family_testing_requirement !== undefined) safe.extendedFamilyTestingRequirement = toBoolean(updates.extendedFamilyTestingRequirement ?? updates.extended_family_testing_requirement);
+    if (updates.budget) safe.budget = toDecimal(updates.budget);
+    if (updates.sampleType || updates.sample_type) safe.sampleType = updates.sampleType || updates.sample_type;
+    if (updates.gcSummarySheet || updates.gc_summary || updates.gc_summary_sheet) safe.gcSummarySheet = updates.gcSummarySheet || updates.gc_summary || updates.gc_summary_sheet;
+    if (updates.gcVideoLink || updates.gc_video_link) safe.gcVideoLink = updates.gcVideoLink || updates.gc_video_link;
+    if (updates.gcAudioLink || updates.gc_audio_link) safe.gcAudioLink = updates.gcAudioLink || updates.gc_audio_link;
+    if (updates.salesResponsiblePerson || updates.sales_responsible_person) safe.salesResponsiblePerson = updates.salesResponsiblePerson || updates.sales_responsible_person;
+    if (updates.modifiedBy || updates.modified_by) safe.modifiedBy = updates.modifiedBy || updates.modified_by;
+    if (updates.remarkComment || updates.remark_comment) safe.remarkComment = updates.remarkComment || updates.remark_comment;
+
+    if (Object.keys(safe).length === 0) {
+      const numId = Number(id);
+      const rows = await db.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id as any, numId as any)).limit(1);
+      return rows[0];
+    }
+
+    const numId = Number(id);
+    await db.update((await import('@shared/schema')).geneticCounselling).set(safe).where(eq((await import('@shared/schema')).geneticCounselling.id as any, numId as any));
+    const rows = await db.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id as any, numId as any)).limit(1);
     return rows[0];
   }
 
   async deleteGeneticCounselling(id: string): Promise<boolean> {
     try {
       try {
-        const gc = await db.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id, id)).limit(1);
+        const numId = Number(id);
+        const gc = await db.select().from((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id as any, numId as any)).limit(1);
         if (gc[0]) {
           const { recycleBin } = await import('@shared/schema');
           await db.insert(recycleBin).values({ id: randomUUID(), entityType: 'genetic_counselling', entityId: id, data: gc[0], originalPath: `/genetic-counselling/${id}` });
@@ -1445,7 +1514,8 @@ export class DBStorage implements IStorage {
         console.error('Failed to create recycle snapshot for genetic counselling:', (e as Error).message);
       }
 
-      await db.delete((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id, id));
+      const numId = Number(id);
+      await db.delete((await import('@shared/schema')).geneticCounselling).where(eq((await import('@shared/schema')).geneticCounselling.id as any, numId as any));
       return true;
     } catch (error) {
       console.error('Failed to delete genetic counselling record:', (error as Error).message);
@@ -1464,12 +1534,17 @@ export class DBStorage implements IStorage {
 
   async listRecycleEntries(): Promise<any[]> {
     const { recycleBin } = await import('@shared/schema');
-    return db.select().from(recycleBin).orderBy(recycleBin.deletedAt as any /* drizzle types */);
+    const rows = await db.select().from(recycleBin).orderBy(desc(recycleBin.deletedAt));
+    // Return timestamps as-is from database (already in server timezone)
+    // Don't convert to ISO which would shift the timezone
+    return rows;
   }
 
   async getRecycleEntry(id: string): Promise<any | undefined> {
     const { recycleBin } = await import('@shared/schema');
     const rows = await db.select().from(recycleBin).where(eq(recycleBin.id, id)).limit(1);
+    if (!rows[0]) return undefined;
+    // Return as-is from database (already in server timezone)
     return rows[0];
   }
 
@@ -1555,7 +1630,7 @@ export class DBStorage implements IStorage {
         case 'lab_processing':
           await db.insert(labProcessingTable).values(normalizedData as any);
           break;
-        case 'finance_records':
+        case 'finance_sheet':
           await db.insert(financeRecords).values(normalizedData as any);
           break;
         case 'genetic_counselling':
@@ -1691,17 +1766,17 @@ export class DBStorage implements IStorage {
 
   async deleteNotification(id: string): Promise<boolean> {
     console.log('Attempting to delete notification with ID:', id);
-    
+
     try {
       const res = await db.delete(notificationsTable).where(eq(notificationsTable.id, id));
       console.log('Delete executed');
-      
+
       // Always return true if the notification no longer exists after the delete operation
       // This handles the case where the notification was successfully deleted
       const check = await db.select().from(notificationsTable).where(eq(notificationsTable.id, id)).limit(1);
       const success = check.length === 0;
       console.log('Notification exists after delete:', check.length > 0, 'Success:', success);
-      
+
       return success; // Return true if notification no longer exists (deletion successful)
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -1719,7 +1794,7 @@ export class DBStorage implements IStorage {
         reportsPending: 3
       };
     }
-    
+
     try {
       const leadsRows = await db.select().from(leads).where(eq(leads.status, "cold"));
       const samplesRows = await db.select().from(samples);
@@ -1755,12 +1830,202 @@ export class DBStorage implements IStorage {
       .select({ r: reportsTable, sample: samples, lead: leads })
       .from(reportsTable)
       .leftJoin(samples, eq(reportsTable.sampleId, samples.id))
-      .leftJoin(leads, eq(samples.leadId, leads.id))
+      .leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId))
       .where(eq(reportsTable.status, "awaiting_approval"));
     return rows.map((row: any) => ({
       ...(row.sample as any),
       lead: row.lead as any,
     }));
+  }
+
+  // BIOINFORMATICS METHODS
+
+  async sendLabProcessingToBioinformatics(
+    recordId: string,
+    tableType: 'discovery' | 'clinical'
+  ): Promise<BioinformaticsSheetDiscovery | BioinformaticsSheetClinical | undefined> {
+    try {
+      // Get the lab processing record
+      const labSheet = tableType === 'discovery' ? labProcessDiscoverySheet : labProcessClinicalSheet;
+      const labRows = await db.select().from(labSheet).where(eq(labSheet.uniqueId, recordId)).limit(1);
+      if (labRows.length === 0) throw new Error("Lab processing record not found");
+
+      const labRecord = labRows[0] as any;
+
+      // Get matching lead data
+      const leadRows = await db
+        .select()
+        .from(leads)
+        .where(eqUtf8Columns(leads.uniqueId, labRecord.uniqueId))
+        .limit(1);
+      const leadRecord = leadRows[0] as any;
+
+      // Prepare bioinformatics payload
+      const bioData: any = {
+        uniqueId: labRecord.uniqueId,
+        projectId: labRecord.projectId || (leadRecord?.projectId ? parseInt(String(leadRecord.projectId)) : undefined),
+        sampleId: labRecord.sampleId || (leadRecord?.id),
+        clientId: labRecord.clientId || (leadRecord?.id),
+        organisationHospital: labRecord.organisationHospital || leadRecord?.organisationHospital,
+        clinicianResearcherName: labRecord.clinicianResearcherName || leadRecord?.clinicianResearcherName,
+        patientClientName: labRecord.patientClientName || leadRecord?.patientClientName,
+        age: labRecord.age ?? leadRecord?.age,
+        gender: labRecord.gender || leadRecord?.gender,
+        serviceName: labRecord.serviceName || leadRecord?.serviceName,
+        noOfSamples: labRecord.noOfSamples ?? leadRecord?.noOfSamples,
+        tat: leadRecord?.tat,
+        createdBy: 'System',
+      };
+
+      // Check if record already exists (by uniqueId)
+      const bioSheet = tableType === 'discovery' ? bioinformaticsSheetDiscovery : bioinformaticsSheetClinical;
+      const existingRows = await db
+        .select()
+        .from(bioSheet)
+        .where(eq(bioSheet.uniqueId, labRecord.uniqueId))
+        .limit(1);
+
+      let bioRecord: any;
+      if (existingRows.length > 0) {
+        // Update existing record
+        bioRecord = existingRows[0];
+        // Update fields (do not create duplicate)
+        await db
+          .update(bioSheet)
+          .set({
+            ...bioData,
+            modifiedAt: new Date(),
+            modifiedBy: 'System',
+          })
+          .where(eq(bioSheet.uniqueId, labRecord.uniqueId));
+      } else {
+        // Create new record
+        await db.insert(bioSheet).values(bioData as any);
+        const newRows = await db
+          .select()
+          .from(bioSheet)
+          .where(eq(bioSheet.uniqueId, labRecord.uniqueId))
+          .limit(1);
+        bioRecord = newRows[0];
+      }
+
+      // Update lab processing record to mark as sent
+      await db
+        .update(labSheet)
+        .set({
+          alertToBioinformaticsTeam: true,
+          modifiedAt: new Date(),
+          modifiedBy: 'System',
+        })
+        .where(eq(labSheet.uniqueId, labRecord.uniqueId));
+
+      return bioRecord;
+    } catch (error) {
+      console.error('Error sending lab processing to bioinformatics:', (error as Error).message);
+      throw error;
+    }
+  }
+
+  async createBioinformaticsRecord(
+    data: InsertBioinformaticsSheetDiscovery | InsertBioinformaticsSheetClinical,
+    tableType: 'discovery' | 'clinical'
+  ): Promise<BioinformaticsSheetDiscovery | BioinformaticsSheetClinical> {
+    const bioSheet = tableType === 'discovery' ? bioinformaticsSheetDiscovery : bioinformaticsSheetClinical;
+    await db.insert(bioSheet).values(data as any);
+    const rows = await db
+      .select()
+      .from(bioSheet)
+      .where(eq(bioSheet.uniqueId, (data as any).uniqueId))
+      .limit(1);
+    if (rows.length === 0) throw new Error("Failed to create bioinformatics record");
+    return rows[0] as any;
+  }
+
+  // ============================================================================
+  // File Upload Tracking (stores metadata about uploaded files)
+  // ============================================================================
+
+  async createFileUpload(uploadData: {
+    filename: string;
+    originalName: string;
+    storagePath: string;
+    category: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedBy?: string;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
+  }): Promise<any> {
+    try {
+      const id = randomUUID();
+      const query = `
+        INSERT INTO file_uploads (
+          id, filename, original_name, storage_path, category, 
+          file_size, mime_type, uploaded_by, related_entity_type, related_entity_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+      await pool.execute(query, [
+        id,
+        uploadData.filename,
+        uploadData.originalName,
+        uploadData.storagePath,
+        uploadData.category,
+        uploadData.fileSize,
+        uploadData.mimeType,
+        uploadData.uploadedBy || null,
+        uploadData.relatedEntityType || null,
+        uploadData.relatedEntityId || null,
+      ]);
+      return { id, ...uploadData, createdAt: new Date() };
+    } catch (error) {
+      console.error('Failed to create file upload record:', (error as Error).message);
+      throw error;
+    }
+  }
+
+  async getFileUploadsByCategory(category: string): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM file_uploads 
+        WHERE category = ? AND is_deleted = 0
+        ORDER BY created_at DESC
+      `;
+      const [rows] = await pool.execute(query, [category]);
+      return (rows as any[]) || [];
+    } catch (error) {
+      console.error('Failed to get file uploads by category:', (error as Error).message);
+      return [];
+    }
+  }
+
+  async getFileUploadsByEntity(entityType: string, entityId: string): Promise<any[]> {
+    try {
+      const query = `
+        SELECT * FROM file_uploads 
+        WHERE related_entity_type = ? AND related_entity_id = ? AND is_deleted = 0
+        ORDER BY created_at DESC
+      `;
+      const [rows] = await pool.execute(query, [entityType, entityId]);
+      return (rows as any[]) || [];
+    } catch (error) {
+      console.error('Failed to get file uploads by entity:', (error as Error).message);
+      return [];
+    }
+  }
+
+  async getFileUploadById(id: string): Promise<any | undefined> {
+    try {
+      const query = `
+        SELECT * FROM file_uploads 
+        WHERE id = ? AND is_deleted = 0
+        LIMIT 1
+      `;
+      const [rows] = await pool.execute(query, [id]);
+      return (rows as any[])?.[0];
+    } catch (error) {
+      console.error('Failed to get file upload by ID:', (error as Error).message);
+      return undefined;
+    }
   }
 
 }

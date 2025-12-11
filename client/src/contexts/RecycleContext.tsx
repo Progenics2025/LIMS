@@ -16,14 +16,48 @@ export const RecycleProvider = ({ children }: { children: React.ReactNode }) => 
   const [items, setItems] = useState<RecycleItem[]>(() => _listRecycle());
 
   const mapServer = (entry: any): RecycleItem => {
+    // Handle deletedAt timestamp from database
+    // Database stores as DATETIME in IST (2025-11-22 19:15:54)
+    // We need to treat it as IST, not convert it to UTC
+    let deletedAtStr = '';
+    if (entry.deletedAt) {
+      if (typeof entry.deletedAt === 'string') {
+        // If it's a string like "2025-11-22 19:15:54", treat as IST
+        // Append 'T' to make it valid ISO format for parsing
+        if (entry.deletedAt.includes('T') || entry.deletedAt.includes('Z')) {
+          deletedAtStr = entry.deletedAt;
+        } else {
+          // Convert "2025-11-22 19:15:54" → "2025-11-22T19:15:54"
+          deletedAtStr = entry.deletedAt.replace(' ', 'T');
+        }
+      } else if (entry.deletedAt instanceof Date) {
+        deletedAtStr = entry.deletedAt.toISOString();
+      } else {
+        // Treat as IST datetime string
+        deletedAtStr = new Date(entry.deletedAt).toISOString();
+      }
+    } else {
+      deletedAtStr = new Date().toISOString();
+    }
+
     return {
       uid: entry.id,
       entityType: entry.entityType,
-      entityId: entry.entityId ?? (entry.data && (entry.data.id || entry.data.sampleId || entry.data.invoiceNumber)) ?? '',
-  name: entry.data ? (entry.data.name || entry.data.organization || entry.data.gcName || entry.data.sampleId) : undefined,
+      entityId: entry.entityId ?? (entry.data && (entry.data.id || entry.data.uniqueId || entry.data.sampleId || entry.data.invoiceNumber)) ?? '',
+      name: entry.data ? (
+        entry.data.name || 
+        entry.data.organisationHospital || 
+        entry.data.organisation_hospital ||
+        entry.data.gcName || 
+        entry.data.gc_name ||
+        entry.data.sampleId || 
+        entry.data.unique_id ||
+        entry.data.uniqueId
+      ) : undefined,
       originalPath: entry.originalPath ?? undefined,
       data: entry.data ?? null,
-      deletedAt: entry.deletedAt ? new Date(entry.deletedAt).toISOString() : new Date().toISOString(),
+      deletedAt: deletedAtStr,
+      createdBy: entry.createdBy ?? undefined,
     };
   };
 
@@ -59,7 +93,8 @@ export const RecycleProvider = ({ children }: { children: React.ReactNode }) => 
       const it = mapServer(json);
       // update local list
       setItems((s) => [it, ...s]);
-      try { _addToRecycle({ entityType: payload.entityType, entityId: payload.entityId, name: payload.name, originalPath: payload.originalPath, data: payload.data }); } catch (e) { /* ignore */ }
+      // Pass server's deletedAt timestamp to local storage
+      try { _addToRecycle({ entityType: payload.entityType, entityId: payload.entityId, name: payload.name, originalPath: payload.originalPath, data: payload.data, deletedAt: it.deletedAt }); } catch (e) { /* ignore */ }
       return it;
     } catch (err) {
       // fallback: local only

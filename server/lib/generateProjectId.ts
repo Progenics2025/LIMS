@@ -33,10 +33,10 @@ function padZero(num: number): string {
 function getPrefix(category: string): string {
   const cat = category?.toLowerCase().trim();
   
-  if (cat === 'clinical' || cat === 'pg') {
-    return 'PG';
-  } else if (cat === 'discovery' || cat === 'dg') {
-    return 'DG';
+  if (cat === 'discovery' || cat === 'dg') {
+    return 'DG';  // Discovery projects
+  } else if (cat === 'clinical' || cat === 'pg') {
+    return 'PG';  // Clinical/Production projects
   }
   
   // Default to PG (Clinical/Production)
@@ -69,7 +69,7 @@ async function projectIdExists(projectId: string): Promise<boolean> {
     try {
       // Check in leads table (assuming project_id column exists)
       const [rows] = await connection.query(
-        'SELECT id FROM leads WHERE id = ? LIMIT 1',
+        'SELECT id FROM lead_management WHERE id = ? LIMIT 1',
         [projectId]
       );
       
@@ -77,15 +77,15 @@ async function projectIdExists(projectId: string): Promise<boolean> {
         return true;
       }
       
-      // Also check in project_samples if it exists
+      // Also check in lead_management if it exists
       try {
         const [projRows] = await connection.query(
-          'SELECT id FROM project_samples WHERE id = ? LIMIT 1',
+          'SELECT id FROM lead_management WHERE id = ? LIMIT 1',
           [projectId]
         );
         return Array.isArray(projRows) && projRows.length > 0;
       } catch {
-        // project_samples table might not exist, continue
+        // lead_management table might not exist, continue
         return false;
       }
     } finally {

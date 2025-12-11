@@ -1,0 +1,114 @@
+Mapping: Database Tables → App Components
+
+bioinformatics / clinical_bioinfo_sheet / discovery_bioinfo_sheet
+
+Backend routes: GET|PUT|DELETE /api/bioinformatics (generic), GET /api/bioinfo/discovery, GET /api/bioinfo/clinical
+Storage / services: storage.getLabProcessingQueue(), storage.updateLabProcessing(), storage.deleteLabProcessing() (labProcessing rows are surfaced as BI records)
+Frontend: Bioinformatics.tsx
+Notes: adapters read/write lab_processing rows, map fields between labProcessing ↔ bioinfo sheet shape.
+clients
+
+Backend routes: GET /api/clients, POST /api/clients
+Storage / services: storage.getClients(), storage.createClient()
+Frontend: used by admin/lead UI (no dedicated Clients.tsx — surfaced in admin/lead pages / imports)
+Notes: client records are referenced by leads and finance workflows.
+finance / finance_records / finance_sheet
+
+Backend routes: GET /api/finance/records, POST /api/finance/records, DELETE /api/finance/records/:id, GET /api/finance/stats, GET /api/finance/pending-approvals and adapters: GET|POST|PUT|DELETE /api/finance-sheet
+Storage / services: storage.getFinanceRecords(), createFinanceRecord(), updateFinanceRecord(), deleteFinanceRecord()
+Frontend: FinanceManagement.tsx (and UI libs used by finance module)
+Notes: two-layer access: typed storage methods + raw finance_sheet adapter to read legacy sheets.
+gc_registration / genetic_counselling / genetic_counselling_records
+
+Backend routes: GET|POST|PUT|DELETE /api/genetic-counselling, adapters: GET|POST|PUT|DELETE /api/gc-registration
+Storage / services: storage.getGeneticCounselling(), createGeneticCounselling(), updateGeneticCounselling(), deleteGeneticCounselling()
+Frontend: GeneticCounselling.tsx
+Notes: GC flows are created on lead→sample conversion and notified via notificationService.
+lab_process_clinical_sheet / lab_process_discovery_sheet / lab_processing
+
+Backend routes: GET|POST|PUT|DELETE /api/lab-processing, GET /api/lab-process/discovery, GET /api/lab-process/clinical
+Storage / services: storage.createLabProcessing(), getLabProcessingQueue(), updateLabProcessing(), deleteLabProcessing()
+Frontend: LabProcessing.tsx
+Notes: lab processing rows drive both lab UI and bioinformatics adapters; notifications sent when status changes.
+lead_trfs
+
+Backend routes: POST /api/uploads/trf-db (insert blob), GET /api/uploads/trf/:id (download)
+Storage / services: storage.createLeadTrf(), storage.getLeadTrf() (uses lead_trfs table)
+Frontend: TRF upload/download triggered from LeadManagement.tsx (or lead detail UI)
+Notes: BLOB stored as base64 in DB; also POST /api/uploads/trf (file-system upload) exists.
+leads
+
+Backend routes: GET /api/leads, POST /api/leads, PUT /api/leads/:id, PUT /api/leads/:id/status, POST /api/leads/:id/convert, DELETE /api/leads/:id, import: POST /api/sharepoint/import/leads
+Storage / services: storage.createLead(), getLeads(), getLeadById(), updateLead(), updateLeadStatus(), convertLead(), deleteLead()
+Frontend: LeadManagement.tsx
+Notes: many cross-module side effects (notifications, sample creation, GC creation, finance hooks).
+lims_users / users
+
+Backend routes: GET /api/users, POST /api/users, PUT /api/users/:id, DELETE /api/users/:id, POST /api/users/:id/lock, POST /api/users/:id/unlock, PUT /api/users/:id/role, GET /api/users/:id
+Storage / services: storage.getAllUsers(), getUser(), getUserByEmail(), createUser(), updateUser(), deleteUser()
+Frontend: AdminPanel.tsx (user admin) and global auth (AuthContext.tsx, Login.tsx)
+Notes: roles gate page access (see ROLE_README.md and App.tsx ProtectedRoute role lists).
+logistic_sheet / logistics_tracking
+
+Backend routes: GET|POST /api/logistics (main), GET|POST|PUT|DELETE /api/logistic-sheet (adapter)
+Storage / services: storage.getLogisticsTracking(), createLogisticsTracking(), updateLogisticsTracking()
+Frontend: surfaced in SampleTracking.tsx / LeadManagement.tsx (no dedicated logistic page)
+Notes: adapter prefers logistic_sheet table if present; otherwise uses storage.
+notifications
+
+Backend routes: GET /api/notifications/:userId, PUT /api/notifications/:id/read, DELETE /api/notifications/:id, POST /api/test/notification
+Storage / services: storage.getNotificationsByUserId(), createNotification(), markNotificationAsRead(), deleteNotification(); notificationService used to send cross-module notifications
+Frontend: notifications UI (app header / dashboard) and Dashboard.tsx for stats/alerts
+Notes: used heavily across leads, samples, lab processing, reports, finance.
+nutrition_sheet / nutritional_management
+
+Backend routes: GET|POST|PUT|DELETE /api/nutrition-sheet (adapter and direct)
+Storage / services: routes use raw pool.execute for nutrition_sheet (no typed storage wrapper in storage.ts)
+Frontend: Nutrition.tsx
+Notes: nutritional_management migration/schema exists alongside nutrition_sheet adapter; UI reads nutrition entries via adapter.
+pricing
+
+Backend routes: GET /api/pricing, POST /api/pricing
+Storage / services: storage.getPricing(), createPricing(), updatePricing()
+Frontend: managed via admin/finance UIs (no dedicated Pricing.tsx in pages) — pricing shown in finance imports and product selection.
+project_samples
+
+Backend routes: GET|POST|PUT|DELETE /api/project-samples (adapter)
+Storage / services: adapter directly queries project_samples via pool.execute, falls back to storage.getSamples() if table missing
+Frontend: ProcessMaster.tsx and SampleTracking.tsx (ProcessMaster UI maps to consolidated project/sample view)
+Notes: server adapter creates unique_id when missing via generateRoleId().
+recycle_bin
+
+Backend routes: GET /api/recycle, GET /api/recycle/:id, POST /api/recycle, DELETE /api/recycle/:id, POST /api/recycle/:id/restore
+Storage / services: storage.createRecycleEntry(), listRecycleEntries(), getRecycleEntry(), deleteRecycleEntry(), restoreRecycleEntry(); ensureRecycleTable() creates recycle_bin on startup
+Frontend: RecycleBin.tsx
+Notes: used for snapshot-before-delete flows across many entities.
+reporting / reports
+
+Backend routes: GET /api/reports, POST /api/reports, PUT /api/reports/:id/approve
+Storage / services: storage.getReports(), createReport(), updateReport()
+Frontend: ReportManagement.tsx
+Notes: report creation triggers notifications to finance/reporting teams.
+sales_activities
+
+Backend routes: GET /api/sales/activities, POST /api/sales/activities
+Storage / services: storage.getSalesActivities(), createSalesActivity()
+Frontend: surfaced in LeadManagement.tsx (activity timeline / lead history) and admin dashboards.
+samples
+
+Backend routes: GET /api/samples, PUT /api/samples/:id, DELETE /api/samples/:id
+Storage / services: storage.getSamples(), getSampleById(), updateSample(), deleteSample()
+Frontend: SampleTracking.tsx, also used by LabProcessing.tsx, Bioinformatics.tsx, ReportManagement.tsx
+Notes: sample status transitions drive cross-module notifications and UI state.
+users (see lims_users above)
+
+Backend routes: same as lims_users / users endpoints
+Frontend: AdminPanel.tsx, auth flows in Login.tsx, AuthContext.tsx
+If you’d like, I can:
+
+Generate a machine-readable mapping file in the repo (e.g. docs/table_component_map.md) with the above mapping (commit it), or
+Expand this mapping with exact file / function references (for example, point to the exact storage.ts methods or schema.ts table declarations for each entry). Which would you prefer?
+
+
+
+

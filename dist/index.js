@@ -11,28 +11,40 @@ var __export = (target, all) => {
 // shared/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  bioinformaticsSheetClinical: () => bioinformaticsSheetClinical,
+  bioinformaticsSheetDiscovery: () => bioinformaticsSheetDiscovery,
   clients: () => clients,
   financeRecords: () => financeRecords,
   geneticCounselling: () => geneticCounselling,
+  insertBioinformaticsSheetClinicalSchema: () => insertBioinformaticsSheetClinicalSchema,
+  insertBioinformaticsSheetDiscoverySchema: () => insertBioinformaticsSheetDiscoverySchema,
   insertClientSchema: () => insertClientSchema,
   insertFinanceRecordSchema: () => insertFinanceRecordSchema,
   insertGeneticCounsellingSchema: () => insertGeneticCounsellingSchema,
+  insertLabProcessClinicalSheetSchema: () => insertLabProcessClinicalSheetSchema,
+  insertLabProcessDiscoverySheetSchema: () => insertLabProcessDiscoverySheetSchema,
   insertLabProcessingSchema: () => insertLabProcessingSchema,
   insertLeadSchema: () => insertLeadSchema,
   insertLogisticsTrackingSchema: () => insertLogisticsTrackingSchema,
   insertNotificationSchema: () => insertNotificationSchema,
+  insertNutritionalManagementSchema: () => insertNutritionalManagementSchema,
   insertPricingSchema: () => insertPricingSchema,
+  insertProcessMasterSheetSchema: () => insertProcessMasterSheetSchema,
   insertRecycleBinSchema: () => insertRecycleBinSchema,
   insertReportSchema: () => insertReportSchema,
   insertSalesActivitySchema: () => insertSalesActivitySchema,
   insertSampleSchema: () => insertSampleSchema,
   insertUserSchema: () => insertUserSchema,
+  labProcessClinicalSheet: () => labProcessClinicalSheet,
+  labProcessDiscoverySheet: () => labProcessDiscoverySheet,
   labProcessing: () => labProcessing,
   leadTrfs: () => leadTrfs,
   leads: () => leads,
   logisticsTracking: () => logisticsTracking,
   notifications: () => notifications,
+  nutritionalManagement: () => nutritionalManagement,
   pricing: () => pricing,
+  processMasterSheet: () => processMasterSheet,
   recycleBin: () => recycleBin,
   reports: () => reports,
   salesActivities: () => salesActivities,
@@ -40,12 +52,14 @@ __export(schema_exports, {
   users: () => users
 });
 import { sql } from "drizzle-orm";
-import { mysqlTable, varchar, text, int, timestamp, boolean, decimal, json } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, text, int, timestamp, boolean, decimal, json, bigint } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
-var users, leads, leadTrfs, samples, labProcessing, reports, geneticCounselling, financeRecords, logisticsTracking, pricing, salesActivities, clients, notifications, recycleBin, insertRecycleBinSchema, insertUserSchema, insertLeadSchema, insertSampleSchema, insertLabProcessingSchema, insertReportSchema, insertGeneticCounsellingSchema, insertFinanceRecordSchema, insertLogisticsTrackingSchema, insertPricingSchema, insertSalesActivitySchema, insertClientSchema, insertNotificationSchema;
+import { z } from "zod";
+var emptyToNull, users, leads, leadTrfs, samples, labProcessing, labProcessDiscoverySheet, labProcessClinicalSheet, reports, geneticCounselling, financeRecords, logisticsTracking, pricing, salesActivities, clients, notifications, recycleBin, insertRecycleBinSchema, insertUserSchema, insertLeadSchema, insertSampleSchema, insertLabProcessingSchema, insertLabProcessDiscoverySheetSchema, insertLabProcessClinicalSheetSchema, insertReportSchema, insertGeneticCounsellingSchema, insertFinanceRecordSchema, insertLogisticsTrackingSchema, insertPricingSchema, insertSalesActivitySchema, insertClientSchema, insertNotificationSchema, bioinformaticsSheetClinical, insertBioinformaticsSheetClinicalSchema, bioinformaticsSheetDiscovery, insertBioinformaticsSheetDiscoverySchema, nutritionalManagement, insertNutritionalManagementSchema, processMasterSheet, insertProcessMasterSheetSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
+    emptyToNull = (val) => val === "" || val === null || val === void 0 ? null : val;
     users = mysqlTable("users", {
       id: varchar("id", { length: 36 }).primaryKey(),
       name: varchar("name", { length: 255 }).notNull(),
@@ -57,59 +71,49 @@ var init_schema = __esm({
       createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
       lastLogin: timestamp("last_login")
     });
-    leads = mysqlTable("leads", {
+    leads = mysqlTable("lead_management", {
       id: varchar("id", { length: 36 }).primaryKey(),
-      organization: varchar("organization", { length: 255 }).notNull(),
-      location: varchar("location", { length: 255 }).notNull(),
-      referredDoctor: varchar("referred_doctor", { length: 255 }).notNull(),
-      clinicHospitalName: varchar("clinic_hospital_name", { length: 255 }),
-      phone: varchar("phone", { length: 50 }).notNull(),
-      email: varchar("email", { length: 255 }).notNull(),
-      clientEmail: varchar("client_email", { length: 255 }).notNull(),
-      testName: varchar("test_name", { length: 255 }).notNull(),
-      sampleType: varchar("sample_type", { length: 255 }).notNull(),
-      amountQuoted: decimal("amount_quoted", { precision: 10, scale: 2 }).notNull(),
-      tat: int("tat").notNull(),
-      // days
-      status: varchar("status", { length: 50 }).default("quoted"),
-      // quoted, cold, hot, won, converted, closed
-      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-      createdBy: varchar("created_by", { length: 36 }),
-      convertedAt: timestamp("converted_at"),
-      category: varchar("category", { length: 50 }).default("clinical"),
-      // clinical, discovery
-      // Discovery-specific fields
-      discoveryOrganization: varchar("discovery_organization", { length: 255 }),
-      clinicianName: varchar("clinician_name", { length: 255 }),
-      specialty: varchar("specialty", { length: 255 }),
-      clinicianOrgEmail: varchar("clinician_org_email", { length: 255 }),
-      clinicianOrgPhone: varchar("clinician_org_phone", { length: 50 }),
-      serviceName: varchar("service_name", { length: 255 }),
-      // pickupFrom: varchar("pickup_from", { length: 255 }), // Moved to sample tracking
-      // deliveryUpto: varchar("delivery_upto", { length: 255 }), // Moved to sample tracking
-      discoveryStatus: varchar("discovery_status", { length: 100 }),
-      followUp: varchar("follow_up", { length: 255 }),
+      uniqueId: varchar("unique_id", { length: 100 }).notNull(),
+      projectId: varchar("project_id", { length: 100 }),
       leadType: varchar("lead_type", { length: 100 }),
-      budget: decimal("budget", { precision: 10, scale: 2 }),
-      // sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }), // Moved to sample tracking
-      noOfSamples: int("no_of_samples"),
+      status: varchar("status", { length: 50 }).default("quoted"),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+      speciality: varchar("speciality", { length: 255 }),
+      clinicianResearcherEmail: varchar("clinician_researcher_email", { length: 255 }),
+      clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 50 }),
+      clinicianResearcherAddress: varchar("clinician_researcher_address", { length: 500 }),
       patientClientName: varchar("patient_client_name", { length: 255 }),
       age: int("age"),
       gender: varchar("gender", { length: 20 }),
-      patientClientPhone: varchar("patient_client_phone", { length: 50 }),
       patientClientEmail: varchar("patient_client_email", { length: 255 }),
-      salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
-      geneticCounsellorRequired: boolean("genetic_counsellor_required").default(false),
-      dateSampleReceived: timestamp("date_sample_received"),
-      dateSampleCollected: timestamp("date_sample_collected"),
-      // Pickup / tracking fields (some apps move these to samples/logistics, but adding here per request)
-      pickupFrom: varchar("pickup_from", { length: 255 }),
-      pickupUpto: timestamp("pickup_upto"),
-      shippingAmount: decimal("shipping_amount", { precision: 10, scale: 2 }),
+      patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+      patientClientAddress: varchar("patient_client_address", { length: 500 }),
+      serviceName: varchar("service_name", { length: 255 }),
+      sampleType: varchar("sample_type", { length: 255 }),
+      testCategory: varchar("test_category", { length: 50 }),
+      noOfSamples: int("no_of_samples"),
+      budget: decimal("budget", { precision: 10, scale: 2 }),
+      amountQuoted: decimal("amount_quoted", { precision: 10, scale: 2 }),
+      tat: varchar("tat", { length: 50 }),
+      sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }),
+      phlebotomistCharges: decimal("phlebotomist_charges", { precision: 10, scale: 2 }),
+      geneticCounselorRequired: boolean("genetic_counselor_required").default(false),
+      nutritionalCounsellingRequired: boolean("nutritional_counselling_required").default(false),
+      samplePickUpFrom: varchar("sample_pick_up_from", { length: 500 }),
+      deliveryUpTo: timestamp("delivery_up_to", { mode: "date" }),
+      sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+      sampleShippedDate: timestamp("sample_shipped_date", { mode: "date" }),
+      sampleReceivedDate: timestamp("sample_recevied_date", { mode: "date" }),
       trackingId: varchar("tracking_id", { length: 100 }),
       courierCompany: varchar("courier_company", { length: 255 }),
-      progenicsTRF: varchar("progenics_trf", { length: 255 }),
-      phlebotomistCharges: decimal("phlebotomist_charges", { precision: 10, scale: 2 })
+      progenicsTrf: varchar("progenics_trf", { length: 255 }),
+      followUp: varchar("follow_up", { length: 500 }),
+      remarkComment: text("Remark_Comment"),
+      leadCreatedBy: varchar("lead_created_by", { length: 36 }),
+      salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
+      leadCreated: timestamp("lead_created", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      leadModified: timestamp("lead_modified", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`)
     });
     leadTrfs = mysqlTable("lead_trfs", {
       id: varchar("id", { length: 36 }).primaryKey(),
@@ -119,43 +123,35 @@ var init_schema = __esm({
       // drizzle mysql-core doesn't have LONGBLOB helper; store as text for now and use raw SQL if needed
       createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`)
     });
-    samples = mysqlTable("samples", {
-      id: varchar("id", { length: 36 }).primaryKey(),
-      sampleId: varchar("sample_id", { length: 64 }).notNull().unique(),
-      leadId: varchar("lead_id", { length: 36 }).notNull(),
-      status: varchar("status", { length: 50 }).default("pickup_scheduled"),
-      // pickup_scheduled, in_transit, received, lab_processing, bioinformatics, reporting, completed
-      courierDetails: json("courier_details"),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-      paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0"),
+    samples = mysqlTable("sample_tracking", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 80 }),
+      projectId: varchar("project_id", { length: 80 }),
+      sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+      sampleShippedDate: timestamp("sample_shipped_date", { mode: "date" }),
+      sampleDeliveryDate: timestamp("sample_delivery_date", { mode: "date" }),
+      samplePickUpFrom: varchar("sample_pick_up_from", { length: 255 }),
+      deliveryUpTo: varchar("delivery_up_to", { length: 255 }),
+      trackingId: varchar("tracking_id", { length: 120 }),
+      courierCompany: varchar("courier_company", { length: 200 }),
+      sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 200 }),
+      clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 60 }),
+      patientClientName: varchar("patient_client_name", { length: 200 }),
+      patientClientPhone: varchar("patient_client_phone", { length: 60 }),
+      sampleReceivedDate: timestamp("sample_recevied_date", { mode: "date" }),
+      salesResponsiblePerson: varchar("sales_responsible_person", { length: 200 }),
+      thirdPartyName: varchar("third_party_name", { length: 200 }),
+      thirdPartyPhone: varchar("third_party_phone", { length: 60 }),
+      thirdPartyReport: varchar("third_party_report", { length: 500 }),
+      thirdPartyTrf: varchar("third_party_trf", { length: 500 }),
+      sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+      sampleReceivedToThirdPartyDate: timestamp("sample_received_to_third_party_date", { mode: "date" }),
+      alertToLabprocessTeam: boolean("alert_to_labprocess_team").default(false),
       createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-      // New tracking fields (mirrors migrations)
-      sampleCollectedDate: timestamp("sample_collected_date"),
-      sampleShippedDate: timestamp("sample_shipped_date"),
-      sampleDeliveryDate: timestamp("sample_delivery_date"),
-      responsiblePerson: varchar("responsible_person", { length: 255 }),
-      organization: varchar("organization", { length: 255 }),
-      senderCity: varchar("sender_city", { length: 255 }),
-      senderContact: varchar("sender_contact", { length: 100 }),
-      receiverAddress: text("receiver_address"),
-      trackingId: varchar("tracking_id", { length: 100 }),
-      courierCompany: varchar("courier_company", { length: 100 }),
-      labAlertStatus: varchar("lab_alert_status", { length: 50 }).default("pending"),
-      thirdPartyName: varchar("third_party_name", { length: 255 }),
-      thirdPartyContractDetails: text("third_party_contract_details"),
-      thirdPartySentDate: timestamp("third_party_sent_date"),
-      thirdPartyReceivedDate: timestamp("third_party_received_date"),
-      comments: text("comments"),
-      // Lab routing and tracking fields
-      labDestination: varchar("lab_destination", { length: 100 }).default("internal"),
-      // internal, third_party
-      thirdPartyLab: varchar("third_party_lab", { length: 255 }),
-      thirdPartyAddress: text("third_party_address"),
-      courierPartner: varchar("courier_partner", { length: 100 }),
-      pickupDate: timestamp("pickup_date"),
-      trackingNumber: varchar("tracking_number", { length: 100 }),
-      shippingCost: decimal("shipping_cost", { precision: 10, scale: 2 }),
-      specialInstructions: text("special_instructions")
+      createdBy: varchar("created_by", { length: 80 }),
+      remarkComment: text("remark_comment")
     });
     labProcessing = mysqlTable("lab_processing", {
       id: varchar("id", { length: 36 }).primaryKey(),
@@ -204,6 +200,68 @@ var init_schema = __esm({
       completeStatus: varchar("complete_status", { length: 100 }),
       progenicsTrf: varchar("progenics_trf", { length: 255 })
     });
+    labProcessDiscoverySheet = mysqlTable("labprocess_discovery_sheet", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+      projectId: varchar("project_id", { length: 255 }),
+      sampleId: varchar("sample_id", { length: 255 }),
+      clientId: varchar("client_id", { length: 255 }),
+      serviceName: varchar("service_name", { length: 255 }),
+      sampleType: varchar("sample_type", { length: 255 }),
+      noOfSamples: int("no_of_samples"),
+      sampleReceivedDate: timestamp("sample_received_date", { mode: "date" }),
+      extractionProtocol: varchar("extraction_protocol", { length: 255 }),
+      extractionQualityCheck: varchar("extraction_quality_check", { length: 255 }),
+      extractionQcStatus: varchar("extraction_qc_status", { length: 100 }),
+      extractionProcess: varchar("extraction_process", { length: 255 }),
+      libraryPreparationProtocol: varchar("library_preparation_protocol", { length: 255 }),
+      libraryPreparationQualityCheck: varchar("library_preparation_quality_check", { length: 255 }),
+      libraryPreparationQcStatus: varchar("library_preparation_qc_status", { length: 100 }),
+      libraryPreparationProcess: varchar("library_preparation_process", { length: 255 }),
+      purificationProtocol: varchar("purification_protocol", { length: 255 }),
+      purificationQualityCheck: varchar("purification_quality_check", { length: 255 }),
+      purificationQcStatus: varchar("purification_qc_status", { length: 100 }),
+      purificationProcess: varchar("purification_process", { length: 255 }),
+      alertToBioinformaticsTeam: boolean("alert_to_bioinformatics_team").default(false),
+      alertToTechnicalLeadd: boolean("alert_to_technical_leadd").default(false),
+      progenicsTrf: varchar("progenics_trf", { length: 255 }),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
+    });
+    labProcessClinicalSheet = mysqlTable("labprocess_clinical_sheet", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+      projectId: varchar("project_id", { length: 255 }),
+      sampleId: varchar("sample_id", { length: 255 }),
+      clientId: varchar("client_id", { length: 255 }),
+      serviceName: varchar("service_name", { length: 255 }),
+      sampleType: varchar("sample_type", { length: 255 }),
+      noOfSamples: int("no_of_samples"),
+      sampleReceivedDate: timestamp("sample_received_date", { mode: "date" }),
+      extractionProtocol: varchar("extraction_protocol", { length: 255 }),
+      extractionQualityCheck: varchar("extraction_quality_check", { length: 255 }),
+      extractionQcStatus: varchar("extraction_qc_status", { length: 100 }),
+      extractionProcess: varchar("extraction_process", { length: 255 }),
+      libraryPreparationProtocol: varchar("library_preparation_protocol", { length: 255 }),
+      libraryPreparationQualityCheck: varchar("library_preparation_quality_check", { length: 255 }),
+      libraryPreparationQcStatus: varchar("library_preparation_qc_status", { length: 100 }),
+      libraryPreparationProcess: varchar("library_preparation_process", { length: 255 }),
+      purificationProtocol: varchar("purification_protocol", { length: 255 }),
+      purificationQualityCheck: varchar("purification_quality_check", { length: 255 }),
+      purificationQcStatus: varchar("purification_qc_status", { length: 100 }),
+      purificationProcess: varchar("purification_process", { length: 255 }),
+      alertToBioinformaticsTeam: boolean("alert_to_bioinformatics_team").default(false),
+      alertToTechnicalLead: boolean("alert_to_technical_lead").default(false),
+      progenicsTrf: varchar("progenics_trf", { length: 255 }),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
+    });
     reports = mysqlTable("reports", {
       id: varchar("id", { length: 36 }).primaryKey(),
       sampleId: varchar("sample_id", { length: 36 }).notNull(),
@@ -229,104 +287,94 @@ var init_schema = __esm({
       // email, portal, courier
       recipientEmail: varchar("recipient_email", { length: 255 })
     });
-    geneticCounselling = mysqlTable("genetic_counselling", {
-      id: varchar("id", { length: 36 }).primaryKey(),
-      sampleId: varchar("sample_id", { length: 64 }).notNull(),
-      uniqueId: varchar("unique_id", { length: 100 }),
-      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-      gcRegistrationStartTime: timestamp("gc_registration_start_time"),
-      gcRegistrationEndTime: timestamp("gc_registration_end_time"),
-      clientName: varchar("client_name", { length: 255 }),
-      clientContact: varchar("client_contact", { length: 100 }),
-      clientEmail: varchar("client_email", { length: 255 }),
+    geneticCounselling = mysqlTable("genetic_counselling_records", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull(),
+      projectId: varchar("project_id", { length: 255 }),
+      counsellingDate: timestamp("counselling_date", { mode: "date" }),
+      gcRegistrationStartTime: varchar("gc_registration_start_time", { length: 20 }),
+      gcRegistrationEndTime: varchar("gc_registration_end_time", { length: 20 }),
+      patientClientName: varchar("patient_client_name", { length: 255 }),
       age: int("age"),
-      sex: varchar("sex", { length: 20 }),
-      paymentStatus: varchar("payment_status", { length: 50 }),
-      paymentMethod: varchar("payment_method", { length: 50 }),
-      approvalFromHead: varchar("approval_from_head", { length: 255 }),
-      referralDoctor: varchar("referral_doctor", { length: 255 }),
-      organization: varchar("organization", { length: 255 }),
-      specialty: varchar("specialty", { length: 255 }),
-      query: text("query"),
-      gcName: varchar("gc_name", { length: 255 }).notNull(),
-      gcOtherMembers: text("gc_other_members"),
+      gender: varchar("gender", { length: 20 }),
+      patientClientEmail: varchar("patient_client_email", { length: 255 }),
+      patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+      patientClientAddress: varchar("patient_client_address", { length: 255 }),
+      paymentStatus: varchar("payment_status", { length: 100 }),
+      modeOfPayment: varchar("mode_of_payment", { length: 100 }),
+      approvalFromHead: boolean("approval_from_head").default(false),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      speciality: varchar("speciality", { length: 255 }),
+      querySuspection: varchar("query_suspection", { length: 500 }),
+      gcName: varchar("gc_name", { length: 255 }),
+      gcOtherMembers: varchar("gc_other_members", { length: 255 }),
       serviceName: varchar("service_name", { length: 255 }),
-      counsellingType: varchar("counselling_type", { length: 100 }),
-      counsellingStartTime: timestamp("counselling_start_time", { mode: "date" }),
-      counsellingEndTime: timestamp("counselling_end_time", { mode: "date" }),
+      counselingType: varchar("counseling_type", { length: 255 }),
+      counselingStartTime: varchar("counseling_start_time", { length: 20 }),
+      counselingEndTime: varchar("counseling_end_time", { length: 20 }),
       budgetForTestOpted: decimal("budget_for_test_opted", { precision: 10, scale: 2 }),
-      testingStatus: varchar("testing_status", { length: 100 }),
-      potentialPatientForTestingFuture: boolean("potential_patient_for_testing_future").default(false),
-      extendedFamilyTesting: boolean("extended_family_testing").default(false),
+      testingStatus: varchar("testing_status", { length: 255 }),
+      actionRequired: varchar("action_required", { length: 255 }),
+      potentialPatientForTestingInFuture: boolean("potential_patient_for_testing_in_future").default(false),
+      extendedFamilyTestingRequirement: boolean("extended_family_testing_requirement").default(false),
       budget: decimal("budget", { precision: 10, scale: 2 }),
-      sampleType: varchar("sample_type", { length: 100 }),
-      createdBy: varchar("created_by", { length: 36 }),
-      gcSummary: text("gc_summary"),
+      sampleType: varchar("sample_type", { length: 255 }),
       gcSummarySheet: text("gc_summary_sheet"),
-      gcfVideoLinks: text("gcf_video_links"),
-      modifiedAt: timestamp("modified_at"),
-      assignedToSalesPerson: varchar("assigned_to_sales_person", { length: 36 }),
-      // keep existing approvalStatus compatibility
-      approvalStatus: varchar("approval_status", { length: 50 }).default("pending")
-      // preserve auto-created timestamp
-      // createdAt already defined above
-      // existing fields end
-      // Note: `counsellingStartTime` / `counsellingEndTime` are mapped above to snake_case columns
-    });
-    financeRecords = mysqlTable("finance_records", {
-      id: varchar("id", { length: 36 }).primaryKey(),
-      sampleId: varchar("sample_id", { length: 36 }),
-      leadId: varchar("lead_id", { length: 36 }),
-      invoiceNumber: varchar("invoice_number", { length: 100 }).unique(),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-      taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
-      totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-      paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
-      // pending, partial, paid, overdue
-      paymentMethod: varchar("payment_method", { length: 50 }),
-      paymentDate: timestamp("payment_date"),
-      dueDate: timestamp("due_date"),
+      gcVideoLink: varchar("gc_video_link", { length: 500 }),
+      gcAudioLink: varchar("gc_audio_link", { length: 500 }),
+      salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
       createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-      // Additional fields from Excel sheets
-      currency: varchar("currency", { length: 10 }).default("INR"),
-      discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
-      discountReason: varchar("discount_reason", { length: 255 }),
-      billingAddress: text("billing_address"),
-      billingContact: varchar("billing_contact", { length: 255 }),
-      paymentTerms: varchar("payment_terms", { length: 100 }),
-      lateFees: decimal("late_fees", { precision: 10, scale: 2 }).default("0"),
-      refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }).default("0"),
-      refundReason: varchar("refund_reason", { length: 255 }),
-      notes: text("notes"),
-      // Fields used by the Finance UI (added to match client form)
-      titleUniqueId: varchar("title_unique_id", { length: 100 }),
-      dateSampleCollected: timestamp("date_sample_collected"),
-      organization: varchar("organization", { length: 255 }),
-      clinician: varchar("clinician", { length: 255 }),
-      city: varchar("city", { length: 255 }),
-      patientName: varchar("patient_name", { length: 255 }),
-      patientEmail: varchar("patient_email", { length: 255 }),
-      patientPhone: varchar("patient_phone", { length: 50 }),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
+    });
+    financeRecords = mysqlTable("finance_sheet", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull(),
+      projectId: varchar("project_id", { length: 255 }).notNull(),
+      sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+      clinicianResearcherEmail: varchar("clinician_researcher_email", { length: 255 }),
+      clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 50 }),
+      clinicianResearcherAddress: varchar("clinician_researcher_address", { length: 255 }),
+      patientClientName: varchar("patient_client_name", { length: 255 }),
+      patientClientEmail: varchar("patient_client_email", { length: 255 }),
+      patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+      patientClientAddress: varchar("patient_client_address", { length: 255 }),
       serviceName: varchar("service_name", { length: 255 }),
       budget: decimal("budget", { precision: 10, scale: 2 }),
-      salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
-      invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }),
-      invoiceDate: timestamp("invoice_date"),
-      paymentReceivedAmount: decimal("payment_received_amount", { precision: 10, scale: 2 }),
-      utrDetails: varchar("utr_details", { length: 255 }),
-      balanceAmountReceivedDate: timestamp("balance_amount_received_date"),
-      totalPaymentReceivedStatus: varchar("total_payment_received_status", { length: 100 }),
       phlebotomistCharges: decimal("phlebotomist_charges", { precision: 10, scale: 2 }),
+      salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
       sampleShipmentAmount: decimal("sample_shipment_amount", { precision: 10, scale: 2 }),
+      invoiceNumber: varchar("invoice_number", { length: 255 }),
+      invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }),
+      invoiceDate: timestamp("invoice_date", { mode: "date" }),
+      paymentReceiptAmount: decimal("payment_receipt_amount", { precision: 10, scale: 2 }),
+      balanceAmount: decimal("balance_amount", { precision: 10, scale: 2 }),
+      paymentReceiptDate: timestamp("payment_receipt_date", { mode: "date" }),
+      modeOfPayment: varchar("mode_of_payment", { length: 100 }),
+      transactionalNumber: varchar("transactional_number", { length: 255 }),
+      balanceAmountReceivedDate: timestamp("balance_amount_received_date", { mode: "date" }),
+      totalAmountReceivedStatus: boolean("total_amount_received_status").default(false),
+      utrDetails: varchar("utr_details", { length: 255 }),
       thirdPartyCharges: decimal("third_party_charges", { precision: 10, scale: 2 }),
       otherCharges: decimal("other_charges", { precision: 10, scale: 2 }),
+      otherChargesReason: varchar("other_charges_reason", { length: 255 }),
       thirdPartyName: varchar("third_party_name", { length: 255 }),
-      thirdPartyContractDetails: text("third_party_contract_details"),
-      thirdPartyPaymentStatus: varchar("third_party_payment_status", { length: 100 }),
-      progenicsTrf: varchar("progenics_trf", { length: 255 }),
-      approveToLabProcess: boolean("approve_to_lab_process").default(false),
-      approveToReportProcess: boolean("approve_to_report_process").default(false),
-      createdBy: varchar("created_by", { length: 36 })
+      thirdPartyPhone: varchar("third_party_phone", { length: 50 }),
+      thirdPartyPaymentDate: timestamp("third_party_payment_date", { mode: "date" }),
+      thirdPartyPaymentStatus: boolean("third_party_payment_status").default(false),
+      alertToLabprocessTeam: boolean("alert_to_labprocess_team").default(false),
+      alertToReportTeam: boolean("alert_to_report_team").default(false),
+      alertToTechnicalLead: boolean("alert_to_technical_lead").default(false),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
     });
     logisticsTracking = mysqlTable("logistics_tracking", {
       id: varchar("id", { length: 36 }).primaryKey(),
@@ -449,29 +497,68 @@ var init_schema = __esm({
     });
     insertLeadSchema = createInsertSchema(leads).omit({
       id: true,
-      createdAt: true,
-      convertedAt: true
+      leadCreated: true,
+      leadModified: true
+    }).extend({
+      // Preprocess date fields: convert empty strings to null, then coerce to Date
+      deliveryUpTo: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleCollectionDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleReceivedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional()
     });
     insertSampleSchema = createInsertSchema(samples).omit({
       id: true,
-      createdAt: true,
-      sampleId: true
-      // generated server-side
+      createdAt: true
+    }).extend({
+      // Preprocess date fields: convert empty strings to null, then coerce to Date
+      sampleCollectionDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleShippedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleDeliveryDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleReceivedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleSentToThirdPartyDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      sampleReceivedToThirdPartyDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional()
     });
     insertLabProcessingSchema = createInsertSchema(labProcessing).omit({
       id: true,
       processedAt: true
     });
+    insertLabProcessDiscoverySheetSchema = createInsertSchema(labProcessDiscoverySheet).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
+    }).extend({
+      // Preprocess date fields: convert empty strings to null, then coerce to Date
+      sampleReceivedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional()
+    }).passthrough();
+    insertLabProcessClinicalSheetSchema = createInsertSchema(labProcessClinicalSheet).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
+    }).extend({
+      // Preprocess date fields: convert empty strings to null, then coerce to Date
+      sampleReceivedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional()
+    }).passthrough();
     insertReportSchema = createInsertSchema(reports).omit({
       id: true,
       generatedAt: true,
       approvedAt: true,
       deliveredAt: true
     });
-    insertGeneticCounsellingSchema = createInsertSchema(geneticCounselling).omit({ id: true, createdAt: true });
+    insertGeneticCounsellingSchema = createInsertSchema(geneticCounselling).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
+    });
     insertFinanceRecordSchema = createInsertSchema(financeRecords).omit({
       id: true,
-      createdAt: true
+      createdAt: true,
+      modifiedAt: true
+    }).extend({
+      // Preprocess date fields: convert empty strings to null, then coerce to Date
+      sampleCollectionDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      invoiceDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      paymentReceiptDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      balanceAmountReceivedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      thirdPartyPaymentDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional()
     });
     insertLogisticsTrackingSchema = createInsertSchema(logisticsTracking).omit({
       id: true,
@@ -492,6 +579,209 @@ var init_schema = __esm({
     insertNotificationSchema = createInsertSchema(notifications).omit({
       id: true,
       createdAt: true
+    });
+    bioinformaticsSheetClinical = mysqlTable("bioinformatics_sheet_clinical", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+      projectId: varchar("project_id", { length: 255 }),
+      sampleId: varchar("sample_id", { length: 255 }),
+      clientId: varchar("client_id", { length: 255 }),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+      patientClientName: varchar("patient_client_name", { length: 255 }),
+      age: int("age"),
+      gender: varchar("gender", { length: 20 }),
+      serviceName: varchar("service_name", { length: 255 }),
+      noOfSamples: int("no_of_samples"),
+      sequencingStatus: varchar("sequencing_status", { length: 255 }),
+      sequencingDataStorageDate: timestamp("sequencing_data_storage_date", { mode: "date" }),
+      basecalling: varchar("basecalling", { length: 255 }),
+      basecallingDataStorageDate: timestamp("basecalling_data_storage_date", { mode: "date" }),
+      workflowType: varchar("workflow_type", { length: 255 }),
+      analysisStatus: varchar("analysis_status", { length: 255 }),
+      analysisDate: timestamp("analysis_date", { mode: "date" }),
+      thirdPartyName: varchar("third_party_name", { length: 255 }),
+      sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+      thirdPartyTrf: varchar("third_party_trf", { length: 255 }),
+      resultsRawDataReceivedFromThirdPartyDate: timestamp("results_raw_data_received_from_third_party_date", { mode: "date" }),
+      thirdPartyReport: varchar("third_party_report", { length: 255 }),
+      tat: varchar("tat", { length: 100 }),
+      vcfFileLink: varchar("vcf_file_link", { length: 500 }),
+      cnvStatus: varchar("cnv_status", { length: 255 }),
+      progenicsRawData: varchar("progenics_raw_data", { length: 500 }),
+      progenicsRawDataSize: varchar("progenics_raw_data_size", { length: 255 }),
+      progenicsRawDataLink: varchar("progenics_raw_data_link", { length: 500 }),
+      analysisHtmlLink: varchar("analysis_html_link", { length: 500 }),
+      relativeAbundanceSheet: varchar("relative_abundance_sheet", { length: 500 }),
+      dataAnalysisSheet: varchar("data_analysis_sheet", { length: 500 }),
+      databaseToolsInformation: text("database_tools_information"),
+      alertToTechnicalLeadd: boolean("alert_to_technical_leadd").default(false),
+      alertToReportTeam: boolean("alert_to_report_team").default(false),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
+    });
+    insertBioinformaticsSheetClinicalSchema = createInsertSchema(bioinformaticsSheetClinical).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
+    });
+    bioinformaticsSheetDiscovery = mysqlTable("bioinformatics_sheet_discovery", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+      projectId: varchar("project_id", { length: 255 }),
+      sampleId: varchar("sample_id", { length: 255 }),
+      clientId: varchar("client_id", { length: 255 }),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+      patientClientName: varchar("patient_client_name", { length: 255 }),
+      age: int("age"),
+      gender: varchar("gender", { length: 20 }),
+      serviceName: varchar("service_name", { length: 255 }),
+      noOfSamples: int("no_of_samples"),
+      sequencingStatus: varchar("sequencing_status", { length: 255 }),
+      sequencingDataStorageDate: timestamp("sequencing_data_storage_date", { mode: "date" }),
+      basecalling: varchar("basecalling", { length: 255 }),
+      basecallingDataStorageDate: timestamp("basecalling_data_storage_date", { mode: "date" }),
+      workflowType: varchar("workflow_type", { length: 255 }),
+      analysisStatus: varchar("analysis_status", { length: 255 }),
+      analysisDate: timestamp("analysis_date", { mode: "date" }),
+      thirdPartyName: varchar("third_party_name", { length: 255 }),
+      sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+      thirdPartyTrf: varchar("third_party_trf", { length: 255 }),
+      resultsRawDataReceivedFromThirdPartyDate: timestamp("results_raw_data_received_from_third_party_date", { mode: "date" }),
+      thirdPartyReport: varchar("third_party_report", { length: 500 }),
+      tat: varchar("tat", { length: 100 }),
+      vcfFileLink: varchar("vcf_file_link", { length: 500 }),
+      cnvStatus: varchar("cnv_status", { length: 255 }),
+      progenicsRawData: varchar("progenics_raw_data", { length: 500 }),
+      progenicsRawDataSize: varchar("progenics_raw_data_size", { length: 255 }),
+      progenicsRawDataLink: varchar("progenics_raw_data_link", { length: 500 }),
+      analysisHtmlLink: varchar("analysis_html_link", { length: 500 }),
+      relativeAbundanceSheet: varchar("relative_abundance_sheet", { length: 500 }),
+      dataAnalysisSheet: varchar("data_analysis_sheet", { length: 500 }),
+      databaseToolsInformation: text("database_tools_information"),
+      alertToTechnicalLeadd: boolean("alert_to_technical_leadd").default(false),
+      alertToReportTeam: boolean("alert_to_report_team").default(false),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
+    });
+    insertBioinformaticsSheetDiscoverySchema = createInsertSchema(bioinformaticsSheetDiscovery).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
+    });
+    nutritionalManagement = mysqlTable("nutritional_management", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+      projectId: varchar("project_id", { length: 255 }),
+      sampleId: varchar("sample_id", { length: 255 }),
+      serviceName: varchar("service_name", { length: 255 }),
+      patientClientName: varchar("patient_client_name", { length: 255 }),
+      age: int("age"),
+      gender: varchar("gender", { length: 20 }),
+      progenicsTrf: varchar("progenics_trf", { length: 255 }),
+      questionnaire: text("questionnaire"),
+      questionnaireCallRecording: varchar("questionnaire_call_recording", { length: 500 }),
+      dataAnalysisSheet: varchar("data_analysis_sheet", { length: 500 }),
+      progenicsReport: varchar("progenics_report", { length: 500 }),
+      nutritionChart: varchar("nutrition_chart", { length: 500 }),
+      counsellingSessionDate: timestamp("counselling_session_date", { mode: "date" }),
+      furtherCounsellingRequired: boolean("further_counselling_required").default(false),
+      counsellingStatus: varchar("counselling_status", { length: 255 }),
+      counsellingSessionRecording: varchar("counselling_session_recording", { length: 500 }),
+      alertToTechnicalLead: boolean("alert_to_technical_lead").default(false),
+      alertToReportTeam: boolean("alert_to_report_team").default(false),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 }),
+      remarkComment: text("remark_comment")
+    });
+    insertNutritionalManagementSchema = createInsertSchema(nutritionalManagement).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
+    }).extend({
+      // Make all fields more lenient and allow coercion
+      uniqueId: z.string().optional(),
+      projectId: z.union([z.string(), z.number()]).optional(),
+      sampleId: z.string().optional(),
+      serviceName: z.string().optional(),
+      patientClientName: z.string().optional(),
+      age: z.union([z.string(), z.number()]).transform((v) => v === "" ? null : Number(v)).nullable().optional(),
+      gender: z.string().optional(),
+      progenicsTrf: z.string().optional(),
+      questionnaire: z.string().optional(),
+      questionnaireCallRecording: z.string().optional(),
+      dataAnalysisSheet: z.string().optional(),
+      progenicsReport: z.string().optional(),
+      nutritionChart: z.string().optional(),
+      counsellingSessionDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      furtherCounsellingRequired: z.union([z.boolean(), z.string()]).transform((v) => v === true || v === "true" || v === "on").optional(),
+      counsellingStatus: z.string().optional(),
+      counsellingSessionRecording: z.string().optional(),
+      alertToTechnicalLead: z.union([z.boolean(), z.string()]).transform((v) => v === true || v === "true" || v === "on").optional(),
+      alertToReportTeam: z.union([z.boolean(), z.string()]).transform((v) => v === true || v === "true" || v === "on").optional(),
+      createdBy: z.string().optional(),
+      modifiedBy: z.string().optional(),
+      modifiedAt: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      remarkComment: z.string().optional(),
+      remarksComment: z.string().optional()
+    }).passthrough();
+    processMasterSheet = mysqlTable("process_master_sheet", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      uniqueId: varchar("unique_id", { length: 255 }).notNull().unique(),
+      projectId: varchar("project_id", { length: 255 }),
+      sampleId: varchar("sample_id", { length: 255 }),
+      clientId: varchar("client_id", { length: 255 }),
+      organisationHospital: varchar("organisation_hospital", { length: 255 }),
+      clinicianResearcherName: varchar("clinician_researcher_name", { length: 255 }),
+      speciality: varchar("speciality", { length: 255 }),
+      clinicianResearcherEmail: varchar("clinician_researcher_email", { length: 255 }),
+      clinicianResearcherPhone: varchar("clinician_researcher_phone", { length: 50 }),
+      clinicianResearcherAddress: varchar("clinician_researcher_address", { length: 255 }),
+      patientClientName: varchar("patient_client_name", { length: 255 }),
+      age: int("age"),
+      gender: varchar("gender", { length: 20 }),
+      patientClientEmail: varchar("patient_client_email", { length: 255 }),
+      patientClientPhone: varchar("patient_client_phone", { length: 50 }),
+      patientClientAddress: varchar("patient_client_address", { length: 255 }),
+      sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
+      sampleReceviedDate: timestamp("sample_recevied_date", { mode: "date" }),
+      serviceName: varchar("service_name", { length: 255 }),
+      sampleType: varchar("sample_type", { length: 255 }),
+      noOfSamples: int("no_of_samples"),
+      tat: varchar("tat", { length: 100 }),
+      salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
+      progenicsTrf: varchar("progenics_trf", { length: 255 }),
+      thirdPartyTrf: varchar("third_party_trf", { length: 255 }),
+      progenicsReport: varchar("progenics_report", { length: 500 }),
+      sampleSentToThirdPartyDate: timestamp("sample_sent_to_third_party_date", { mode: "date" }),
+      thirdPartyName: varchar("third_party_name", { length: 255 }),
+      thirdPartyReport: varchar("third_party_report", { length: 500 }),
+      resultsRawDataReceivedFromThirdPartyDate: timestamp("results_raw_data_received_from_third_party_date", { mode: "date" }),
+      logisticStatus: varchar("logistic_status", { length: 255 }),
+      financeStatus: varchar("finance_status", { length: 255 }),
+      labProcessStatus: varchar("lab_process_status", { length: 255 }),
+      bioinformaticsStatus: varchar("bioinformatics_status", { length: 255 }),
+      nutritionalManagementStatus: varchar("nutritional_management_status", { length: 255 }),
+      progenicsReportReleaseDate: timestamp("progenics_report_release_date", { mode: "date" }),
+      remarkComment: text("Remark_Comment"),
+      createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      createdBy: varchar("created_by", { length: 255 }),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 })
+    });
+    insertProcessMasterSheetSchema = createInsertSchema(processMasterSheet).omit({
+      id: true,
+      createdAt: true,
+      modifiedAt: true
     });
   }
 });
@@ -519,7 +809,7 @@ function getDbConfig() {
     user: process.env.DB_USER || "remote_user",
     // allow percent-encoded passwords in env (e.g. Prolab%2305) and decode them
     password: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.includes("%") ? decodeURIComponent(process.env.DB_PASSWORD) : process.env.DB_PASSWORD : "Prolab#05",
-    database: process.env.DB_NAME || "leadlab_lims",
+    database: process.env.DB_NAME || "lead_lims2",
     ssl: false,
     connectTimeout: 6e4,
     charset: "utf8mb4"
@@ -553,7 +843,9 @@ pool.getConnection().then((connection) => {
 var db = drizzle(pool);
 
 // server/storage.ts
-import { and, eq, asc, desc } from "drizzle-orm";
+import { and, eq, sql as sql2, asc, desc } from "drizzle-orm";
+var collateUtf8Unicode = (column) => sql2`${column} COLLATE utf8mb4_unicode_ci`;
+var eqUtf8Columns = (left, right) => eq(collateUtf8Unicode(left), collateUtf8Unicode(right));
 var DBStorage = class {
   connectionWorking = false;
   constructor() {
@@ -693,184 +985,151 @@ var DBStorage = class {
     const id = randomUUID();
     await db.insert(leads).values({
       id,
-      organization: insertLead.organization,
-      location: insertLead.location,
-      referredDoctor: insertLead.referredDoctor,
-      clinicHospitalName: insertLead.clinicHospitalName ?? null,
-      phone: insertLead.phone,
-      email: insertLead.email,
-      clientEmail: insertLead.clientEmail,
-      testName: insertLead.testName,
-      sampleType: insertLead.sampleType,
-      category: insertLead.category ?? "clinical",
-      amountQuoted: insertLead.amountQuoted,
-      tat: insertLead.tat,
-      status: insertLead.status ?? "quoted",
-      createdBy: insertLead.createdBy ?? null,
-      convertedAt: null,
-      // Discovery-specific fields
-      discoveryOrganization: insertLead.discoveryOrganization ?? null,
-      clinicianName: insertLead.clinicianName ?? null,
-      specialty: insertLead.specialty ?? null,
-      clinicianOrgEmail: insertLead.clinicianOrgEmail ?? null,
-      clinicianOrgPhone: insertLead.clinicianOrgPhone ?? null,
-      serviceName: insertLead.serviceName ?? null,
-      discoveryStatus: insertLead.discoveryStatus ?? null,
-      followUp: insertLead.followUp ?? null,
+      uniqueId: insertLead.uniqueId,
+      projectId: insertLead.projectId ?? null,
       leadType: insertLead.leadType ?? null,
-      budget: insertLead.budget ?? null,
-      noOfSamples: insertLead.noOfSamples ?? null,
+      status: insertLead.status ?? "quoted",
+      organisationHospital: insertLead.organisationHospital ?? null,
+      clinicianResearcherName: insertLead.clinicianResearcherName ?? null,
+      speciality: insertLead.speciality ?? null,
+      clinicianResearcherEmail: insertLead.clinicianResearcherEmail ?? null,
+      clinicianResearcherPhone: insertLead.clinicianResearcherPhone ?? null,
+      clinicianResearcherAddress: insertLead.clinicianResearcherAddress ?? null,
       patientClientName: insertLead.patientClientName ?? null,
       age: insertLead.age ?? null,
       gender: insertLead.gender ?? null,
-      patientClientPhone: insertLead.patientClientPhone ?? null,
       patientClientEmail: insertLead.patientClientEmail ?? null,
-      salesResponsiblePerson: insertLead.salesResponsiblePerson ?? null,
-      geneticCounsellorRequired: insertLead.geneticCounsellorRequired ?? false,
-      dateSampleReceived: insertLead.dateSampleReceived ?? null,
-      dateSampleCollected: insertLead.dateSampleCollected ?? null,
-      // Pickup / tracking fields
-      pickupFrom: insertLead.pickupFrom ?? null,
-      pickupUpto: insertLead.pickupUpto ?? null,
-      shippingAmount: insertLead.shippingAmount ?? null,
+      patientClientPhone: insertLead.patientClientPhone ?? null,
+      patientClientAddress: insertLead.patientClientAddress ?? null,
+      serviceName: insertLead.serviceName ?? null,
+      sampleType: insertLead.sampleType ?? null,
+      testCategory: insertLead.testCategory ?? null,
+      noOfSamples: insertLead.noOfSamples ?? null,
+      budget: insertLead.budget ?? null,
+      amountQuoted: insertLead.amountQuoted ?? null,
+      tat: insertLead.tat ?? null,
+      sampleShipmentAmount: insertLead.sampleShipmentAmount ?? null,
+      phlebotomistCharges: insertLead.phlebotomistCharges ?? null,
+      geneticCounselorRequired: insertLead.geneticCounselorRequired ?? false,
+      nutritionalCounsellingRequired: insertLead.nutritionalCounsellingRequired ?? false,
+      samplePickUpFrom: insertLead.samplePickUpFrom ?? null,
+      deliveryUpTo: insertLead.deliveryUpTo ?? null,
+      sampleCollectionDate: insertLead.sampleCollectionDate ?? null,
+      sampleShippedDate: insertLead.sampleShippedDate ?? null,
+      sampleReceivedDate: insertLead.sampleReceivedDate ?? null,
       trackingId: insertLead.trackingId ?? null,
       courierCompany: insertLead.courierCompany ?? null,
-      progenicsTRF: insertLead.progenicsTRF ?? null,
-      phlebotomistCharges: insertLead.phlebotomistCharges ?? null
+      progenicsTrf: insertLead.progenicsTrf ?? null,
+      followUp: insertLead.followUp ?? null,
+      remarkComment: insertLead.remarkComment ?? null,
+      leadCreatedBy: insertLead.leadCreatedBy ?? null,
+      salesResponsiblePerson: insertLead.salesResponsiblePerson ?? null
     });
     const created = await this.getLeadById(id);
     if (!created) throw new Error("Failed to create lead");
     return created;
-  }
-  async createLeadTrf(leadTrf) {
-    const id = randomUUID();
-    try {
-      const base64 = leadTrf.data.toString("base64");
-      await db.insert((await Promise.resolve().then(() => (init_schema(), schema_exports))).leadTrfs).values({ id, leadId: leadTrf.leadId, filename: leadTrf.filename, data: base64 });
-      return { id, filename: leadTrf.filename };
-    } catch (error) {
-      console.error("Failed to insert lead TRF into DB", error.message);
-      throw error;
-    }
-  }
-  async getLeadTrf(id) {
-    try {
-      const schema = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const rows = await db.select().from(schema.leadTrfs).where(eq(schema.leadTrfs.id, id)).limit(1);
-      const row = rows[0];
-      if (!row) return void 0;
-      const buf = Buffer.from(row.data || "", "base64");
-      return { id: row.id, filename: row.filename, data: buf };
-    } catch (error) {
-      console.error("Failed to fetch lead TRF from DB", error.message);
-      return void 0;
-    }
   }
   async getLeads(userRole, userId) {
     if (!this.connectionWorking) {
       return [
         {
           id: "1",
-          organization: "Apollo Hospitals",
-          location: "Chennai",
-          referredDoctor: "Dr. Smith",
-          clinicHospitalName: "Apollo Main",
-          phone: "+91-9876543210",
-          email: "contact@apollo.com",
-          clientEmail: "patient@apollo.com",
-          testName: "Whole Genome Sequencing",
-          sampleType: "Blood",
-          category: "clinical",
-          amountQuoted: "45000",
-          tat: 14,
+          uniqueId: "LEAD001",
+          projectId: null,
+          leadType: "clinical",
           status: "hot",
-          createdAt: /* @__PURE__ */ new Date(),
-          createdBy: null,
-          convertedAt: null,
-          discoveryOrganization: null,
-          clinicianName: null,
-          specialty: null,
-          clinicianOrgEmail: null,
-          clinicianOrgPhone: null,
-          serviceName: null,
-          discoveryStatus: null,
-          followUp: null,
-          leadType: null,
-          budget: null,
-          noOfSamples: null,
+          organisationHospital: "Apollo Hospitals",
+          clinicianResearcherName: "Dr. Smith",
+          speciality: null,
+          clinicianResearcherEmail: "contact@apollo.com",
+          clinicianResearcherPhone: "+91-9876543210",
+          clinicianResearcherAddress: null,
           patientClientName: null,
           age: null,
           gender: null,
+          patientClientEmail: "patient@apollo.com",
           patientClientPhone: null,
-          patientClientEmail: null,
-          // Pickup/tracking fields
-          pickupFrom: null,
-          pickupUpto: null,
-          shippingAmount: null,
+          patientClientAddress: null,
+          serviceName: "Whole Genome Sequencing",
+          sampleType: "Blood",
+          testCategory: null,
+          noOfSamples: 1,
+          budget: null,
+          amountQuoted: "45000",
+          tat: "14",
+          sampleShipmentAmount: null,
+          phlebotomistCharges: null,
+          geneticCounselorRequired: false,
+          nutritionalCounsellingRequired: false,
+          samplePickUpFrom: null,
+          deliveryUpTo: null,
+          sampleCollectionDate: null,
+          sampleShippedDate: null,
+          sampleReceivedDate: null,
           trackingId: null,
           courierCompany: null,
-          progenicsTRF: null,
-          phlebotomistCharges: null,
+          progenicsTrf: null,
+          followUp: null,
+          remarkComment: null,
+          leadCreatedBy: null,
           salesResponsiblePerson: null,
-          geneticCounsellorRequired: false,
-          dateSampleReceived: null,
-          dateSampleCollected: null
+          leadCreated: /* @__PURE__ */ new Date(),
+          leadModified: /* @__PURE__ */ new Date(),
+          createdBy: null
         },
         {
           id: "2",
-          organization: "Fortis Healthcare",
-          location: "Mumbai",
-          referredDoctor: "Dr. Patel",
-          clinicHospitalName: "Fortis Mulund",
-          phone: "+91-9876543211",
-          email: "contact@fortis.com",
-          clientEmail: "patient@fortis.com",
-          testName: "Exome Sequencing",
-          sampleType: "Saliva",
-          category: "discovery",
-          amountQuoted: "25000",
-          tat: 10,
-          status: "quoted",
-          createdAt: /* @__PURE__ */ new Date(),
-          createdBy: null,
-          convertedAt: null,
-          discoveryOrganization: "Research Institute",
-          clinicianName: "Dr. Research Lead",
-          specialty: "Genetics Research",
-          clinicianOrgEmail: "research@fortis.com",
-          clinicianOrgPhone: "+91-9876543212",
-          serviceName: "Discovery Sequencing Service",
-          discoveryStatus: "In Progress",
-          followUp: "Weekly updates",
+          uniqueId: "LEAD002",
+          projectId: null,
           leadType: "Research",
-          budget: "50000",
-          noOfSamples: 20,
+          status: "quoted",
+          organisationHospital: "Fortis Healthcare",
+          clinicianResearcherName: "Dr. Patel",
+          speciality: "Genetics Research",
+          clinicianResearcherEmail: "contact@fortis.com",
+          clinicianResearcherPhone: "+91-9876543211",
+          clinicianResearcherAddress: null,
           patientClientName: "Research Subject 001",
           age: 35,
           gender: "Male",
-          patientClientPhone: "+91-9876543213",
           patientClientEmail: "subject@research.com",
-          // Pickup/tracking fields
-          pickupFrom: null,
-          pickupUpto: null,
-          shippingAmount: null,
+          patientClientPhone: "+91-9876543213",
+          patientClientAddress: null,
+          serviceName: "Discovery Sequencing Service",
+          sampleType: "Saliva",
+          testCategory: null,
+          noOfSamples: 20,
+          budget: "50000",
+          amountQuoted: "25000",
+          tat: "10",
+          sampleShipmentAmount: null,
+          phlebotomistCharges: null,
+          geneticCounselorRequired: false,
+          nutritionalCounsellingRequired: false,
+          samplePickUpFrom: null,
+          deliveryUpTo: null,
+          sampleCollectionDate: null,
+          sampleShippedDate: null,
+          sampleReceivedDate: /* @__PURE__ */ new Date(),
           trackingId: null,
           courierCompany: null,
-          progenicsTRF: null,
-          phlebotomistCharges: null,
+          progenicsTrf: null,
+          followUp: "Weekly updates",
+          remarkComment: null,
+          leadCreatedBy: null,
           salesResponsiblePerson: "John Sales Manager",
-          geneticCounsellorRequired: false,
-          dateSampleReceived: /* @__PURE__ */ new Date(),
-          dateSampleCollected: null
+          leadCreated: /* @__PURE__ */ new Date(),
+          leadModified: /* @__PURE__ */ new Date(),
+          createdBy: null
         }
       ];
     }
     try {
       let whereCondition = void 0;
       if (userRole && userRole.toLowerCase() === "sales" && userId) {
-        whereCondition = eq(leads.createdBy, userId);
+        whereCondition = eq(leads.leadCreatedBy, userId);
       }
-      let queryBuilder = db.select({ lead: leads, user: users, sample: samples }).from(leads).leftJoin(samples, eq(samples.leadId, leads.id)).leftJoin(users, eq(leads.createdBy, users.id));
+      let queryBuilder = db.select({ lead: leads, user: users, sample: samples }).from(leads).leftJoin(samples, eqUtf8Columns(samples.projectId, leads.projectId)).leftJoin(users, eq(leads.leadCreatedBy, users.id));
       if (whereCondition) {
         queryBuilder = queryBuilder.where(whereCondition);
       }
@@ -884,55 +1143,7 @@ var DBStorage = class {
       });
     } catch (error) {
       console.error("Error fetching leads:", error);
-      return [
-        {
-          id: "1",
-          organization: "Apollo Hospitals",
-          location: "Chennai",
-          referredDoctor: "Dr. Smith",
-          clinicHospitalName: "Apollo Main",
-          phone: "+91-9876543210",
-          email: "contact@apollo.com",
-          clientEmail: "patient@apollo.com",
-          testName: "Whole Genome Sequencing",
-          sampleType: "Blood",
-          category: "clinical",
-          amountQuoted: "45000",
-          tat: 14,
-          status: "hot",
-          createdAt: /* @__PURE__ */ new Date(),
-          createdBy: null,
-          convertedAt: null,
-          discoveryOrganization: null,
-          clinicianName: null,
-          specialty: null,
-          clinicianOrgEmail: null,
-          clinicianOrgPhone: null,
-          serviceName: null,
-          discoveryStatus: null,
-          followUp: null,
-          leadType: null,
-          budget: null,
-          noOfSamples: null,
-          patientClientName: null,
-          age: null,
-          gender: null,
-          patientClientPhone: null,
-          patientClientEmail: null,
-          // tracking fields
-          pickupFrom: null,
-          pickupUpto: null,
-          shippingAmount: null,
-          trackingId: null,
-          courierCompany: null,
-          progenicsTRF: null,
-          phlebotomistCharges: null,
-          salesResponsiblePerson: null,
-          geneticCounsellorRequired: false,
-          dateSampleReceived: null,
-          dateSampleCollected: null
-        }
-      ];
+      return [];
     }
   }
   async getLeadById(id) {
@@ -948,7 +1159,7 @@ var DBStorage = class {
     return this.getLeadById(id);
   }
   async findLeadByEmailPhone(email, phone) {
-    const rows = await db.select().from(leads).where(and(eq(leads.email, email), eq(leads.phone, phone))).limit(1);
+    const rows = await db.select().from(leads).where(and(eq(leads.clinicianResearcherEmail, email), eq(leads.clinicianResearcherPhone, phone))).limit(1);
     return rows[0];
   }
   generateSampleId(category) {
@@ -966,118 +1177,115 @@ var DBStorage = class {
     try {
       const lead = await this.getLeadById(leadId);
       if (!lead) throw new Error("Lead not found");
-      console.log("Converting lead:", lead.id, "category:", lead.category);
+      console.log("Converting lead:", lead.id);
       console.log("Sample data:", sampleData);
       return await db.transaction(async (tx) => {
-        await tx.update(leads).set({ status: "converted", convertedAt: /* @__PURE__ */ new Date() }).where(eq(leads.id, leadId));
+        await tx.update(leads).set({ status: "converted" }).where(eq(leads.id, leadId));
         console.log("\u2705 Lead status updated to converted");
-        const sampleIdStr = this.generateSampleId(lead.category || "clinical");
-        const sampleId = randomUUID();
-        console.log("\u2705 Generated sample ID:", sampleIdStr, "UUID:", sampleId);
         await tx.insert(samples).values({
-          id: sampleId,
-          sampleId: sampleIdStr,
-          leadId,
-          status: sampleData.status ?? "pickup_scheduled",
-          courierDetails: sampleData.courierDetails ?? null,
-          amount: sampleData.amount,
-          paidAmount: sampleData.paidAmount ?? "0",
-          // New tracking fields
-          // Extra tracking fields (may not be in InsertSample type) - cast to any
-          ...{ titleUniqueId: sampleData.titleUniqueId ?? null },
-          ...{ sampleUniqueId: sampleData.sampleUniqueId ?? null },
-          sampleCollectedDate: sampleData.sampleCollectedDate ?? null,
-          sampleShippedDate: sampleData.sampleShippedDate ?? null,
-          sampleDeliveryDate: sampleData.sampleDeliveryDate ?? null,
-          responsiblePerson: sampleData.responsiblePerson ?? null,
-          organization: sampleData.organization ?? null,
-          senderCity: sampleData.senderCity ?? null,
-          senderContact: sampleData.senderContact ?? null,
-          receiverAddress: sampleData.receiverAddress ?? null,
-          trackingId: sampleData.trackingId ?? null,
-          courierCompany: sampleData.courierCompany ?? null,
-          labAlertStatus: sampleData.labAlertStatus ?? null,
-          thirdPartyName: sampleData.thirdPartyName ?? null,
-          thirdPartyContractDetails: sampleData.thirdPartyContractDetails ?? null,
-          thirdPartySentDate: sampleData.thirdPartySentDate ?? null,
-          thirdPartyReceivedDate: sampleData.thirdPartyReceivedDate ?? null,
-          comments: sampleData.comments ?? null
+          uniqueId: lead.uniqueId ?? null,
+          projectId: lead.projectId ?? null,
+          sampleCollectionDate: lead.sampleCollectionDate ?? null,
+          sampleShippedDate: lead.sampleShippedDate ?? null,
+          sampleDeliveryDate: lead.sampleReceivedDate ?? null,
+          samplePickUpFrom: lead.samplePickUpFrom ?? null,
+          deliveryUpTo: lead.deliveryUpTo ?? null,
+          trackingId: lead.trackingId ?? null,
+          courierCompany: lead.courierCompany ?? null,
+          sampleShipmentAmount: lead.sampleShipmentAmount ?? null,
+          organisationHospital: lead.organisationHospital ?? null,
+          clinicianResearcherName: lead.clinicianResearcherName ?? null,
+          clinicianResearcherPhone: lead.clinicianResearcherPhone ?? null,
+          patientClientName: lead.patientClientName ?? null,
+          patientClientPhone: lead.patientClientPhone ?? null,
+          sampleReceivedDate: lead.sampleReceivedDate ?? null,
+          salesResponsiblePerson: lead.salesResponsiblePerson ?? null
         });
-        console.log("\u2705 Sample created in database");
-        const financeId = randomUUID();
-        await tx.insert(financeRecords).values({
-          id: financeId,
-          sampleId,
-          leadId,
-          invoiceNumber: sampleData.invoiceNumber ?? null,
-          amount: sampleData.amount ?? "0",
-          taxAmount: sampleData.taxAmount ?? "0",
-          totalAmount: sampleData.totalAmount ?? sampleData.amount ?? "0",
-          paymentStatus: "pending",
-          paymentMethod: sampleData.paymentMethod ?? null,
-          paymentDate: null,
-          dueDate: null,
-          createdAt: /* @__PURE__ */ new Date(),
-          currency: sampleData.currency ?? "INR",
-          discountAmount: sampleData.discountAmount ?? "0",
-          billingAddress: sampleData.billingAddress ?? null,
-          billingContact: sampleData.billingContact ?? null,
-          notes: sampleData.notes ?? null,
-          titleUniqueId: sampleData.titleUniqueId ?? null,
-          dateSampleCollected: sampleData.sampleCollectedDate ?? null,
-          organization: sampleData.organization ?? null,
-          clinician: sampleData.clinician ?? null,
-          city: sampleData.city ?? null,
-          patientName: sampleData.patientClientName ?? null,
-          patientEmail: sampleData.patientClientEmail ?? null,
-          patientPhone: sampleData.patientClientPhone ?? null,
-          serviceName: sampleData.serviceName ?? null
-        });
-        const labId = randomUUID();
-        await tx.insert(labProcessing).values({
-          id: labId,
-          sampleId,
-          labId: sampleData.labId ?? "default",
-          qcStatus: sampleData.qcStatus ?? "pending",
-          dnaRnaQuantity: sampleData.dnaRnaQuantity ?? null,
-          runId: sampleData.runId ?? null,
-          libraryPrepared: false,
-          sequencingId: null,
-          isOutsourced: false,
-          outsourceDetails: null,
-          processedAt: null,
-          processedBy: null,
-          titleUniqueId: sampleData.titleUniqueId ?? null,
-          sampleDeliveryDate: sampleData.sampleDeliveryDate ?? null,
-          serviceName: sampleData.serviceName ?? null,
-          protocol1: sampleData.protocol1 ?? null,
-          isolationMethod: sampleData.isolationMethod ?? null,
-          qualityCheckDNA: sampleData.qualityCheckDNA ?? null,
-          statusDNAExtraction: sampleData.statusDNAExtraction ?? null,
-          protocol2: sampleData.protocol2 ?? null,
-          libraryPreparationProtocol: sampleData.libraryPreparationProtocol ?? null,
-          qualityCheck2: sampleData.qualityCheck2 ?? null,
-          purificationProtocol: sampleData.purificationProtocol ?? null,
-          productQualityCheck: sampleData.productQualityCheck ?? null,
-          statusLibraryPreparation: sampleData.statusLibraryPreparation ?? null,
-          transitStatus: sampleData.transitStatus ?? null,
-          financeApproval: null,
-          completeStatus: null,
-          progenicsTrf: sampleData.progenicsTRF ?? null,
-          sampleType: sampleData.sampleType ?? null,
-          extractionMethod: sampleData.extractionMethod ?? null,
-          concentration: sampleData.concentration ?? null,
-          purity: sampleData.purity ?? null,
-          volume: sampleData.volume ?? null,
-          qualityScore: sampleData.qualityScore ?? null,
-          processingNotes: sampleData.processingNotes ?? null,
-          equipmentUsed: sampleData.equipmentUsed ?? null,
-          reagents: sampleData.reagents ?? null,
-          processingTime: sampleData.processingTime ?? null,
-          temperature: sampleData.temperature ?? null,
-          humidity: sampleData.humidity ?? null
-        });
-        console.log("\u2705 Finance and lab_processing placeholders created");
+        console.log("\u2705 Sample tracking created from lead");
+        const createdSamples = await tx.select().from(samples).where(eq(samples.uniqueId, lead.uniqueId)).orderBy(desc(samples.createdAt)).limit(1);
+        const createdSample = createdSamples && createdSamples[0] ? createdSamples[0] : null;
+        let createdFinanceRecord = null;
+        try {
+          const financeData = {
+            uniqueId: lead.uniqueId,
+            projectId: lead.projectId ?? "",
+            // Required field - NOT NULL in database
+            sampleCollectionDate: lead.sampleCollectionDate ?? null,
+            organisationHospital: lead.organisationHospital ?? null,
+            clinicianResearcherName: lead.clinicianResearcherName ?? null,
+            clinicianResearcherEmail: lead.clinicianResearcherEmail ?? null,
+            clinicianResearcherPhone: lead.clinicianResearcherPhone ?? null,
+            clinicianResearcherAddress: lead.clinicianResearcherAddress ?? null,
+            patientClientName: lead.patientClientName ?? null,
+            patientClientEmail: lead.patientClientEmail ?? null,
+            patientClientPhone: lead.patientClientPhone ?? null,
+            patientClientAddress: lead.patientClientAddress ?? null,
+            serviceName: lead.serviceName ?? null,
+            budget: lead.amountQuoted ? String(lead.amountQuoted) : null,
+            phlebotomistCharges: lead.phlebotomistCharges ?? null,
+            salesResponsiblePerson: lead.salesResponsiblePerson ?? null,
+            sampleShipmentAmount: lead.sampleShipmentAmount ?? null,
+            createdBy: lead.leadCreatedBy || "system",
+            createdAt: /* @__PURE__ */ new Date()
+          };
+          console.log("Creating finance_sheet with data:", { uniqueId: financeData.uniqueId, projectId: financeData.projectId });
+          const insertResult = await tx.insert(financeRecords).values(financeData);
+          console.log("\u2705 Finance sheet record created from converted lead:", financeData.uniqueId);
+          const createdRecords = await tx.select().from(financeRecords).where(eq(financeRecords.uniqueId, lead.uniqueId)).orderBy(desc(financeRecords.createdAt)).limit(1);
+          createdFinanceRecord = createdRecords && createdRecords[0] ? createdRecords[0] : null;
+          console.log("\u2705 Fetched finance record:", createdFinanceRecord?.id ?? "No record found");
+        } catch (e) {
+          console.error("\u274C Failed to create finance_sheet record:", e.message);
+          console.error("Error details:", e);
+        }
+        try {
+          await tx.insert(processMasterSheet).values({
+            uniqueId: lead.uniqueId ?? null,
+            projectId: lead.projectId ?? null,
+            sampleId: createdSample?.uniqueId ?? null,
+            clientId: lead.clientId ?? null,
+            organisationHospital: lead.organisationHospital ?? null,
+            clinicianResearcherName: lead.clinicianResearcherName ?? null,
+            speciality: lead.speciality ?? null,
+            clinicianResearcherEmail: lead.clinicianResearcherEmail ?? null,
+            clinicianResearcherPhone: lead.clinicianResearcherPhone ?? null,
+            clinicianResearcherAddress: lead.clinicianResearcherAddress ?? null,
+            patientClientName: lead.patientClientName ?? null,
+            age: lead.age ?? null,
+            gender: lead.gender ?? null,
+            patientClientEmail: lead.patientClientEmail ?? null,
+            patientClientPhone: lead.patientClientPhone ?? null,
+            patientClientAddress: lead.patientClientAddress ?? null,
+            sampleCollectionDate: lead.sampleCollectionDate ?? null,
+            sampleReceviedDate: lead.sampleReceivedDate ?? null,
+            serviceName: lead.serviceName ?? null,
+            sampleType: lead.sampleType ?? null,
+            noOfSamples: lead.noOfSamples ?? null,
+            tat: lead.tat ?? null,
+            salesResponsiblePerson: lead.salesResponsiblePerson ?? null,
+            progenicsTrf: null,
+            thirdPartyTrf: null,
+            progenicsReport: null,
+            sampleSentToThirdPartyDate: null,
+            thirdPartyName: null,
+            thirdPartyReport: null,
+            resultsRawDataReceivedFromThirdPartyDate: null,
+            logisticStatus: "pending",
+            financeStatus: "pending",
+            labProcessStatus: "pending",
+            bioinformaticsStatus: "pending",
+            nutritionalManagementStatus: lead.nutritionalCounsellingRequired ? "pending" : "not_required",
+            progenicsReportReleaseDate: null,
+            remarkComment: null,
+            createdBy: lead.leadCreatedBy || "system",
+            modifiedAt: null,
+            modifiedBy: null
+          });
+          console.log("\u2705 Process master sheet record created from converted lead");
+        } catch (e) {
+          console.error("Failed to create process_master_sheet record:", e.message);
+          console.error("Error details:", JSON.stringify(e));
+        }
         let createdGc = null;
         try {
           const leadServiceName = lead.serviceName || lead.service_name || "";
@@ -1087,60 +1295,20 @@ var DBStorage = class {
           const shouldCreateGc = requestGcFlag || (String(leadServiceName).toLowerCase().includes("wes") || String(leadFollowUp).toLowerCase().includes("gc")) && !!gcRequired;
           console.log("GC decision: leadServiceName=", leadServiceName, "leadFollowUp=", leadFollowUp, "gcRequired=", gcRequired, "requestGcFlag=", requestGcFlag, "shouldCreateGc=", shouldCreateGc);
           if (shouldCreateGc) {
-            const gcId = randomUUID();
-            await tx.insert((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).values({
-              id: gcId,
-              sampleId: sampleIdStr,
-              gcName: "",
-              counsellingType: null,
-              counsellingStartTime: null,
-              counsellingEndTime: null,
-              gcSummary: null,
-              extendedFamilyTesting: false,
-              approvalStatus: "pending"
-            });
-            const gcRows = await tx.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, gcId)).limit(1);
-            createdGc = gcRows[0] ?? null;
-            console.log("\u2705 Genetic counselling record created for sample", sampleIdStr);
+            console.log("\u2139\uFE0F Skipping automatic genetic counselling creation due to schema change");
           }
         } catch (err) {
           console.error("Failed to create genetic counselling record during conversion:", err.message);
         }
         const updatedLeadRows = await tx.select().from(leads).where(eq(leads.id, leadId)).limit(1);
         const updatedLead = updatedLeadRows[0];
-        const financeRows = await tx.select().from(financeRecords).where(eq(financeRecords.id, financeId)).limit(1);
-        const createdFinance = financeRows[0];
-        const labRows = await tx.select().from(labProcessing).where(eq(labProcessing.id, labId)).limit(1);
-        const createdLab = labRows[0];
-        return { lead: updatedLead, sample: {
-          id: sampleId,
-          sampleId: sampleIdStr,
-          leadId,
-          status: sampleData.status ?? "pickup_scheduled",
-          courierDetails: sampleData.courierDetails ?? null,
-          amount: sampleData.amount,
-          paidAmount: sampleData.paidAmount ?? "0",
-          // New tracking fields echoed back
-          titleUniqueId: sampleData.titleUniqueId ?? null,
-          sampleUniqueId: sampleData.sampleUniqueId ?? null,
-          sampleCollectedDate: sampleData.sampleCollectedDate ?? null,
-          sampleShippedDate: sampleData.sampleShippedDate ?? null,
-          sampleDeliveryDate: sampleData.sampleDeliveryDate ?? null,
-          responsiblePerson: sampleData.responsiblePerson ?? null,
-          organization: sampleData.organization ?? null,
-          senderCity: sampleData.senderCity ?? null,
-          senderContact: sampleData.senderContact ?? null,
-          receiverAddress: sampleData.receiverAddress ?? null,
-          trackingId: sampleData.trackingId ?? null,
-          courierCompany: sampleData.courierCompany ?? null,
-          labAlertStatus: sampleData.labAlertStatus ?? null,
-          thirdPartyName: sampleData.thirdPartyName ?? null,
-          thirdPartyContractDetails: sampleData.thirdPartyContractDetails ?? null,
-          thirdPartySentDate: sampleData.thirdPartySentDate ?? null,
-          thirdPartyReceivedDate: sampleData.thirdPartyReceivedDate ?? null,
-          comments: sampleData.comments ?? null,
-          createdAt: /* @__PURE__ */ new Date()
-        }, finance: createdFinance, labProcessing: createdLab, geneticCounselling: createdGc };
+        return {
+          lead: updatedLead,
+          sample: createdSample,
+          finance: createdFinanceRecord,
+          labProcessing: void 0,
+          geneticCounselling: createdGc
+        };
       });
     } catch (error) {
       console.error("\u274C Error in convertLead:", error);
@@ -1148,24 +1316,24 @@ var DBStorage = class {
     }
   }
   async getSamples() {
-    const rows = await db.select({ sample: samples, lead: leads }).from(samples).leftJoin(leads, eq(samples.leadId, leads.id));
+    const rows = await db.select({ sample: samples, lead: leads }).from(samples).leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row) => ({
       ...row.sample,
       lead: row.lead
     }));
   }
   async getSampleById(id) {
-    const rows = await db.select().from(samples).where(eq(samples.id, id)).limit(1);
+    const rows = await db.select().from(samples).where(eq(samples.id, Number(id))).limit(1);
     return rows[0];
   }
   async updateSample(id, updates) {
-    await db.update(samples).set(updates).where(eq(samples.id, id));
+    await db.update(samples).set(updates).where(eq(samples.id, Number(id)));
     return this.getSampleById(id);
   }
   async deleteSample(id) {
     try {
       try {
-        const rows = await db.select().from(samples).where(eq(samples.id, id)).limit(1);
+        const rows = await db.select().from(samples).where(eq(samples.id, Number(id))).limit(1);
         if (rows[0]) {
           const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
           await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "samples", entityId: id, data: rows[0], originalPath: `/samples/${id}` });
@@ -1173,7 +1341,7 @@ var DBStorage = class {
       } catch (e) {
         console.error("Failed to create recycle snapshot for sample:", e.message);
       }
-      await db.delete(samples).where(eq(samples.id, id));
+      await db.delete(samples).where(eq(samples.id, Number(id)));
       return true;
     } catch (error) {
       console.error("Failed to delete sample:", error.message);
@@ -1184,11 +1352,26 @@ var DBStorage = class {
     const id = randomUUID();
     let resolvedSampleId = labData.sampleId;
     try {
-      const byId = await db.select().from(samples).where(eq(samples.id, labData.sampleId)).limit(1);
-      if (!byId[0]) {
-        const byHuman = await db.select().from(samples).where(eq(samples.sampleId, labData.sampleId)).limit(1);
-        if (byHuman[0]) resolvedSampleId = byHuman[0].id;
-        else throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+      const sampleIdNum = Number(labData.sampleId);
+      if (!isNaN(sampleIdNum)) {
+        const byId = await db.select().from(samples).where(eq(samples.id, sampleIdNum)).limit(1);
+        if (byId[0]) {
+          resolvedSampleId = sampleIdNum.toString();
+        } else {
+          const byUnique = await db.select().from(samples).where(eq(samples.uniqueId, labData.sampleId)).limit(1);
+          if (byUnique[0]) {
+            resolvedSampleId = byUnique[0].id.toString();
+          } else {
+            throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+          }
+        }
+      } else {
+        const byUnique = await db.select().from(samples).where(eq(samples.uniqueId, labData.sampleId)).limit(1);
+        if (byUnique[0]) {
+          resolvedSampleId = byUnique[0].id.toString();
+        } else {
+          throw new Error(`Sample not found for sample identifier: ${labData.sampleId}`);
+        }
       }
     } catch (err) {
       console.error("Failed to resolve sampleId for lab processing:", err.message);
@@ -1250,7 +1433,7 @@ var DBStorage = class {
     return rows[0];
   }
   async getLabProcessingQueue() {
-    const rows = await db.select({ lp: labProcessing, sample: samples, lead: leads }).from(labProcessing).leftJoin(samples, eq(labProcessing.sampleId, samples.id)).leftJoin(leads, eq(samples.leadId, leads.id));
+    const rows = await db.select({ lp: labProcessing, sample: samples, lead: leads }).from(labProcessing).leftJoin(samples, eq(labProcessing.sampleId, samples.id)).leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row) => ({
       ...row.lp,
       sample: {
@@ -1338,7 +1521,7 @@ var DBStorage = class {
     return created;
   }
   async getReports() {
-    const rows = await db.select({ r: reports, sample: samples, lead: leads }).from(reports).leftJoin(samples, eq(reports.sampleId, samples.id)).leftJoin(leads, eq(samples.leadId, leads.id));
+    const rows = await db.select({ r: reports, sample: samples, lead: leads }).from(reports).leftJoin(samples, eq(reports.sampleId, samples.id)).leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row) => ({
       ...row.r,
       sample: {
@@ -1357,60 +1540,50 @@ var DBStorage = class {
   }
   // Finance Records
   async createFinanceRecord(financeData) {
-    const id = randomUUID();
     await db.insert(financeRecords).values({
-      id,
-      sampleId: financeData.sampleId ?? null,
-      leadId: financeData.leadId ?? null,
-      invoiceNumber: financeData.invoiceNumber,
-      amount: financeData.amount,
-      taxAmount: financeData.taxAmount ?? "0",
-      totalAmount: financeData.totalAmount,
-      paymentStatus: financeData.paymentStatus ?? "pending",
-      paymentMethod: financeData.paymentMethod ?? null,
-      paymentDate: financeData.paymentDate ?? null,
-      dueDate: financeData.dueDate ?? null,
-      currency: financeData.currency ?? "INR",
-      discountAmount: financeData.discountAmount ?? "0",
-      discountReason: financeData.discountReason ?? null,
-      billingAddress: financeData.billingAddress ?? null,
-      billingContact: financeData.billingContact ?? null,
-      paymentTerms: financeData.paymentTerms ?? null,
-      lateFees: financeData.lateFees ?? "0",
-      refundAmount: financeData.refundAmount ?? "0",
-      refundReason: financeData.refundReason ?? null,
-      notes: financeData.notes ?? null,
-      // Additional UI fields
-      titleUniqueId: financeData.titleUniqueId ?? null,
-      dateSampleCollected: financeData.dateSampleCollected ?? null,
-      organization: financeData.organization ?? null,
-      clinician: financeData.clinician ?? null,
-      city: financeData.city ?? null,
-      patientName: financeData.patientName ?? null,
-      patientEmail: financeData.patientEmail ?? null,
-      patientPhone: financeData.patientPhone ?? null,
+      uniqueId: financeData.uniqueId,
+      projectId: financeData.projectId ?? null,
+      sampleCollectionDate: financeData.sampleCollectionDate ?? null,
+      organisationHospital: financeData.organisationHospital ?? null,
+      clinicianResearcherName: financeData.clinicianResearcherName ?? null,
+      clinicianResearcherEmail: financeData.clinicianResearcherEmail ?? null,
+      clinicianResearcherPhone: financeData.clinicianResearcherPhone ?? null,
+      clinicianResearcherAddress: financeData.clinicianResearcherAddress ?? null,
+      patientClientName: financeData.patientClientName ?? null,
+      patientClientEmail: financeData.patientClientEmail ?? null,
+      patientClientPhone: financeData.patientClientPhone ?? null,
+      patientClientAddress: financeData.patientClientAddress ?? null,
       serviceName: financeData.serviceName ?? null,
       budget: financeData.budget ?? null,
+      phlebotomistCharges: financeData.phlebotomistCharges ?? null,
       salesResponsiblePerson: financeData.salesResponsiblePerson ?? null,
+      sampleShipmentAmount: financeData.sampleShipmentAmount ?? null,
+      invoiceNumber: financeData.invoiceNumber ?? null,
       invoiceAmount: financeData.invoiceAmount ?? null,
       invoiceDate: financeData.invoiceDate ?? null,
-      paymentReceivedAmount: financeData.paymentReceivedAmount ?? null,
-      utrDetails: financeData.utrDetails ?? null,
+      paymentReceiptAmount: financeData.paymentReceiptAmount ?? null,
+      balanceAmount: financeData.balanceAmount ?? null,
+      paymentReceiptDate: financeData.paymentReceiptDate ?? null,
+      modeOfPayment: financeData.modeOfPayment ?? null,
+      transactionalNumber: financeData.transactionalNumber ?? null,
       balanceAmountReceivedDate: financeData.balanceAmountReceivedDate ?? null,
-      totalPaymentReceivedStatus: financeData.totalPaymentReceivedStatus ?? null,
-      phlebotomistCharges: financeData.phlebotomistCharges ?? null,
-      sampleShipmentAmount: financeData.sampleShipmentAmount ?? null,
+      totalAmountReceivedStatus: financeData.totalAmountReceivedStatus ?? false,
+      utrDetails: financeData.utrDetails ?? null,
       thirdPartyCharges: financeData.thirdPartyCharges ?? null,
       otherCharges: financeData.otherCharges ?? null,
+      otherChargesReason: financeData.otherChargesReason ?? null,
       thirdPartyName: financeData.thirdPartyName ?? null,
-      thirdPartyContractDetails: financeData.thirdPartyContractDetails ?? null,
-      thirdPartyPaymentStatus: financeData.thirdPartyPaymentStatus ?? null,
-      progenicsTrf: financeData.progenicsTrf ?? null,
-      approveToLabProcess: financeData.approveToLabProcess ?? false,
-      approveToReportProcess: financeData.approveToReportProcess ?? false,
-      createdBy: financeData.createdBy ?? null
+      thirdPartyPhone: financeData.thirdPartyPhone ?? null,
+      thirdPartyPaymentDate: financeData.thirdPartyPaymentDate ?? null,
+      thirdPartyPaymentStatus: financeData.thirdPartyPaymentStatus ?? false,
+      alertToLabprocessTeam: financeData.alertToLabprocessTeam ?? false,
+      alertToReportTeam: financeData.alertToReportTeam ?? false,
+      alertToTechnicalLead: financeData.alertToTechnicalLead ?? false,
+      createdBy: financeData.createdBy ?? null,
+      remarkComment: financeData.remarkComment ?? null
     });
-    const created = await this.getFinanceRecordById(id);
+    const rows = await db.select().from(financeRecords).where(eq(financeRecords.uniqueId, financeData.uniqueId)).limit(1);
+    const created = rows[0];
     if (!created) throw new Error("Failed to create finance record");
     return created;
   }
@@ -1426,8 +1599,8 @@ var DBStorage = class {
       offset = 0;
     }
     const mapping = {
-      invoiceDate: financeRecords.paymentDate,
-      invoiceAmount: financeRecords.totalAmount,
+      invoiceDate: financeRecords.invoiceDate,
+      invoiceAmount: financeRecords.invoiceAmount,
       createdAt: financeRecords.createdAt
     };
     const orderExpr = sortBy ? mapping[sortBy] ?? financeRecords[sortBy] ?? void 0 : void 0;
@@ -1436,25 +1609,30 @@ var DBStorage = class {
     if (q) {
       const like = `%${q}%`;
       const searchCols = [
+        "fr.unique_id",
         "fr.invoice_number",
-        "fr.id",
-        // ensure we match sample id whether it's stored on finance_records or samples
-        "fr.sample_id",
-        "s.sample_id",
-        "fr.patient_name",
-        "fr.organization",
-        "l.organization"
+        "fr.patient_client_name",
+        "fr.organisation_hospital",
+        "fr.service_name",
+        "fr.sales_responsible_person",
+        "fr.mode_of_payment",
+        "fr.transactional_number",
+        "fr.third_party_name",
+        "s.organisation_hospital",
+        "s.patient_client_name",
+        "l.organisation_hospital",
+        "l.patient_client_name"
       ];
       const whereParts = searchCols.map(() => `?`).map((p, i) => `${searchCols[i]} LIKE ${p}`);
       const whereClause = `WHERE ${whereParts.join(" OR ")}`;
       const orderClause = orderExpr ? `ORDER BY ${typeof orderExpr === "string" ? orderExpr : "fr.created_at"} ${sortDir === "asc" ? "ASC" : "DESC"}` : `ORDER BY fr.created_at DESC`;
-      const sqlQuery = `SELECT fr.*, s.id as s_id, s.sample_id as s_sample_id, s.*, l.*, lp.title_unique_id as lp_title_unique_id FROM finance_records fr LEFT JOIN samples s ON fr.sample_id = s.id LEFT JOIN leads l ON fr.lead_id = l.id LEFT JOIN lab_processing lp ON lp.sample_id = s.id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`;
+      const sqlQuery = `SELECT fr.*, s.organisation_hospital AS sample_organisation, l.organisation_hospital AS lead_organisation FROM finance_sheet fr LEFT JOIN sample_tracking s ON s.project_id = fr.project_id LEFT JOIN lead_management l ON l.project_id = fr.project_id ${whereClause} ${orderClause} LIMIT ? OFFSET ?`;
       const likeBindings = searchCols.map(() => like);
       const bindings = [...likeBindings, pageSize, offset];
       try {
         const [resultRows] = await pool.execute(sqlQuery, bindings);
         rows = resultRows;
-        const countSql = `SELECT COUNT(*) as cnt FROM finance_records fr LEFT JOIN samples s ON fr.sample_id = s.id LEFT JOIN leads l ON fr.lead_id = l.id ${whereClause}`;
+        const countSql = `SELECT COUNT(DISTINCT fr.id) as cnt FROM finance_sheet fr LEFT JOIN sample_tracking s ON s.project_id = fr.project_id LEFT JOIN lead_management l ON l.project_id = fr.project_id ${whereClause}`;
         const [countRes] = await pool.execute(countSql, likeBindings);
         total = countRes && countRes[0] && countRes[0].cnt ? Number(countRes[0].cnt) : 0;
       } catch (err) {
@@ -1463,7 +1641,7 @@ var DBStorage = class {
         total = 0;
       }
     } else {
-      const qb = db.select({ fr: financeRecords, sample: samples, lead: leads, lp: labProcessing }).from(financeRecords).leftJoin(samples, eq(financeRecords.sampleId, samples.id)).leftJoin(leads, eq(financeRecords.leadId, leads.id)).leftJoin(labProcessing, eq(labProcessing.sampleId, samples.id)).limit(pageSize).offset(offset).orderBy(orderExpr ? sortDir === "asc" ? asc(orderExpr) : desc(orderExpr) : desc(financeRecords.createdAt));
+      const qb = db.select({ fr: financeRecords, sample: samples, lead: leads, lp: labProcessing }).from(financeRecords).leftJoin(samples, eq(financeRecords.projectId, samples.projectId)).leftJoin(leads, eq(financeRecords.projectId, leads.projectId)).leftJoin(labProcessing, eq(labProcessing.sampleId, samples.id)).limit(pageSize).offset(offset).orderBy(orderExpr ? sortDir === "asc" ? asc(orderExpr) : desc(orderExpr) : desc(financeRecords.createdAt));
       rows = await qb;
       const totalRows = await db.select().from(financeRecords).execute();
       total = Array.isArray(totalRows) ? totalRows.length : totalRows.length || 0;
@@ -1475,19 +1653,26 @@ var DBStorage = class {
         const sample = row.sample ? { ...row.sample } : null;
         const lp = row.lp ? { ...row.lp } : null;
         const titleUniqueId = fr.titleUniqueId ?? sample?.titleUniqueId ?? lp?.titleUniqueId ?? row.lead?.id ?? null;
+        const projectId = fr.projectId ?? sample?.projectId ?? null;
         return {
           ...fr,
           ...titleUniqueId != null ? { titleUniqueId } : {},
+          ...projectId != null ? { projectId } : {},
           sample: sample ? { ...sample, lead: row.lead } : null
         };
       });
     } else {
       mapped = rows.map((r) => {
         const title_unique_id = r.title_unique_id ?? r.lp_title_unique_id ?? r.id ?? null;
+        const project_id = r.project_id ?? r.projectId ?? null;
         const obj = { ...r };
         if (title_unique_id != null) {
           obj.title_unique_id = title_unique_id;
           if (obj.titleUniqueId == null) obj.titleUniqueId = title_unique_id;
+        }
+        if (project_id != null) {
+          obj.project_id = project_id;
+          if (obj.projectId == null) obj.projectId = project_id;
         }
         return obj;
       });
@@ -1495,7 +1680,7 @@ var DBStorage = class {
     return { rows: mapped, total };
   }
   async getFinanceRecordById(id) {
-    const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, id)).limit(1);
+    const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, Number(id))).limit(1);
     return rows[0];
   }
   async updateFinanceRecord(id, updates) {
@@ -1528,7 +1713,7 @@ var DBStorage = class {
         console.error("Failed to build typesReport", e);
       }
       try {
-        await db.update(financeRecords).set(safeUpdates).where(eq(financeRecords.id, id));
+        await db.update(financeRecords).set(safeUpdates).where(eq(financeRecords.id, Number(id)));
       } catch (dbErr) {
         console.error("DB update failed in updateFinanceRecord");
         try {
@@ -1554,15 +1739,15 @@ var DBStorage = class {
   async deleteFinanceRecord(id) {
     try {
       try {
-        const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, id)).limit(1);
+        const rows = await db.select().from(financeRecords).where(eq(financeRecords.id, Number(id))).limit(1);
         if (rows[0]) {
           const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "finance_records", entityId: id, data: rows[0], originalPath: `/finance/records/${id}` });
+          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "finance_sheet", entityId: id, data: rows[0], originalPath: `/finance/records/${id}` });
         }
       } catch (e) {
         console.error("Failed to create recycle snapshot for finance record:", e.message);
       }
-      await db.delete(financeRecords).where(eq(financeRecords.id, id));
+      await db.delete(financeRecords).where(eq(financeRecords.id, Number(id)));
       return true;
     } catch (error) {
       console.error("Failed to delete finance record:", error.message);
@@ -1598,7 +1783,7 @@ var DBStorage = class {
     return created;
   }
   async getLogisticsTracking() {
-    const rows = await db.select({ lt: logisticsTracking, sample: samples, lead: leads }).from(logisticsTracking).leftJoin(samples, eq(logisticsTracking.sampleId, samples.id)).leftJoin(leads, eq(samples.leadId, leads.id));
+    const rows = await db.select({ lt: logisticsTracking, sample: samples, lead: leads }).from(logisticsTracking).leftJoin(samples, eq(logisticsTracking.sampleId, samples.id)).leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId));
     return rows.map((row) => ({
       ...row.lt,
       sample: row.sample ? {
@@ -1654,25 +1839,85 @@ var DBStorage = class {
   }
   // Genetic counselling implementations
   async createGeneticCounselling(record) {
-    const id = randomUUID();
     const toDbDate = (v) => {
       if (!v) return null;
       if (v instanceof Date) return v;
       const d = new Date(v);
       return isNaN(d.getTime()) ? null : d;
     };
-    await db.insert((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).values({
-      id,
-      sampleId: record.sampleId,
-      gcName: record.gcName,
-      counsellingType: record.counsellingType ?? null,
-      counsellingStartTime: toDbDate(record.counsellingStartTime),
-      counsellingEndTime: toDbDate(record.counsellingEndTime),
-      gcSummary: record.gcSummary ?? null,
-      extendedFamilyTesting: record.extendedFamilyTesting ?? false,
-      approvalStatus: record.approvalStatus ?? "pending"
+    const toDecimal = (v) => {
+      if (v === null || v === void 0 || v === "") return null;
+      const num = Number(v);
+      return isNaN(num) ? null : String(num);
+    };
+    const toBoolean = (v) => !!v;
+    const toString = (v) => {
+      if (v === null || v === void 0) return null;
+      return String(v).trim() === "" ? null : String(v).trim();
+    };
+    console.log("createGeneticCounselling received record:", {
+      uniqueId: record.uniqueId,
+      patientClientName: record.patientClientName,
+      age: record.age,
+      serviceName: record.serviceName,
+      budget: record.budget,
+      sampleType: record.sampleType
     });
-    const rows = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id)).limit(1);
+    const dbRecord = {
+      uniqueId: toString(record.uniqueId || record.unique_id || record.sampleId || record.sample_id) || "",
+      projectId: record.projectId || record.project_id ? Number(record.projectId || record.project_id) : null,
+      counsellingDate: toDbDate(record.counsellingDate || record.counselling_date || record.createdAt),
+      gcRegistrationStartTime: toString(record.gcRegistrationStartTime || record.gc_registration_start_time),
+      gcRegistrationEndTime: toString(record.gcRegistrationEndTime || record.gc_registration_end_time),
+      patientClientName: toString(record.patientClientName || record.patient_client_name),
+      age: record.age ? Number(record.age) : null,
+      gender: toString(record.gender),
+      patientClientEmail: toString(record.patientClientEmail || record.patient_client_email),
+      patientClientPhone: toString(record.patientClientPhone || record.patient_client_phone),
+      patientClientAddress: toString(record.patientClientAddress || record.patient_client_address),
+      paymentStatus: toString(record.paymentStatus || record.payment_status),
+      modeOfPayment: toString(record.modeOfPayment || record.mode_of_payment),
+      approvalFromHead: toBoolean(record.approvalFromHead ?? record.approval_from_head ?? record.approvalStatus === "approved"),
+      clinicianResearcherName: toString(record.clinicianResearcherName || record.clinician_researcher_name),
+      organisationHospital: toString(record.organisationHospital || record.organisation_hospital),
+      speciality: toString(record.speciality),
+      querySuspection: toString(record.querySuspection || record.query_suspection),
+      gcName: toString(record.gcName || record.gc_name) || "",
+      gcOtherMembers: toString(record.gcOtherMembers || record.gc_other_members),
+      serviceName: toString(record.serviceName || record.service_name),
+      counselingType: toString(record.counselingType || record.counselling_type),
+      counselingStartTime: toString(record.counselingStartTime || record.counselling_start_time),
+      counselingEndTime: toString(record.counselingEndTime || record.counselling_end_time),
+      budgetForTestOpted: toDecimal(record.budgetForTestOpted || record.budget_for_test_opted),
+      testingStatus: toString(record.testingStatus || record.testing_status),
+      actionRequired: toString(record.actionRequired || record.action_required),
+      potentialPatientForTestingInFuture: toBoolean(record.potentialPatientForTestingInFuture ?? record.potential_patient_for_testing_in_future),
+      extendedFamilyTestingRequirement: toBoolean(record.extendedFamilyTestingRequirement ?? record.extended_family_testing_requirement),
+      budget: toDecimal(record.budget),
+      sampleType: toString(record.sampleType || record.sample_type),
+      gcSummarySheet: toString(record.gcSummarySheet || record.gc_summary || record.gc_summary_sheet),
+      gcVideoLink: toString(record.gcVideoLink || record.gc_video_link),
+      gcAudioLink: toString(record.gcAudioLink || record.gc_audio_link),
+      salesResponsiblePerson: toString(record.salesResponsiblePerson || record.sales_responsible_person),
+      createdBy: toString(record.createdBy || record.created_by),
+      modifiedBy: toString(record.modifiedBy || record.modified_by),
+      remarkComment: toString(record.remarkComment || record.remark_comment)
+    };
+    console.log("createGeneticCounselling mapped dbRecord:", {
+      uniqueId: dbRecord.uniqueId,
+      patientClientName: dbRecord.patientClientName,
+      age: dbRecord.age,
+      serviceName: dbRecord.serviceName,
+      budget: dbRecord.budget,
+      sampleType: dbRecord.sampleType
+    });
+    const existingRows = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.uniqueId, dbRecord.uniqueId)).limit(1);
+    if (existingRows && existingRows.length > 0) {
+      console.log("GC record already exists for uniqueId:", dbRecord.uniqueId, "- returning existing record instead of creating duplicate");
+      return existingRows[0];
+    }
+    await db.insert((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).values(dbRecord);
+    const rows = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.uniqueId, dbRecord.uniqueId)).orderBy(desc((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id)).limit(1);
     return rows[0];
   }
   async getGeneticCounselling() {
@@ -1680,17 +1925,65 @@ var DBStorage = class {
     return rows;
   }
   async updateGeneticCounselling(id, updates) {
-    const safe = { ...updates };
-    if (safe.counsellingStartTime) safe.counsellingStartTime = new Date(safe.counsellingStartTime);
-    if (safe.counsellingEndTime) safe.counsellingEndTime = new Date(safe.counsellingEndTime);
-    await db.update((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).set(safe).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id));
-    const rows = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id)).limit(1);
+    const toDecimal = (v) => {
+      if (v === null || v === void 0 || v === "") return null;
+      const num = Number(v);
+      return isNaN(num) ? null : String(num);
+    };
+    const toBoolean = (v) => v !== null && v !== void 0 && v !== "" ? !!v : void 0;
+    const safe = {};
+    if (updates.uniqueId || updates.unique_id) safe.uniqueId = updates.uniqueId || updates.unique_id;
+    if (updates.projectId || updates.project_id) safe.projectId = Number(updates.projectId || updates.project_id);
+    if (updates.counsellingDate || updates.counselling_date) safe.counsellingDate = updates.counsellingDate || updates.counselling_date;
+    if (updates.gcRegistrationStartTime || updates.gc_registration_start_time) safe.gcRegistrationStartTime = updates.gcRegistrationStartTime || updates.gc_registration_start_time;
+    if (updates.gcRegistrationEndTime || updates.gc_registration_end_time) safe.gcRegistrationEndTime = updates.gcRegistrationEndTime || updates.gc_registration_end_time;
+    if (updates.patientClientName || updates.patient_client_name) safe.patientClientName = updates.patientClientName || updates.patient_client_name;
+    if (updates.age !== void 0) safe.age = updates.age ? Number(updates.age) : null;
+    if (updates.gender) safe.gender = updates.gender;
+    if (updates.patientClientEmail || updates.patient_client_email) safe.patientClientEmail = updates.patientClientEmail || updates.patient_client_email;
+    if (updates.patientClientPhone || updates.patient_client_phone) safe.patientClientPhone = updates.patientClientPhone || updates.patient_client_phone;
+    if (updates.patientClientAddress || updates.patient_client_address) safe.patientClientAddress = updates.patientClientAddress || updates.patient_client_address;
+    if (updates.paymentStatus || updates.payment_status) safe.paymentStatus = updates.paymentStatus || updates.payment_status;
+    if (updates.modeOfPayment || updates.mode_of_payment) safe.modeOfPayment = updates.modeOfPayment || updates.mode_of_payment;
+    if (updates.approvalFromHead !== void 0 || updates.approval_from_head !== void 0) safe.approvalFromHead = toBoolean(updates.approvalFromHead ?? updates.approval_from_head);
+    if (updates.clinicianResearcherName || updates.clinician_researcher_name) safe.clinicianResearcherName = updates.clinicianResearcherName || updates.clinician_researcher_name;
+    if (updates.organisationHospital || updates.organisation_hospital) safe.organisationHospital = updates.organisationHospital || updates.organisation_hospital;
+    if (updates.speciality) safe.speciality = updates.speciality;
+    if (updates.querySuspection || updates.query_suspection) safe.querySuspection = updates.querySuspection || updates.query_suspection;
+    if (updates.gcName || updates.gc_name) safe.gcName = updates.gcName || updates.gc_name;
+    if (updates.gcOtherMembers || updates.gc_other_members) safe.gcOtherMembers = updates.gcOtherMembers || updates.gc_other_members;
+    if (updates.serviceName || updates.service_name) safe.serviceName = updates.serviceName || updates.service_name;
+    if (updates.counselingType || updates.counselling_type) safe.counselingType = updates.counselingType || updates.counselling_type;
+    if (updates.counselingStartTime || updates.counselling_start_time) safe.counselingStartTime = updates.counselingStartTime || updates.counselling_start_time;
+    if (updates.counselingEndTime || updates.counselling_end_time) safe.counselingEndTime = updates.counselingEndTime || updates.counselling_end_time;
+    if (updates.budgetForTestOpted || updates.budget_for_test_opted) safe.budgetForTestOpted = toDecimal(updates.budgetForTestOpted || updates.budget_for_test_opted);
+    if (updates.testingStatus || updates.testing_status) safe.testingStatus = updates.testingStatus || updates.testing_status;
+    if (updates.actionRequired || updates.action_required) safe.actionRequired = updates.actionRequired || updates.action_required;
+    if (updates.potentialPatientForTestingInFuture !== void 0 || updates.potential_patient_for_testing_in_future !== void 0) safe.potentialPatientForTestingInFuture = toBoolean(updates.potentialPatientForTestingInFuture ?? updates.potential_patient_for_testing_in_future);
+    if (updates.extendedFamilyTestingRequirement !== void 0 || updates.extended_family_testing_requirement !== void 0) safe.extendedFamilyTestingRequirement = toBoolean(updates.extendedFamilyTestingRequirement ?? updates.extended_family_testing_requirement);
+    if (updates.budget) safe.budget = toDecimal(updates.budget);
+    if (updates.sampleType || updates.sample_type) safe.sampleType = updates.sampleType || updates.sample_type;
+    if (updates.gcSummarySheet || updates.gc_summary || updates.gc_summary_sheet) safe.gcSummarySheet = updates.gcSummarySheet || updates.gc_summary || updates.gc_summary_sheet;
+    if (updates.gcVideoLink || updates.gc_video_link) safe.gcVideoLink = updates.gcVideoLink || updates.gc_video_link;
+    if (updates.gcAudioLink || updates.gc_audio_link) safe.gcAudioLink = updates.gcAudioLink || updates.gc_audio_link;
+    if (updates.salesResponsiblePerson || updates.sales_responsible_person) safe.salesResponsiblePerson = updates.salesResponsiblePerson || updates.sales_responsible_person;
+    if (updates.modifiedBy || updates.modified_by) safe.modifiedBy = updates.modifiedBy || updates.modified_by;
+    if (updates.remarkComment || updates.remark_comment) safe.remarkComment = updates.remarkComment || updates.remark_comment;
+    if (Object.keys(safe).length === 0) {
+      const numId2 = Number(id);
+      const rows2 = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, numId2)).limit(1);
+      return rows2[0];
+    }
+    const numId = Number(id);
+    await db.update((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).set(safe).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, numId));
+    const rows = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, numId)).limit(1);
     return rows[0];
   }
   async deleteGeneticCounselling(id) {
     try {
       try {
-        const gc = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id)).limit(1);
+        const numId2 = Number(id);
+        const gc = await db.select().from((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, numId2)).limit(1);
         if (gc[0]) {
           const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
           await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "genetic_counselling", entityId: id, data: gc[0], originalPath: `/genetic-counselling/${id}` });
@@ -1698,7 +1991,8 @@ var DBStorage = class {
       } catch (e) {
         console.error("Failed to create recycle snapshot for genetic counselling:", e.message);
       }
-      await db.delete((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, id));
+      const numId = Number(id);
+      await db.delete((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling).where(eq((await Promise.resolve().then(() => (init_schema(), schema_exports))).geneticCounselling.id, numId));
       return true;
     } catch (error) {
       console.error("Failed to delete genetic counselling record:", error.message);
@@ -1715,14 +2009,13 @@ var DBStorage = class {
   }
   async listRecycleEntries() {
     const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    return db.select().from(recycleBin2).orderBy(
-      recycleBin2.deletedAt
-      /* drizzle types */
-    );
+    const rows = await db.select().from(recycleBin2).orderBy(desc(recycleBin2.deletedAt));
+    return rows;
   }
   async getRecycleEntry(id) {
     const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const rows = await db.select().from(recycleBin2).where(eq(recycleBin2.id, id)).limit(1);
+    if (!rows[0]) return void 0;
     return rows[0];
   }
   async deleteRecycleEntry(id) {
@@ -1789,7 +2082,7 @@ var DBStorage = class {
         case "lab_processing":
           await db.insert(labProcessing).values(normalizedData);
           break;
-        case "finance_records":
+        case "finance_sheet":
           await db.insert(financeRecords).values(normalizedData);
           break;
         case "genetic_counselling":
@@ -1958,11 +2251,140 @@ var DBStorage = class {
     return { totalRevenue, pendingPayments, pendingApprovals };
   }
   async getPendingFinanceApprovals() {
-    const rows = await db.select({ r: reports, sample: samples, lead: leads }).from(reports).leftJoin(samples, eq(reports.sampleId, samples.id)).leftJoin(leads, eq(samples.leadId, leads.id)).where(eq(reports.status, "awaiting_approval"));
+    const rows = await db.select({ r: reports, sample: samples, lead: leads }).from(reports).leftJoin(samples, eq(reports.sampleId, samples.id)).leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId)).where(eq(reports.status, "awaiting_approval"));
     return rows.map((row) => ({
       ...row.sample,
       lead: row.lead
     }));
+  }
+  // BIOINFORMATICS METHODS
+  async sendLabProcessingToBioinformatics(recordId, tableType) {
+    try {
+      const labSheet = tableType === "discovery" ? labProcessDiscoverySheet : labProcessClinicalSheet;
+      const labRows = await db.select().from(labSheet).where(eq(labSheet.uniqueId, recordId)).limit(1);
+      if (labRows.length === 0) throw new Error("Lab processing record not found");
+      const labRecord = labRows[0];
+      const leadRows = await db.select().from(leads).where(eqUtf8Columns(leads.uniqueId, labRecord.uniqueId)).limit(1);
+      const leadRecord = leadRows[0];
+      const bioData = {
+        uniqueId: labRecord.uniqueId,
+        projectId: labRecord.projectId || (leadRecord?.projectId ? parseInt(String(leadRecord.projectId)) : void 0),
+        sampleId: labRecord.sampleId || leadRecord?.id,
+        clientId: labRecord.clientId || leadRecord?.id,
+        organisationHospital: labRecord.organisationHospital || leadRecord?.organisationHospital,
+        clinicianResearcherName: labRecord.clinicianResearcherName || leadRecord?.clinicianResearcherName,
+        patientClientName: labRecord.patientClientName || leadRecord?.patientClientName,
+        age: labRecord.age ?? leadRecord?.age,
+        gender: labRecord.gender || leadRecord?.gender,
+        serviceName: labRecord.serviceName || leadRecord?.serviceName,
+        noOfSamples: labRecord.noOfSamples ?? leadRecord?.noOfSamples,
+        tat: leadRecord?.tat,
+        createdBy: "System"
+      };
+      const bioSheet = tableType === "discovery" ? bioinformaticsSheetDiscovery : bioinformaticsSheetClinical;
+      const existingRows = await db.select().from(bioSheet).where(eq(bioSheet.uniqueId, labRecord.uniqueId)).limit(1);
+      let bioRecord;
+      if (existingRows.length > 0) {
+        bioRecord = existingRows[0];
+        await db.update(bioSheet).set({
+          ...bioData,
+          modifiedAt: /* @__PURE__ */ new Date(),
+          modifiedBy: "System"
+        }).where(eq(bioSheet.uniqueId, labRecord.uniqueId));
+      } else {
+        await db.insert(bioSheet).values(bioData);
+        const newRows = await db.select().from(bioSheet).where(eq(bioSheet.uniqueId, labRecord.uniqueId)).limit(1);
+        bioRecord = newRows[0];
+      }
+      await db.update(labSheet).set({
+        alertToBioinformaticsTeam: true,
+        modifiedAt: /* @__PURE__ */ new Date(),
+        modifiedBy: "System"
+      }).where(eq(labSheet.uniqueId, labRecord.uniqueId));
+      return bioRecord;
+    } catch (error) {
+      console.error("Error sending lab processing to bioinformatics:", error.message);
+      throw error;
+    }
+  }
+  async createBioinformaticsRecord(data, tableType) {
+    const bioSheet = tableType === "discovery" ? bioinformaticsSheetDiscovery : bioinformaticsSheetClinical;
+    await db.insert(bioSheet).values(data);
+    const rows = await db.select().from(bioSheet).where(eq(bioSheet.uniqueId, data.uniqueId)).limit(1);
+    if (rows.length === 0) throw new Error("Failed to create bioinformatics record");
+    return rows[0];
+  }
+  // ============================================================================
+  // File Upload Tracking (stores metadata about uploaded files)
+  // ============================================================================
+  async createFileUpload(uploadData) {
+    try {
+      const id = randomUUID();
+      const query = `
+        INSERT INTO file_uploads (
+          id, filename, original_name, storage_path, category, 
+          file_size, mime_type, uploaded_by, related_entity_type, related_entity_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+      await pool.execute(query, [
+        id,
+        uploadData.filename,
+        uploadData.originalName,
+        uploadData.storagePath,
+        uploadData.category,
+        uploadData.fileSize,
+        uploadData.mimeType,
+        uploadData.uploadedBy || null,
+        uploadData.relatedEntityType || null,
+        uploadData.relatedEntityId || null
+      ]);
+      return { id, ...uploadData, createdAt: /* @__PURE__ */ new Date() };
+    } catch (error) {
+      console.error("Failed to create file upload record:", error.message);
+      throw error;
+    }
+  }
+  async getFileUploadsByCategory(category) {
+    try {
+      const query = `
+        SELECT * FROM file_uploads 
+        WHERE category = ? AND is_deleted = 0
+        ORDER BY created_at DESC
+      `;
+      const [rows] = await pool.execute(query, [category]);
+      return rows || [];
+    } catch (error) {
+      console.error("Failed to get file uploads by category:", error.message);
+      return [];
+    }
+  }
+  async getFileUploadsByEntity(entityType, entityId) {
+    try {
+      const query = `
+        SELECT * FROM file_uploads 
+        WHERE related_entity_type = ? AND related_entity_id = ? AND is_deleted = 0
+        ORDER BY created_at DESC
+      `;
+      const [rows] = await pool.execute(query, [entityType, entityId]);
+      return rows || [];
+    } catch (error) {
+      console.error("Failed to get file uploads by entity:", error.message);
+      return [];
+    }
+  }
+  async getFileUploadById(id) {
+    try {
+      const query = `
+        SELECT * FROM file_uploads 
+        WHERE id = ? AND is_deleted = 0
+        LIMIT 1
+      `;
+      const [rows] = await pool.execute(query, [id]);
+      return rows?.[0];
+    } catch (error) {
+      console.error("Failed to get file upload by ID:", error.message);
+      return void 0;
+    }
   }
 };
 var storage = new DBStorage();
@@ -2202,35 +2624,240 @@ var notificationService = NotificationService.getInstance();
 
 // server/routes.ts
 init_schema();
-import path from "path";
-import fs from "fs";
+import path2 from "path";
+import fs2 from "fs";
 
 // server/lib/generateRoleId.ts
-function generateRoleId(role) {
-  const roleMap = {
-    administration: "AD",
-    admin: "AD",
-    manager: "MG",
-    discovery: "DG",
-    production: "PG",
-    finance: "FN",
-    hr: "HR"
-  };
+var roleMap = {
+  administration: "AD",
+  admin: "AD",
+  manager: "MG",
+  discovery: "DG",
+  production: "PG",
+  finance: "FN",
+  hr: "HR"
+};
+var SAFE_CHARS = "0123456789ABCDEFGHJKMNPQRSTUVWXYZ";
+function generateRandomSuffix(length = 6) {
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += SAFE_CHARS.charAt(Math.floor(Math.random() * SAFE_CHARS.length));
+  }
+  return result;
+}
+async function idExists(uniqueId) {
+  try {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query(
+        "SELECT id FROM lead_management WHERE unique_id = ? LIMIT 1",
+        [uniqueId]
+      );
+      return Array.isArray(rows) && rows.length > 0;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Error checking if ID exists:", error);
+    return false;
+  }
+}
+async function generateRoleId(role) {
   const code = roleMap[role?.toLowerCase()] || (role ? role.substring(0, 2).toUpperCase() : "AD");
   const now = /* @__PURE__ */ new Date();
   const yy = String(now.getFullYear()).slice(2);
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  const hh = String(now.getHours()).padStart(2, "0");
-  const min = String(now.getMinutes()).padStart(2, "0");
-  return `${yy}${code}${mm}${dd}${hh}${min}`;
+  let attempts = 0;
+  const maxAttempts = 10;
+  while (attempts < maxAttempts) {
+    const suffix = generateRandomSuffix(6);
+    const uniqueId = `${yy}${code}${suffix}`;
+    const exists = await idExists(uniqueId);
+    if (!exists) {
+      return uniqueId;
+    }
+    attempts++;
+    console.warn(`Generated ID ${uniqueId} already exists, regenerating... (attempt ${attempts}/${maxAttempts})`);
+  }
+  const timestamp2 = Date.now().toString().slice(-6);
+  return `${yy}${code}${timestamp2}`;
+}
+
+// server/lib/generateProjectId.ts
+function padZero(num) {
+  return String(num).padStart(2, "0");
+}
+function getPrefix(category) {
+  const cat = category?.toLowerCase().trim();
+  if (cat === "discovery" || cat === "dg") {
+    return "DG";
+  } else if (cat === "clinical" || cat === "pg") {
+    return "PG";
+  }
+  return "PG";
+}
+function generateTimestamp() {
+  const now = /* @__PURE__ */ new Date();
+  const yy = padZero(now.getFullYear() % 100);
+  const mm = padZero(now.getMonth() + 1);
+  const dd = padZero(now.getDate());
+  const hh = padZero(now.getHours());
+  const min = padZero(now.getMinutes());
+  const ss = padZero(now.getSeconds());
+  return `${yy}${mm}${dd}${hh}${min}${ss}`;
+}
+async function projectIdExists(projectId) {
+  try {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query(
+        "SELECT id FROM lead_management WHERE id = ? LIMIT 1",
+        [projectId]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        return true;
+      }
+      try {
+        const [projRows] = await connection.query(
+          "SELECT id FROM lead_management WHERE id = ? LIMIT 1",
+          [projectId]
+        );
+        return Array.isArray(projRows) && projRows.length > 0;
+      } catch {
+        return false;
+      }
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Error checking if project ID exists:", error);
+    return false;
+  }
+}
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+async function generateProjectId(category) {
+  const prefix = getPrefix(category);
+  const maxAttempts = 10;
+  let attempts = 0;
+  while (attempts < maxAttempts) {
+    const timestamp3 = generateTimestamp();
+    const projectId = `${prefix}${timestamp3}`;
+    const exists = await projectIdExists(projectId);
+    if (!exists) {
+      console.log(`\u2713 Generated unique project ID: ${projectId} (attempt ${attempts + 1})`);
+      return projectId;
+    }
+    attempts++;
+    console.warn(`\u26A0 Project ID collision detected: ${projectId} (attempt ${attempts}/${maxAttempts})`);
+    if (attempts < maxAttempts) {
+      await sleep(1e3);
+      console.log(`Retrying in 1 second... (attempt ${attempts + 1}/${maxAttempts})`);
+    }
+  }
+  const timestamp2 = generateTimestamp();
+  const ms = String(Date.now() % 1e3).padStart(3, "0");
+  const fallbackId = `${prefix}${timestamp2}${ms.slice(0, 2)}`;
+  console.warn(`\u26A0 Max attempts reached, using fallback ID: ${fallbackId}`);
+  return fallbackId;
+}
+
+// server/lib/uploadHandler.ts
+import fs from "fs";
+import path from "path";
+var CATEGORY_FOLDER_MAP = {
+  "Progenics_TRF": "Progenics_TRF",
+  "Thirdparty_TRF": "Thirdparty_TRF",
+  "Progenics_Report": "Progenics_Report",
+  "Thirdparty_Report": "Thirdparty_Report"
+};
+function ensureUploadDirectories() {
+  const uploadsDir2 = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir2)) {
+    fs.mkdirSync(uploadsDir2, { recursive: true });
+    console.log(`\u2713 Created uploads directory: ${uploadsDir2}`);
+  }
+  Object.values(CATEGORY_FOLDER_MAP).forEach((folderName) => {
+    const categoryDir = path.join(uploadsDir2, folderName);
+    if (!fs.existsSync(categoryDir)) {
+      fs.mkdirSync(categoryDir, { recursive: true });
+      console.log(`\u2713 Created uploads subdirectory: ${categoryDir}`);
+    }
+  });
+}
+function getCategoryFolder(category) {
+  const folderName = CATEGORY_FOLDER_MAP[category];
+  if (!folderName) {
+    throw new Error(
+      `Invalid category: "${category}". Valid categories are: ${Object.keys(CATEGORY_FOLDER_MAP).join(", ")}`
+    );
+  }
+  return path.join(process.cwd(), "uploads", folderName);
+}
+function sanitizeFilename(filename) {
+  return filename.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+}
+function generateUniqueFilename(originalFilename) {
+  const sanitized = sanitizeFilename(originalFilename);
+  return `${Date.now()}-${sanitized}`;
+}
+function validateFile(file, maxSize) {
+  if (!file) {
+    return { valid: false, error: "No file uploaded" };
+  }
+  if (maxSize && file.size > maxSize) {
+    return {
+      valid: false,
+      error: `File size exceeds limit of ${Math.round(maxSize / 1024 / 1024)}MB`
+    };
+  }
+  if (!file.originalname || file.originalname.trim().length === 0) {
+    return { valid: false, error: "Invalid filename" };
+  }
+  return { valid: true };
+}
+function handleFileUpload(file, category, userId) {
+  const validation = validateFile(file);
+  if (!validation.valid) {
+    return {
+      success: false,
+      message: validation.error || "File validation failed"
+    };
+  }
+  try {
+    const categoryFolder = getCategoryFolder(category);
+    const uniqueFilename = generateUniqueFilename(file.originalname);
+    const filePath = path.join(categoryFolder, uniqueFilename);
+    if (!fs.existsSync(categoryFolder)) {
+      fs.mkdirSync(categoryFolder, { recursive: true });
+    }
+    if (file.destination !== categoryFolder) {
+      fs.renameSync(file.path, filePath);
+    }
+    const relativePath = path.relative(process.cwd(), filePath).replace(/\\/g, "/");
+    return {
+      success: true,
+      filePath: relativePath,
+      filename: uniqueFilename,
+      message: `File uploaded successfully to ${category} folder`,
+      category,
+      fileSize: file.size,
+      mimeType: file.mimetype
+    };
+  } catch (error) {
+    console.error("File upload error:", error);
+    return {
+      success: false,
+      message: `File upload failed: ${error.message}`
+    };
+  }
 }
 
 // server/routes.ts
 import xlsx from "xlsx";
 import multer from "multer";
-var uploadsDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+var uploadsDir = path2.join(process.cwd(), "uploads");
+if (!fs2.existsSync(uploadsDir)) fs2.mkdirSync(uploadsDir, { recursive: true });
 var storageM = multer.diskStorage({
   destination: function(_req, _file, cb) {
     cb(null, uploadsDir);
@@ -2241,7 +2868,18 @@ var storageM = multer.diskStorage({
   }
 });
 var uploadDisk = multer({ storage: storageM, limits: { fileSize: 10 * 1024 * 1024 } });
-var uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+var financeUploadsDir = path2.join(uploadsDir, "finance");
+if (!fs2.existsSync(financeUploadsDir)) fs2.mkdirSync(financeUploadsDir, { recursive: true });
+var storageFinance = multer.diskStorage({
+  destination: function(_req, _file, cb) {
+    cb(null, financeUploadsDir);
+  },
+  filename: function(_req, file, cb) {
+    const unique = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-]/g, "_")}`;
+    cb(null, unique);
+  }
+});
+var uploadFinance = multer({ storage: storageFinance, limits: { fileSize: 20 * 1024 * 1024 } });
 function formatZodErrors(err) {
   const out = {};
   for (const e of err.errors) {
@@ -2265,7 +2903,15 @@ function normalizeDateFields(obj) {
     "sampleShippedDate",
     "sampleDeliveryDate",
     "thirdPartySentDate",
-    "thirdPartyReceivedDate"
+    "thirdPartyReceivedDate",
+    "sampleCollectionDate",
+    "sampleDeliveryDate",
+    "sampleSentToThirdPartyDate",
+    "sampleReceivedToThirdPartyDate",
+    "leadCreated",
+    "leadModified",
+    "deliveryUpTo",
+    "sampleReceivedDate"
   ];
   const tryParseDate = (val) => {
     if (!val || typeof val !== "string") return null;
@@ -2295,7 +2941,105 @@ function normalizeDateFields(obj) {
   }
   return copy;
 }
+async function syncLeadToProcessMaster(lead, isUpdate = false) {
+  try {
+    console.log("[Sync Debug] syncLeadToProcessMaster called with lead:", {
+      id: lead.id,
+      uniqueId: lead.uniqueId || lead.unique_id,
+      projectId: lead.projectId || lead.project_id,
+      isUpdate
+    });
+    const pmRecord = {
+      unique_id: lead.uniqueId || lead.unique_id,
+      project_id: lead.projectId || lead.project_id,
+      sample_id: lead.sampleId || lead.sample_id || null,
+      client_id: lead.clientId || lead.client_id || null,
+      organisation_hospital: lead.organisationHospital || lead.organisation_hospital || null,
+      clinician_researcher_name: lead.clinicianResearcherName || lead.clinician_researcher_name || null,
+      speciality: lead.speciality || null,
+      clinician_researcher_email: lead.clinicianResearcherEmail || lead.clinician_researcher_email || null,
+      clinician_researcher_phone: lead.clinicianResearcherPhone || lead.clinician_researcher_phone || null,
+      clinician_researcher_address: lead.clinicianResearcherAddress || lead.clinician_researcher_address || null,
+      patient_client_name: lead.patientClientName || lead.patient_client_name || null,
+      age: lead.age || null,
+      gender: lead.gender || null,
+      patient_client_email: lead.patientClientEmail || lead.patient_client_email || null,
+      patient_client_phone: lead.patientClientPhone || lead.patient_client_phone || null,
+      patient_client_address: lead.patientClientAddress || lead.patient_client_address || null,
+      sample_collection_date: lead.sampleCollectionDate || lead.sample_collection_date || null,
+      sample_recevied_date: lead.sampleReceivedDate || lead.sample_recevied_date || null,
+      service_name: lead.serviceName || lead.service_name || null,
+      sample_type: lead.sampleType || lead.sample_type || null,
+      no_of_samples: lead.noOfSamples || lead.no_of_samples || null,
+      tat: lead.tat || null,
+      sales_responsible_person: lead.salesResponsiblePerson || lead.sales_responsible_person || null,
+      progenics_trf: lead.progenicsTrf || lead.progenics_trf || null,
+      third_party_trf: null,
+      // Not in lead_management
+      progenics_report: null,
+      // Not directly in lead_management
+      sample_sent_to_third_party_date: null,
+      // Not directly in lead_management
+      third_party_name: null,
+      // Not directly in lead_management
+      third_party_report: null,
+      // Not directly in lead_management
+      results_raw_data_received_from_third_party_date: null,
+      // Not directly in lead_management
+      logistic_status: null,
+      // Set separately
+      finance_status: null,
+      // Set separately
+      lab_process_status: null,
+      // Set separately
+      bioinformatics_status: null,
+      // Set separately
+      nutritional_management_status: null,
+      // Set separately
+      progenics_report_release_date: null,
+      // Set separately
+      Remark_Comment: lead.remarkComment || lead.Remark_Comment || null
+    };
+    const [existing] = await pool.execute(
+      "SELECT id FROM process_master_sheet WHERE unique_id = ?",
+      [pmRecord.unique_id]
+    );
+    console.log("[Sync Debug] Existing PM record check:", {
+      unique_id: pmRecord.unique_id,
+      found: existing && existing.length > 0,
+      existingCount: existing?.length
+    });
+    if (isUpdate || existing && existing.length > 0) {
+      const keys = Object.keys(pmRecord).filter((k) => pmRecord[k] !== null);
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => pmRecord[k]);
+      values.push(pmRecord.unique_id);
+      console.log("[Sync Debug] Updating PM record with fields:", keys);
+      await pool.execute(
+        `UPDATE process_master_sheet SET ${set}, modified_at = NOW() WHERE unique_id = ?`,
+        values
+      );
+      console.log("[Sync] Lead updated in ProcessMaster:", pmRecord.unique_id);
+    } else {
+      const keys = Object.keys(pmRecord).filter((k) => pmRecord[k] !== null);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => pmRecord[k]);
+      console.log("[Sync Debug] Creating new PM record with fields:", keys);
+      console.log("[Sync Debug] SQL:", `INSERT INTO process_master_sheet (${cols}, created_at) VALUES (${placeholders}, NOW())`);
+      await pool.execute(
+        `INSERT INTO process_master_sheet (${cols}, created_at) VALUES (${placeholders}, NOW())`,
+        values
+      );
+      console.log("[Sync] Lead created in ProcessMaster:", pmRecord.unique_id);
+    }
+  } catch (error) {
+    console.error("Failed to sync lead to ProcessMaster:", error);
+  }
+}
 async function registerRoutes(app2) {
+  ensureUploadDirectories();
+  console.log("\u2705 File upload directories initialized");
   app2.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -2422,7 +3166,7 @@ async function registerRoutes(app2) {
     try {
       const { id } = req.params;
       const { role } = req.body;
-      const allowed = ["sales", "operations", "finance", "lab", "bioinformatics", "reporting", "manager", "admin"];
+      const allowed = ["sales", "operations", "finance", "lab", "bioinformatics", "reporting", "nutritionist", "manager", "admin"];
       if (!role || typeof role !== "string" || !allowed.includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
@@ -2436,10 +3180,78 @@ async function registerRoutes(app2) {
     }
   });
   app2.use("/uploads", (await import("express")).static(uploadsDir));
-  const wesReportDir = path.join(process.cwd(), "WES report code", "wes_report");
-  if (fs.existsSync(wesReportDir)) {
+  const wesReportDir = path2.join(process.cwd(), "WES report code", "wes_report");
+  if (fs2.existsSync(wesReportDir)) {
     app2.use("/wes-report", (await import("express")).static(wesReportDir));
   }
+  app2.post("/api/uploads/categorized", uploadDisk.single("file"), async (req, res) => {
+    try {
+      const { category, entityType, entityId } = req.query;
+      const file = req.file;
+      if (!category || typeof category !== "string") {
+        return res.status(400).json({
+          success: false,
+          message: "Category parameter is required and must be a string"
+        });
+      }
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: "No file uploaded"
+        });
+      }
+      const uploadResult = handleFileUpload(file, category);
+      if (!uploadResult.success) {
+        try {
+          fs2.unlinkSync(file.path);
+        } catch (e) {
+        }
+        return res.status(400).json(uploadResult);
+      }
+      try {
+        const uploadRecord = await storage.createFileUpload({
+          filename: uploadResult.filename || "",
+          originalName: file.originalname,
+          storagePath: uploadResult.filePath || "",
+          category,
+          fileSize: uploadResult.fileSize || 0,
+          mimeType: uploadResult.mimeType || "",
+          uploadedBy: req.user?.id || "anonymous",
+          relatedEntityType: entityType || void 0,
+          relatedEntityId: entityId || void 0
+        });
+        return res.json({
+          success: true,
+          filePath: uploadResult.filePath,
+          filename: uploadResult.filename,
+          message: uploadResult.message,
+          category: uploadResult.category,
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          uploadId: uploadRecord.id
+        });
+      } catch (dbError) {
+        console.error("Failed to store upload metadata:", dbError);
+        return res.json({
+          success: true,
+          filePath: uploadResult.filePath,
+          filename: uploadResult.filename,
+          message: uploadResult.message + " (metadata storage failed)",
+          category: uploadResult.category,
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          uploadId: null
+        });
+      }
+    } catch (error) {
+      console.error("Upload categorized endpoint error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error during file upload",
+        error: error.message
+      });
+    }
+  });
   app2.post("/api/uploads/trf", uploadDisk.single("trf"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ message: "No file uploaded" });
@@ -2449,29 +3261,87 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to upload file" });
     }
   });
-  app2.post("/api/uploads/trf-db", uploadMemory.single("trf"), async (req, res) => {
+  app2.post("/api/uploads/file", uploadDisk.single("file"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-      const { originalname, buffer } = req.file;
-      const { leadId } = req.body;
-      if (!leadId) return res.status(400).json({ message: "leadId is required to associate TRF" });
-      const trf = await storage.createLeadTrf({ leadId, filename: originalname, data: buffer });
-      res.json({ id: trf.id, filename: trf.filename });
+      const url = `/uploads/${req.file.filename}`;
+      res.json({ url, filename: req.file.originalname });
     } catch (error) {
-      console.error("TRF DB upload failed", error);
-      res.status(500).json({ message: "Failed to upload TRF to DB" });
+      console.error("File upload failed:", error);
+      res.status(500).json({ message: "Failed to upload file" });
     }
   });
-  app2.get("/api/uploads/trf/:id", async (req, res) => {
+  app2.get("/api/uploads/category/:category", async (req, res) => {
     try {
-      const { id } = req.params;
-      const trf = await storage.getLeadTrf(id);
-      if (!trf) return res.status(404).json({ message: "TRF not found" });
-      res.setHeader("Content-Disposition", `attachment; filename="${trf.filename}"`);
-      res.setHeader("Content-Type", "application/pdf");
-      res.send(trf.data);
+      const { category } = req.params;
+      const uploads = await storage.getFileUploadsByCategory(category);
+      res.json({
+        success: true,
+        category,
+        uploads,
+        total: uploads.length
+      });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch TRF" });
+      console.error("Failed to fetch uploads by category:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch uploads"
+      });
+    }
+  });
+  app2.get("/api/uploads/entity/:entityType/:entityId", async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const uploads = await storage.getFileUploadsByEntity(entityType, entityId);
+      res.json({
+        success: true,
+        entityType,
+        entityId,
+        uploads,
+        total: uploads.length
+      });
+    } catch (error) {
+      console.error("Failed to fetch uploads by entity:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch uploads"
+      });
+    }
+  });
+  app2.post("/api/uploads/trf", uploadDisk.single("trf"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+      const url = `/uploads/${req.file.filename}`;
+      res.json({ url, filename: req.file.originalname });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+  app2.post("/api/sync/leads-to-process-master", async (req, res) => {
+    try {
+      console.log("[SYNC] Starting manual sync of all leads to ProcessMaster...");
+      const leads2 = await storage.getLeads();
+      let synced = 0;
+      let failed = 0;
+      for (const lead of leads2) {
+        try {
+          await syncLeadToProcessMaster(lead, false);
+          synced++;
+        } catch (error) {
+          console.error("[SYNC] Failed to sync lead:", lead.uniqueId, error);
+          failed++;
+        }
+      }
+      res.json({
+        message: `Sync completed: ${synced} leads synced, ${failed} failed`,
+        synced,
+        failed,
+        total: leads2.length
+      });
+      console.log(`[SYNC] Sync completed: ${synced}/${leads2.length} leads synced to ProcessMaster`);
+    } catch (error) {
+      console.error("[SYNC] Error during bulk sync:", error);
+      res.status(500).json({ message: "Failed to sync leads", error: error.message });
     }
   });
   app2.get("/api/leads", async (req, res) => {
@@ -2497,6 +3367,16 @@ async function registerRoutes(app2) {
       } catch (e) {
       }
       const normalized = normalizeDateFields(req.body);
+      try {
+        if (!normalized.projectId && !normalized.project_id) {
+          const category = normalized.testCategory || normalized.category || normalized.lead_type || "clinical";
+          const projectId = await generateProjectId(String(category));
+          normalized.projectId = projectId;
+          normalized.project_id = projectId;
+        }
+      } catch (e) {
+        console.warn("generateProjectId failed for POST /api/leads", e);
+      }
       const result = insertLeadSchema.safeParse(normalized);
       if (!result.success) {
         console.error("Lead validation failed on POST /api/leads:", JSON.stringify(result.error.errors, null, 2));
@@ -2505,12 +3385,106 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid lead data", errors: result.error.errors, fields: formatZodErrors(result.error), debug: { rawDateSampleCollected, rawPickupUpto } });
       }
       const lead = await storage.createLead(result.data);
-      console.log("Lead created successfully, sending notification for:", lead.id, lead.organization);
+      await syncLeadToProcessMaster(lead, false);
+      console.log("Lead nutritionalCounsellingRequired check:", lead.nutritionalCounsellingRequired, "Type:", typeof lead.nutritionalCounsellingRequired);
+      if (lead.nutritionalCounsellingRequired === true) {
+        try {
+          const [existingNM] = await pool.execute(
+            "SELECT id FROM nutritional_management WHERE unique_id = ? LIMIT 1",
+            [lead.uniqueId]
+          );
+          if (existingNM && existingNM.length > 0) {
+            console.log("Nutrition record already exists for unique_id:", lead.uniqueId, "- skipping auto-creation");
+          } else {
+            console.log("TRIGGERING nutrition auto-creation for lead:", lead.id);
+            const nutritionRecord = {
+              uniqueId: lead.uniqueId,
+              projectId: lead.projectId,
+              serviceName: lead.serviceName || "",
+              patientClientName: lead.patientClientName || "",
+              age: lead.age,
+              gender: lead.gender || "",
+              createdBy: lead.leadCreatedBy || "system",
+              createdAt: /* @__PURE__ */ new Date()
+            };
+            const [result2] = await pool.execute(
+              `INSERT INTO nutritional_management (unique_id, project_id, service_name, patient_client_name, age, gender, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [nutritionRecord.uniqueId, nutritionRecord.projectId, nutritionRecord.serviceName, nutritionRecord.patientClientName, nutritionRecord.age, nutritionRecord.gender, nutritionRecord.createdBy, nutritionRecord.createdAt]
+            );
+            console.log("Auto-created nutrition record for lead:", lead.id);
+          }
+        } catch (err) {
+          console.error("Failed to auto-create nutrition record for lead:", err.message);
+        }
+      }
+      console.log("Lead geneticCounselorRequired check:", lead.geneticCounselorRequired, "Lead keys:", Object.keys(lead).filter((k) => k.includes("genetic")));
+      console.log("[GC Auto-Create] Full lead object keys:", Object.keys(lead));
+      console.log("[GC Auto-Create] Lead.patientClientAddress:", lead.patientClientAddress);
+      console.log("[GC Auto-Create] Lead.patient_client_address:", lead.patient_client_address);
+      if (lead.geneticCounselorRequired) {
+        try {
+          const [existingGC] = await pool.execute(
+            "SELECT id FROM genetic_counselling_records WHERE unique_id = ? LIMIT 1",
+            [lead.uniqueId]
+          );
+          if (existingGC && existingGC.length > 0) {
+            console.log("GC record already exists for unique_id:", lead.uniqueId, "- skipping auto-creation");
+          } else {
+            console.log("TRIGGERING genetic counselling auto-creation for lead:", lead.id);
+            const toString = (v) => {
+              if (v === null || v === void 0) return null;
+              return String(v).trim() === "" ? null : String(v).trim();
+            };
+            const geneticCounsellingRecord = {
+              unique_id: toString(lead.uniqueId) || "",
+              project_id: lead.projectId || null,
+              patient_client_name: toString(lead.patientClientName),
+              patient_client_address: toString(lead.patientClientAddress || lead.patient_client_address),
+              age: lead.age ? Number(lead.age) : null,
+              gender: toString(lead.gender),
+              patient_client_email: toString(lead.patientClientEmail),
+              patient_client_phone: toString(lead.patientClientPhone),
+              clinician_researcher_name: toString(lead.clinicianResearcherName),
+              organisation_hospital: toString(lead.organisationHospital),
+              speciality: toString(lead.speciality),
+              service_name: toString(lead.serviceName),
+              budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
+              sample_type: toString(lead.sampleType),
+              sales_responsible_person: toString(lead.salesResponsiblePerson),
+              created_by: toString(lead.leadCreatedBy) || "system",
+              created_at: /* @__PURE__ */ new Date()
+            };
+            console.log("Auto-creating genetic counselling record with data:", {
+              unique_id: geneticCounsellingRecord.unique_id,
+              patient_client_name: geneticCounsellingRecord.patient_client_name,
+              patient_client_address: geneticCounsellingRecord.patient_client_address,
+              age: geneticCounsellingRecord.age,
+              service_name: geneticCounsellingRecord.service_name,
+              sample_type: geneticCounsellingRecord.sample_type
+            });
+            console.log("[GC Auto-Create Debug] Lead source address - patientClientAddress:", lead.patientClientAddress, "patient_client_address:", lead.patient_client_address);
+            const keys = Object.keys(geneticCounsellingRecord).filter((k) => geneticCounsellingRecord[k] !== void 0);
+            console.log("[GC Auto-Create Debug] Fields being inserted:", keys);
+            console.log("[GC Auto-Create Debug] Full record object:", JSON.stringify(geneticCounsellingRecord, null, 2));
+            const cols = keys.map((k) => `\`${k}\``).join(",");
+            const placeholders = keys.map(() => "?").join(",");
+            const values = keys.map((k) => geneticCounsellingRecord[k]);
+            const [result2] = await pool.execute(
+              `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            console.log("Auto-created genetic counselling record for lead:", lead.id, "GC Record ID:", result2.insertId);
+          }
+        } catch (err) {
+          console.error("Failed to auto-create genetic counselling record for lead:", err.message);
+        }
+      }
+      console.log("Lead created successfully, sending notification for:", lead.id, lead.organisationHospital);
       try {
         await notificationService.notifyLeadCreated(
           lead.id,
-          lead.organization,
-          lead.createdBy || "system"
+          lead.organisationHospital || "Unknown Organization",
+          lead.leadCreatedBy || "system"
         );
         console.log("Lead creation notification sent successfully");
       } catch (notificationError) {
@@ -2539,7 +3513,7 @@ async function registerRoutes(app2) {
       try {
         await notificationService.notifyLeadStatusChanged(
           lead.id,
-          lead.organization,
+          lead.organisationHospital || "Unknown Organization",
           currentLead.status || "unknown",
           status,
           "system"
@@ -2571,6 +3545,7 @@ async function registerRoutes(app2) {
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
+      await syncLeadToProcessMaster(lead, true);
       res.json(lead);
     } catch (error) {
       res.status(500).json({ message: "Failed to update lead" });
@@ -2601,30 +3576,85 @@ async function registerRoutes(app2) {
       try {
         const requestGcFlag = !!sampleData?.createGeneticCounselling || !!sampleData?.createGc || !!sampleData?.create_genetic_counselling;
         if (requestGcFlag) {
-          createdGc = await storage.createGeneticCounselling({ sampleId: conversion.sample.sampleId, gcName: "" });
-          try {
-            await notificationService.notifyGeneticCounsellingRequired(
-              conversion.sample.sampleId,
-              conversion.lead.patientClientName || "Unknown Patient",
-              "system"
-            );
-          } catch (notificationError) {
-            console.error("Failed to send genetic counselling notification:", notificationError);
+          const [existingGC] = await pool.execute(
+            "SELECT id FROM genetic_counselling_records WHERE unique_id = ? LIMIT 1",
+            [conversion.sample.uniqueId]
+          );
+          if (existingGC && existingGC.length > 0) {
+            console.log("[convert-lead] GC record already exists for unique_id:", conversion.sample.uniqueId, "- skipping auto-creation");
+            createdGc = { id: existingGC[0].id, uniqueId: conversion.sample.uniqueId, alreadyExists: true };
+          } else {
+            createdGc = await storage.createGeneticCounselling({ sampleId: conversion.sample.uniqueId || "", gcName: "" });
+            try {
+              await notificationService.notifyGeneticCounsellingRequired(
+                conversion.sample.uniqueId || "Unknown Sample",
+                conversion.lead.patientClientName || "Unknown Patient",
+                "system"
+              );
+            } catch (notificationError) {
+              console.error("Failed to send genetic counselling notification:", notificationError);
+            }
           }
         }
       } catch (err) {
         console.error("Failed to create genetic counselling after conversion:", err.message);
       }
+      let createdNutrition = null;
+      try {
+        console.log("[convert-lead] nutritionalCounsellingRequired check:", lead.nutritionalCounsellingRequired, "Type:", typeof lead.nutritionalCounsellingRequired);
+        if (lead.nutritionalCounsellingRequired === true) {
+          const [existingNM] = await pool.execute(
+            "SELECT id FROM nutritional_management WHERE unique_id = ? LIMIT 1",
+            [conversion.lead.uniqueId]
+          );
+          if (existingNM && existingNM.length > 0) {
+            console.log("[convert-lead] Nutrition record already exists for unique_id:", conversion.lead.uniqueId, "- skipping auto-creation");
+            createdNutrition = { id: existingNM[0].id, uniqueId: conversion.lead.uniqueId, alreadyExists: true };
+          } else {
+            console.log("[convert-lead] TRIGGERING nutrition auto-creation for lead:", conversion.lead.id);
+            const nutritionRecord = {
+              uniqueId: conversion.lead.uniqueId,
+              projectId: conversion.lead.projectId,
+              sampleId: conversion.sample.uniqueId,
+              serviceName: conversion.lead.serviceName || "",
+              patientClientName: conversion.lead.patientClientName || "",
+              age: conversion.lead.age,
+              gender: conversion.lead.gender || "",
+              createdBy: conversion.lead.leadCreatedBy || "system",
+              createdAt: /* @__PURE__ */ new Date()
+            };
+            const [result] = await pool.execute(
+              `INSERT INTO nutritional_management (unique_id, project_id, sample_id, service_name, patient_client_name, age, gender, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [nutritionRecord.uniqueId, nutritionRecord.projectId, nutritionRecord.sampleId, nutritionRecord.serviceName, nutritionRecord.patientClientName, nutritionRecord.age, nutritionRecord.gender, nutritionRecord.createdBy, nutritionRecord.createdAt]
+            );
+            const insertId = result.insertId;
+            const [rows] = await pool.execute("SELECT * FROM nutritional_management WHERE id = ?", [insertId]);
+            createdNutrition = rows && rows[0] ? rows[0] : null;
+            console.log("Auto-created nutrition record for converted lead:", conversion.lead.id);
+            try {
+              await notificationService.notifyGeneticCounsellingRequired(
+                conversion.sample.uniqueId || "Unknown Sample",
+                conversion.lead.patientClientName || "Unknown Patient",
+                "system"
+              );
+            } catch (notificationError) {
+              console.error("Failed to send nutrition counselling notification:", notificationError);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to auto-create nutrition record after conversion:", err.message);
+      }
       try {
         await notificationService.notifyLeadConverted(
           conversion.lead.id,
-          conversion.lead.organization,
-          conversion.sample.sampleId,
+          conversion.lead.organisationHospital || "Unknown Organization",
+          conversion.sample.uniqueId || "Unknown Sample",
           "system"
         );
         await notificationService.notifySampleReceived(
-          conversion.sample.sampleId,
-          conversion.lead.organization,
+          conversion.sample.uniqueId || "Unknown Sample",
+          conversion.lead.organisationHospital || "Unknown Organization",
           "system"
         );
       } catch (notificationError) {
@@ -2637,16 +3667,16 @@ async function registerRoutes(app2) {
           await storage.createNotification({
             userId: user.id,
             title: "New Lead Converted",
-            message: `Lead from ${conversion.lead.organization} has been converted. Sample ID: ${conversion.sample.sampleId}`,
+            message: `Lead from ${conversion.lead.organisationHospital || "Unknown Organization"} has been converted. Sample ID: ${conversion.sample.uniqueId || "Unknown Sample"}`,
             type: "lead_converted",
-            relatedId: conversion.sample.id,
+            relatedId: String(conversion.sample.id),
             isRead: false
           });
         }
       } catch (legacyNotificationError) {
         console.error("Failed to send legacy notifications:", legacyNotificationError);
       }
-      res.json({ ...conversion, geneticCounselling: createdGc });
+      res.json({ ...conversion, geneticCounselling: createdGc, nutritionCounselling: createdNutrition });
     } catch (error) {
       res.status(500).json({ message: error instanceof Error ? error.message : "Failed to convert lead" });
     }
@@ -2710,19 +3740,6 @@ async function registerRoutes(app2) {
       if (!sample) {
         return res.status(404).json({ message: "Sample not found" });
       }
-      if (parsed.data.status && parsed.data.status !== currentSample.status) {
-        try {
-          await notificationService.notifySampleStatusChanged(
-            sample.sampleId,
-            sample.organization || "Unknown Organization",
-            currentSample.status || "unknown",
-            parsed.data.status,
-            "system"
-          );
-        } catch (notificationError) {
-          console.error("Failed to send sample status change notification:", notificationError);
-        }
-      }
       res.json(sample);
     } catch (error) {
       res.status(500).json({ message: "Failed to update sample" });
@@ -2754,15 +3771,12 @@ async function registerRoutes(app2) {
         return res.status(400).json({ message: "Invalid lab processing data", errors: result.error.errors });
       }
       const labProcessing2 = await storage.createLabProcessing(result.data);
-      await storage.updateSample(labProcessing2.sampleId, { status: "lab_processing" });
       try {
         const sample = await storage.getSampleById(labProcessing2.sampleId);
         if (sample) {
-          const lead = await storage.getLeadById(sample.leadId);
-          const testType = lead?.testName || "Unknown Test";
           await notificationService.notifyLabProcessingStarted(
-            sample.sampleId || "Unknown Sample",
-            testType,
+            sample.uniqueId || "Unknown Sample",
+            "Sample Lab Processing",
             "system"
           );
         }
@@ -2819,7 +3833,7 @@ async function registerRoutes(app2) {
       try {
         const sample = await storage.getSampleById(updated.sampleId);
         await notificationService.notifyLabProcessingCompleted(
-          sample?.sampleId || updated.labId,
+          sample?.uniqueId || updated.labId,
           "Lab Processing Update",
           "system"
         );
@@ -2930,16 +3944,7 @@ async function registerRoutes(app2) {
   app2.post("/api/genetic-counselling", async (req, res) => {
     try {
       const body = req.body || {};
-      const created = await storage.createGeneticCounselling({
-        sampleId: body.sample_id || body.sampleId || "",
-        gcName: body.gc_name || body.gcName || "",
-        counsellingType: body.counselling_type || body.counsellingType || void 0,
-        counsellingStartTime: body.counselling_start_time || body.counsellingStartTime || void 0,
-        counsellingEndTime: body.counselling_end_time || body.counsellingEndTime || void 0,
-        gcSummary: body.gc_summary || body.gcSummary || void 0,
-        extendedFamilyTesting: body.extended_family_testing ?? body.extendedFamilyTesting ?? false,
-        approvalStatus: body.approval_status || body.approvalStatus || "pending"
-      });
+      const created = await storage.createGeneticCounselling(body);
       res.json(created);
     } catch (error) {
       console.error("Failed to create genetic counselling record", error.message);
@@ -2950,16 +3955,7 @@ async function registerRoutes(app2) {
     try {
       const { id } = req.params;
       const updates = req.body || {};
-      const updated = await storage.updateGeneticCounselling(id, {
-        sampleId: updates.sample_id || updates.sampleId,
-        gcName: updates.gc_name || updates.gcName,
-        counsellingType: updates.counselling_type || updates.counsellingType,
-        counsellingStartTime: updates.counselling_start_time || updates.counsellingStartTime,
-        counsellingEndTime: updates.counselling_end_time || updates.counsellingEndTime,
-        gcSummary: updates.gc_summary || updates.gcSummary,
-        extendedFamilyTesting: updates.extended_family_testing ?? updates.extendedFamilyTesting,
-        approvalStatus: updates.approval_status || updates.approvalStatus
-      });
+      const updated = await storage.updateGeneticCounselling(id, updates);
       if (!updated) return res.status(404).json({ message: "Record not found" });
       res.json(updated);
     } catch (error) {
@@ -3072,6 +4068,118 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to approve report" });
     }
   });
+  app2.post("/api/send-to-reports", async (req, res) => {
+    try {
+      const {
+        bioinformaticsId,
+        sampleId,
+        projectId,
+        uniqueId,
+        serviceName,
+        analysisDate,
+        createdBy
+      } = req.body;
+      console.log("Send to Reports triggered for bioinformatics:", bioinformaticsId, "Project ID:", projectId);
+      if (!projectId) {
+        return res.status(400).json({ message: "Project ID is required" });
+      }
+      const isDiscovery = projectId.startsWith("DG");
+      const isClinical = projectId.startsWith("PG");
+      console.log("Project ID analysis - Discovery:", isDiscovery, "Clinical:", isClinical);
+      if (!isDiscovery && !isClinical) {
+        return res.status(400).json({ message: "Project ID must start with DG (Discovery) or PG (Clinical)" });
+      }
+      let leadData = { service_name: serviceName };
+      try {
+        const [leadRows] = await pool.execute(
+          "SELECT service_name FROM lead_management WHERE unique_id = ? LIMIT 1",
+          [uniqueId]
+        );
+        if (leadRows && leadRows.length > 0) {
+          const lead = leadRows[0];
+          leadData.service_name = serviceName || lead.service_name || null;
+          console.log("Fetched lead data from lead_management table:", leadData);
+        }
+      } catch (leadError) {
+        console.log("Note: Could not fetch lead data -", leadError.message);
+      }
+      const reportData = {
+        unique_id: uniqueId || "",
+        project_id: projectId,
+        bioinformatics_id: bioinformaticsId || null,
+        sample_id: sampleId || null
+      };
+      if (leadData.service_name) reportData.service_name = leadData.service_name;
+      if (analysisDate) {
+        const dateObj = new Date(analysisDate);
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(dateObj.getUTCDate()).padStart(2, "0");
+        reportData.report_date = `${year}-${month}-${day}`;
+      }
+      reportData.created_by = createdBy || "system";
+      reportData.created_at = /* @__PURE__ */ new Date();
+      reportData.status = "pending_review";
+      const keys = Object.keys(reportData);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => reportData[k]);
+      let insertResult;
+      let tableName;
+      if (isDiscovery) {
+        tableName = "report_discovery_sheet";
+        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
+        const result = await pool.execute(
+          `INSERT INTO report_discovery_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      } else {
+        tableName = "report_clinical_sheet";
+        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
+        const result = await pool.execute(
+          `INSERT INTO report_clinical_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      }
+      const insertId = insertResult.insertId || null;
+      console.log(`Inserted into ${tableName} with ID:`, insertId);
+      try {
+        const bioTableName = isDiscovery ? "bioinfo_discovery_sheet" : "bioinfo_clinical_sheet";
+        await pool.execute(
+          `UPDATE ${bioTableName} SET alert_to_report_team = ?, updated_at = ? WHERE id = ?`,
+          [true, /* @__PURE__ */ new Date(), bioinformaticsId]
+        );
+        console.log("Updated bioinformatics flag for:", bioinformaticsId);
+      } catch (updateError) {
+        console.error("Warning: Failed to update bioinformatics flag", updateError.message);
+      }
+      try {
+        await notificationService.notifyReportGenerated(
+          insertId,
+          "Bioinformatics Analysis Report",
+          leadData.service_name || "Analysis Report",
+          createdBy || "system"
+        );
+      } catch (notificationError) {
+        console.error("Failed to send report notification:", notificationError);
+      }
+      res.json({
+        success: true,
+        reportId: insertId,
+        bioinformaticsId,
+        table: tableName,
+        message: "Bioinformatics record sent to Reports module"
+      });
+    } catch (error) {
+      console.error("Error in send-to-reports:", error);
+      res.status(500).json({
+        message: "Failed to send bioinformatics record to Reports",
+        error: error.message
+      });
+    }
+  });
   app2.get("/api/finance/records", async (req, res) => {
     try {
       const page = parseInt(String(req.query.page || "1")) || 1;
@@ -3110,26 +4218,34 @@ async function registerRoutes(app2) {
         return copy;
       };
       const normalized = normalize(req.body);
+      if (!normalized.projectId) {
+        console.warn("[API] Finance record created without projectId:", {
+          sampleId: normalized.sampleId,
+          uniqueId: normalized.uniqueId,
+          payload: normalized
+        });
+      }
       const result = insertFinanceRecordSchema.safeParse(normalized);
       if (!result.success) {
         return res.status(400).json({ message: "Invalid finance record data", errors: result.error.errors });
       }
       const record = await storage.createFinanceRecord(result.data);
       try {
-        const amount = parseFloat(record.amount?.toString() || "0");
-        const organizationName = record.organization || "Unknown Organization";
-        if (record.paymentStatus === "paid") {
+        const totalAmount = parseFloat(record.totalAmount?.toString() || "0");
+        const organisationHospital = record.organisationHospital || "Unknown Organization";
+        const paymentStatus = record.paymentStatus;
+        if (paymentStatus === "paid") {
           await notificationService.notifyPaymentReceived(
-            record.id,
-            amount,
-            organizationName,
+            String(record.id),
+            totalAmount,
+            organisationHospital,
             "system"
           );
-        } else if (record.paymentStatus === "pending") {
+        } else if (paymentStatus === "pending") {
           await notificationService.notifyPaymentPending(
-            record.id,
-            amount,
-            organizationName,
+            String(record.id),
+            totalAmount,
+            organisationHospital,
             "system"
           );
         }
@@ -3220,6 +4336,850 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch clients" });
     }
   });
+  app2.get("/api/sample-tracking", async (req, res) => {
+    try {
+      const samples2 = await storage.getSamples();
+      res.json(samples2);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sample tracking records" });
+    }
+  });
+  app2.put("/api/sample-tracking/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = normalizeDateFields(req.body);
+      const result = insertSampleSchema.partial().safeParse(updates);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid sample data", errors: result.error.errors });
+      }
+      const sample = await storage.updateSample(id, result.data);
+      if (!sample) return res.status(404).json({ message: "Sample not found" });
+      res.json(sample);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update sample tracking record" });
+    }
+  });
+  app2.delete("/api/sample-tracking/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteSample(id);
+      if (!ok) return res.status(500).json({ message: "Failed to delete sample tracking record" });
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete sample tracking record" });
+    }
+  });
+  app2.get("/api/finance", async (req, res) => {
+    try {
+      const page = parseInt(String(req.query.page || "1")) || 1;
+      const pageSize = parseInt(String(req.query.pageSize || "25")) || 25;
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : null;
+      const sortDir = req.query.sortDir === "asc" ? "asc" : "desc";
+      const query = req.query.query ? String(req.query.query) : null;
+      const result = await storage.getFinanceRecords({ page, pageSize, sortBy, sortDir, query });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch finance records" });
+    }
+  });
+  app2.post("/api/finance", async (req, res) => {
+    try {
+      const result = insertFinanceRecordSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid finance data", errors: result.error.errors });
+      }
+      const record = await storage.createFinanceRecord(result.data);
+      res.json(record);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create finance record" });
+    }
+  });
+  app2.put("/api/finance/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = normalizeDateFields(req.body);
+      const result = insertFinanceRecordSchema.partial().safeParse(updates);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid finance data", errors: result.error.errors });
+      }
+      const record = await storage.updateFinanceRecord(id, result.data);
+      if (!record) return res.status(404).json({ message: "Finance record not found" });
+      res.json(record);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update finance record" });
+    }
+  });
+  app2.delete("/api/finance/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteFinanceRecord(id);
+      if (!ok) return res.status(500).json({ message: "Failed to delete finance record" });
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete finance record" });
+    }
+  });
+  app2.get("/api/labprocess-discovery", async (req, res) => {
+    try {
+      const queue = await storage.getLabProcessingQueue();
+      const filtered = queue.filter((r) => (r.sample?.lead?.category || r.category || "").toLowerCase() === "discovery");
+      res.json(filtered);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch discovery lab processing records" });
+    }
+  });
+  app2.get("/api/labprocess-clinical", async (req, res) => {
+    try {
+      const queue = await storage.getLabProcessingQueue();
+      const filtered = queue.filter((r) => (r.sample?.lead?.category || r.category || "").toLowerCase() === "clinical");
+      res.json(filtered);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch clinical lab processing records" });
+    }
+  });
+  app2.get("/api/bioinfo-discovery", async (req, res) => {
+    try {
+      const lp = await storage.getLabProcessingQueue();
+      const filtered = lp.filter((r) => (r.sample?.lead?.category || r.category || "").toLowerCase() === "discovery");
+      const mapped = filtered.map((item) => ({
+        id: item.id,
+        sample_id: item.sampleId,
+        sequencing_date: item.processedAt ? new Date(item.processedAt).toISOString() : null,
+        analysis_status: item.qcStatus || "pending",
+        total_mb_generated: item.totalMbGenerated || 0,
+        result_report_link: item.reportLink || null,
+        progenics_trf: item.progenicsTrf || null,
+        progenics_raw_data: item.progenicsRawData || null,
+        third_party_name: item.thirdPartyName || null,
+        third_party_result_date: item.thirdPartyResultDate ? new Date(item.thirdPartyResultDate).toISOString() : null,
+        alert_to_technical: !!item.alertToTechnical,
+        alert_from_lab_team: !!item.alertFromLabTeam,
+        alert_from_finance: !!item.alertFromFinance,
+        report_related_status: item.completeStatus || "processing"
+      }));
+      res.json(mapped);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch discovery bioinformatics records" });
+    }
+  });
+  app2.get("/api/bioinfo-clinical", async (req, res) => {
+    try {
+      const lp = await storage.getLabProcessingQueue();
+      const filtered = lp.filter((r) => (r.sample?.lead?.category || r.category || "").toLowerCase() === "clinical");
+      const mapped = filtered.map((item) => ({
+        id: item.id,
+        sample_id: item.sampleId,
+        sequencing_date: item.processedAt ? new Date(item.processedAt).toISOString() : null,
+        analysis_status: item.qcStatus || "pending",
+        total_mb_generated: item.totalMbGenerated || 0,
+        result_report_link: item.reportLink || null,
+        progenics_trf: item.progenicsTrf || null,
+        progenics_raw_data: item.progenicsRawData || null,
+        third_party_name: item.thirdPartyName || null,
+        third_party_result_date: item.thirdPartyResultDate ? new Date(item.thirdPartyResultDate).toISOString() : null,
+        alert_to_technical: !!item.alertToTechnical,
+        alert_from_lab_team: !!item.alertFromLabTeam,
+        alert_from_finance: !!item.alertFromFinance,
+        report_related_status: item.completeStatus || "processing"
+      }));
+      res.json(mapped);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch clinical bioinformatics records" });
+    }
+  });
+  app2.get("/api/nutrition", async (req, res) => {
+    try {
+      const { uniqueId } = req.query;
+      let query = "SELECT * FROM nutritional_management";
+      let params = [];
+      if (uniqueId) {
+        query += " WHERE unique_id = ?";
+        params.push(uniqueId);
+      }
+      const [rows] = await pool.execute(query, params);
+      res.json(rows || []);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch nutrition records" });
+    }
+  });
+  app2.post("/api/nutrition", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => data[k]);
+      const [result] = await pool.execute(`INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`, values);
+      const insertId = result.insertId || null;
+      const [rows] = await pool.execute("SELECT * FROM nutritional_management WHERE id = ?", [insertId]);
+      res.json(rows[0] ?? { id: insertId });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create nutrition record" });
+    }
+  });
+  app2.put("/api/nutrition/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("[Nutrition PUT] ID:", id, "Body:", JSON.stringify(req.body, null, 2));
+      const updates = normalizeDateFields(req.body);
+      console.log("[Nutrition PUT] After normalizeDateFields:", JSON.stringify(updates, null, 2));
+      const result = insertNutritionalManagementSchema.partial().safeParse(updates);
+      if (!result.success) {
+        console.error("[Nutrition PUT] Validation failed:", JSON.stringify(result.error.errors, null, 2));
+        return res.status(400).json({ message: "Invalid nutrition data", errors: result.error.errors });
+      }
+      const validatedUpdates = result.data;
+      console.log("[Nutrition PUT] Validated updates:", JSON.stringify(validatedUpdates, null, 2));
+      const fieldMapping = {
+        uniqueId: "unique_id",
+        projectId: "project_id",
+        sampleId: "sample_id",
+        serviceName: "service_name",
+        patientClientName: "patient_client_name",
+        age: "age",
+        gender: "gender",
+        questionnaire: "questionnaire",
+        progenicsTrf: "progenics_trf",
+        questionnaireCallRecording: "questionnaire_call_recording",
+        dataAnalysisSheet: "data_analysis_sheet",
+        progenicsReport: "progenics_report",
+        nutritionChart: "nutrition_chart",
+        counsellingSessionDate: "counselling_session_date",
+        furtherCounsellingRequired: "further_counselling_required",
+        counsellingStatus: "counselling_status",
+        counsellingSessionRecording: "counselling_session_recording",
+        alertToTechnicalLead: "alert_to_technical_lead",
+        alertToReportTeam: "alert_to_report_team",
+        createdBy: "created_by",
+        modifiedBy: "modified_by",
+        modifiedAt: "modified_at",
+        remarksComment: "remark_comment",
+        remarkComment: "remark_comment"
+      };
+      const dbUpdates = {};
+      Object.keys(validatedUpdates).forEach((k) => {
+        const dbKey = fieldMapping[k] || k;
+        dbUpdates[dbKey] = validatedUpdates[k];
+      });
+      const keys = Object.keys(dbUpdates);
+      if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => dbUpdates[k]);
+      values.push(id);
+      console.log("[Nutrition PUT] SQL:", `UPDATE nutritional_management SET ${set} WHERE id = ?`);
+      console.log("[Nutrition PUT] Values:", values);
+      await pool.execute(`UPDATE nutritional_management SET ${set} WHERE id = ?`, values);
+      const [rows] = await pool.execute("SELECT * FROM nutritional_management WHERE id = ?", [id]);
+      console.log("[Nutrition PUT] Success! Updated record:", rows[0]?.id);
+      res.json(rows[0] ?? null);
+    } catch (error) {
+      console.error("[Nutrition PUT] Error:", error.message);
+      console.error("[Nutrition PUT] Stack:", error.stack);
+      res.status(500).json({ message: "Failed to update nutrition record", error: error.message });
+    }
+  });
+  app2.delete("/api/nutrition/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM nutritional_management WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete nutrition record" });
+    }
+  });
+  app2.get("/api/labprocess-discovery-sheet", async (_req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM labprocess_discovery_sheet ORDER BY created_at DESC");
+      res.json(rows || []);
+    } catch (error) {
+      console.error("Failed to fetch lab process discovery sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch lab process discovery sheet" });
+    }
+  });
+  app2.post("/api/labprocess-discovery-sheet", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const fieldMapping = {
+        titleUniqueId: "unique_id",
+        projectId: "project_id",
+        sampleId: "sample_id",
+        clientId: "client_id",
+        serviceName: "service_name",
+        sampleType: "sample_type",
+        numberOfSamples: "no_of_samples",
+        sampleDeliveryDate: "sample_received_date",
+        extractionProtocol: "extraction_protocol",
+        extractionQualityCheck: "extraction_quality_check",
+        extractionQCStatus: "extraction_qc_status",
+        extractionProcess: "extraction_process",
+        libraryPreparationProtocol: "library_preparation_protocol",
+        libraryPreparationQualityCheck: "library_preparation_quality_check",
+        libraryQCStatus: "library_preparation_qc_status",
+        libraryProcess: "library_preparation_process",
+        purificationProtocol: "purification_protocol",
+        purificationQualityCheck: "purification_quality_check",
+        purificationQCStatus: "purification_qc_status",
+        purificationProcess: "purification_process",
+        alertToBioinformaticsTeam: "alert_to_bioinformatics_team",
+        alertToTechnicalLead: "alert_to_technical_lead",
+        progenicsTrf: "progenics_trf",
+        createdBy: "created_by",
+        remarksComment: "remark_comment"
+      };
+      const mappedData = {};
+      Object.keys(data).forEach((k) => {
+        const dbKey = fieldMapping[k] || k;
+        mappedData[dbKey] = data[k];
+      });
+      const keys = Object.keys(mappedData);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => mappedData[k]);
+      console.log("[Lab Process Discovery POST] Creating record with columns:", keys);
+      const [result] = await pool.execute(
+        `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
+        values
+      );
+      const insertId = result.insertId || null;
+      console.log("[Lab Process Discovery POST] Inserted with ID:", insertId);
+      if (insertId) {
+        const [rows] = await pool.execute("SELECT * FROM labprocess_discovery_sheet WHERE id = ?", [insertId]);
+        return res.json(rows[0] ?? { id: insertId });
+      }
+      res.json({ id: insertId });
+    } catch (error) {
+      console.error("[Lab Process Discovery POST] Error:", error.message);
+      res.status(500).json({ message: "Failed to create lab process discovery record", error: error.message });
+    }
+  });
+  app2.put("/api/labprocess-discovery-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("[Lab Process Discovery PUT] Request body:", JSON.stringify(req.body, null, 2));
+      const updates = normalizeDateFields(req.body);
+      if (updates.alertToBioinformaticsTeam !== void 0) {
+        updates.alertToBioinformaticsTeam = updates.alertToBioinformaticsTeam === 1 || updates.alertToBioinformaticsTeam === true;
+      }
+      if (updates.alertToTechnicalLead !== void 0) {
+        updates.alertToTechnicalLead = updates.alertToTechnicalLead === 1 || updates.alertToTechnicalLead === true;
+      }
+      console.log("[Lab Process Discovery PUT] Normalized updates:", JSON.stringify(updates, null, 2));
+      const result = insertLabProcessDiscoverySheetSchema.partial().safeParse(updates);
+      if (!result.success) {
+        console.error("[Lab Process Discovery PUT] Validation failed:", result.error.errors);
+        return res.status(400).json({ message: "Invalid lab process data", errors: result.error.errors });
+      }
+      const validatedUpdates = result.data;
+      console.log("[Lab Process Discovery PUT] Validated updates:", JSON.stringify(validatedUpdates, null, 2));
+      const fieldMapping = {
+        titleUniqueId: "unique_id",
+        projectId: "project_id",
+        sampleId: "sample_id",
+        clientId: "client_id",
+        serviceName: "service_name",
+        sampleType: "sample_type",
+        numberOfSamples: "no_of_samples",
+        sampleDeliveryDate: "sample_received_date",
+        extractionProtocol: "extraction_protocol",
+        extractionQualityCheck: "extraction_quality_check",
+        extractionQCStatus: "extraction_qc_status",
+        extractionProcess: "extraction_process",
+        libraryPreparationProtocol: "library_preparation_protocol",
+        libraryPreparationQualityCheck: "library_preparation_quality_check",
+        libraryQCStatus: "library_preparation_qc_status",
+        libraryProcess: "library_preparation_process",
+        purificationProtocol: "purification_protocol",
+        purificationQualityCheck: "purification_quality_check",
+        purificationQCStatus: "purification_qc_status",
+        purificationProcess: "purification_process",
+        alertToBioinformaticsTeam: "alert_to_bioinformatics_team",
+        alertToTechnicalLead: "alert_to_technical_lead",
+        progenicsTrf: "progenics_trf",
+        createdAt: "created_at",
+        createdBy: "created_by",
+        modifiedAt: "modified_at",
+        modifiedBy: "modified_by",
+        remarksComment: "remark_comment"
+      };
+      const dbUpdates = {};
+      Object.keys(validatedUpdates).forEach((k) => {
+        const dbKey = fieldMapping[k] || k;
+        let value = validatedUpdates[k];
+        if (typeof value === "boolean") {
+          value = value ? 1 : 0;
+        }
+        dbUpdates[dbKey] = value;
+      });
+      const keys = Object.keys(dbUpdates);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => dbUpdates[k]);
+      values.push(id);
+      console.log("[Lab Process Discovery PUT] SQL Query:", `UPDATE labprocess_discovery_sheet SET ${set} WHERE id = ?`);
+      console.log("[Lab Process Discovery PUT] Query values:", values);
+      const result_query = await pool.execute(
+        `UPDATE labprocess_discovery_sheet SET ${set} WHERE id = ?`,
+        values
+      );
+      console.log("[Lab Process Discovery PUT] Update succeeded, fetching updated record");
+      const [rows] = await pool.execute("SELECT * FROM labprocess_discovery_sheet WHERE id = ?", [id]);
+      const updatedRecord = rows[0] ?? null;
+      console.log("[Lab Process Discovery PUT] Success! Updated record:", JSON.stringify(updatedRecord, null, 2));
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error("[Lab Process Discovery PUT] Error:", error.message, error.stack);
+      res.status(500).json({ message: "Failed to update lab process discovery record" });
+    }
+  });
+  app2.delete("/api/labprocess-discovery-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM labprocess_discovery_sheet WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete lab process discovery record", error.message);
+      res.status(500).json({ message: "Failed to delete lab process discovery record" });
+    }
+  });
+  app2.get("/api/labprocess-clinical-sheet", async (_req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM labprocess_clinical_sheet ORDER BY created_at DESC");
+      res.json(rows || []);
+    } catch (error) {
+      console.error("Failed to fetch lab process clinical sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch lab process clinical sheet" });
+    }
+  });
+  app2.post("/api/labprocess-clinical-sheet", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const fieldMapping = {
+        titleUniqueId: "unique_id",
+        projectId: "project_id",
+        sampleId: "sample_id",
+        clientId: "client_id",
+        serviceName: "service_name",
+        sampleType: "sample_type",
+        numberOfSamples: "no_of_samples",
+        sampleDeliveryDate: "sample_received_date",
+        extractionProtocol: "extraction_protocol",
+        extractionQualityCheck: "extraction_quality_check",
+        extractionQCStatus: "extraction_qc_status",
+        extractionProcess: "extraction_process",
+        libraryPreparationProtocol: "library_preparation_protocol",
+        libraryPreparationQualityCheck: "library_preparation_quality_check",
+        libraryQCStatus: "library_preparation_qc_status",
+        libraryProcess: "library_preparation_process",
+        purificationProtocol: "purification_protocol",
+        purificationQualityCheck: "purification_quality_check",
+        purificationQCStatus: "purification_qc_status",
+        purificationProcess: "purification_process",
+        alertToBioinformaticsTeam: "alert_to_bioinformatics_team",
+        alertToTechnicalLead: "alert_to_technical_lead",
+        progenicsTrf: "progenics_trf",
+        createdBy: "created_by",
+        remarksComment: "remark_comment"
+      };
+      const mappedData = {};
+      Object.keys(data).forEach((k) => {
+        const dbKey = fieldMapping[k] || k;
+        mappedData[dbKey] = data[k];
+      });
+      const keys = Object.keys(mappedData);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => mappedData[k]);
+      console.log("[Lab Process Clinical POST] Creating record with columns:", keys);
+      const [result] = await pool.execute(
+        `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
+        values
+      );
+      const insertId = result.insertId || null;
+      console.log("[Lab Process Clinical POST] Inserted with ID:", insertId);
+      if (insertId) {
+        const [rows] = await pool.execute("SELECT * FROM labprocess_clinical_sheet WHERE id = ?", [insertId]);
+        return res.json(rows[0] ?? { id: insertId });
+      }
+      res.json({ id: insertId });
+    } catch (error) {
+      console.error("[Lab Process Clinical POST] Error:", error.message);
+      res.status(500).json({ message: "Failed to create lab process clinical record", error: error.message });
+    }
+  });
+  app2.put("/api/labprocess-clinical-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("[Lab Process Clinical PUT] Request body:", JSON.stringify(req.body, null, 2));
+      const updates = normalizeDateFields(req.body);
+      if (updates.alertToBioinformaticsTeam !== void 0) {
+        updates.alertToBioinformaticsTeam = updates.alertToBioinformaticsTeam === 1 || updates.alertToBioinformaticsTeam === true;
+      }
+      if (updates.alertToTechnicalLead !== void 0) {
+        updates.alertToTechnicalLead = updates.alertToTechnicalLead === 1 || updates.alertToTechnicalLead === true;
+      }
+      console.log("[Lab Process Clinical PUT] Normalized updates:", JSON.stringify(updates, null, 2));
+      const result = insertLabProcessClinicalSheetSchema.partial().safeParse(updates);
+      if (!result.success) {
+        console.error("[Lab Process Clinical PUT] Validation failed:", result.error.errors);
+        return res.status(400).json({ message: "Invalid lab process data", errors: result.error.errors });
+      }
+      const validatedUpdates = result.data;
+      console.log("[Lab Process Clinical PUT] Validated updates:", JSON.stringify(validatedUpdates, null, 2));
+      const fieldMapping = {
+        titleUniqueId: "unique_id",
+        projectId: "project_id",
+        sampleId: "sample_id",
+        clientId: "client_id",
+        serviceName: "service_name",
+        sampleType: "sample_type",
+        numberOfSamples: "no_of_samples",
+        sampleDeliveryDate: "sample_received_date",
+        extractionProtocol: "extraction_protocol",
+        extractionQualityCheck: "extraction_quality_check",
+        extractionQCStatus: "extraction_qc_status",
+        extractionProcess: "extraction_process",
+        libraryPreparationProtocol: "library_preparation_protocol",
+        libraryPreparationQualityCheck: "library_preparation_quality_check",
+        libraryQCStatus: "library_preparation_qc_status",
+        libraryProcess: "library_preparation_process",
+        purificationProtocol: "purification_protocol",
+        purificationQualityCheck: "purification_quality_check",
+        purificationQCStatus: "purification_qc_status",
+        purificationProcess: "purification_process",
+        alertToBioinformaticsTeam: "alert_to_bioinformatics_team",
+        alertToTechnicalLead: "alert_to_technical_lead",
+        progenicsTrf: "progenics_trf",
+        createdAt: "created_at",
+        createdBy: "created_by",
+        modifiedAt: "modified_at",
+        modifiedBy: "modified_by",
+        remarksComment: "remark_comment"
+      };
+      const dbUpdates = {};
+      Object.keys(validatedUpdates).forEach((k) => {
+        const dbKey = fieldMapping[k] || k;
+        let value = validatedUpdates[k];
+        if (typeof value === "boolean") {
+          value = value ? 1 : 0;
+        }
+        dbUpdates[dbKey] = value;
+      });
+      const keys = Object.keys(dbUpdates);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => dbUpdates[k]);
+      values.push(id);
+      console.log("[Lab Process Clinical PUT] SQL Query:", `UPDATE labprocess_clinical_sheet SET ${set} WHERE id = ?`);
+      console.log("[Lab Process Clinical PUT] Query values:", values);
+      const result_query = await pool.execute(
+        `UPDATE labprocess_clinical_sheet SET ${set} WHERE id = ?`,
+        values
+      );
+      console.log("[Lab Process Clinical PUT] Update succeeded, fetching updated record");
+      const [rows] = await pool.execute("SELECT * FROM labprocess_clinical_sheet WHERE id = ?", [id]);
+      const updatedRecord = rows[0] ?? null;
+      console.log("[Lab Process Clinical PUT] Success! Updated record:", JSON.stringify(updatedRecord, null, 2));
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error("[Lab Process Clinical PUT] Error:", error.message, error.stack);
+      res.status(500).json({ message: "Failed to update lab process clinical record" });
+    }
+  });
+  app2.delete("/api/labprocess-clinical-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM labprocess_clinical_sheet WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete lab process clinical record", error.message);
+      res.status(500).json({ message: "Failed to delete lab process clinical record" });
+    }
+  });
+  app2.get("/api/bioinfo-discovery-sheet", async (_req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery ORDER BY created_at DESC");
+      res.json(rows || []);
+    } catch (error) {
+      console.error("Failed to fetch bioinformatics discovery sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch bioinformatics discovery sheet" });
+    }
+  });
+  app2.post("/api/bioinfo-discovery-sheet", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => data[k]);
+      const updateCols = keys.filter((k) => k !== "id").map((k) => `\`${k}\` = VALUES(\`${k}\`)`).join(",");
+      const upsertQuery = `
+        INSERT INTO bioinformatics_sheet_discovery (${cols}) 
+        VALUES (${placeholders})
+        ON DUPLICATE KEY UPDATE
+          ${updateCols},
+          modified_at = NOW()
+      `;
+      console.log("Upserting bioinformatics_sheet_discovery record with columns:", keys);
+      const [result] = await pool.execute(upsertQuery, values);
+      const recordId = result.insertId || data.id;
+      console.log("Upserted bioinformatics_sheet_discovery with ID:", recordId);
+      if (data.unique_id) {
+        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ?", [data.unique_id]);
+        return res.json(rows[0] ?? { id: recordId });
+      }
+      res.json({ id: recordId });
+    } catch (error) {
+      console.error("Failed to create/update bioinformatics discovery record", error.message);
+      res.status(500).json({ message: "Failed to create/update bioinformatics discovery record", error: error.message });
+    }
+  });
+  app2.put("/api/bioinfo-discovery-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => updates[k]);
+      values.push(id);
+      await pool.execute(
+        `UPDATE bioinformatics_sheet_discovery SET ${set} WHERE id = ?`,
+        values
+      );
+      const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE id = ?", [id]);
+      res.json(rows[0] ?? null);
+    } catch (error) {
+      console.error("Failed to update bioinformatics discovery record", error.message);
+      res.status(500).json({ message: "Failed to update bioinformatics discovery record" });
+    }
+  });
+  app2.delete("/api/bioinfo-discovery-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM bioinformatics_sheet_discovery WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete bioinformatics discovery record", error.message);
+      res.status(500).json({ message: "Failed to delete bioinformatics discovery record" });
+    }
+  });
+  app2.get("/api/bioinfo-clinical-sheet", async (_req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical ORDER BY created_at DESC");
+      res.json(rows || []);
+    } catch (error) {
+      console.error("Failed to fetch bioinformatics clinical sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch bioinformatics clinical sheet" });
+    }
+  });
+  app2.post("/api/bioinfo-clinical-sheet", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => data[k]);
+      const updateCols = keys.filter((k) => k !== "id").map((k) => `\`${k}\` = VALUES(\`${k}\`)`).join(",");
+      const upsertQuery = `
+        INSERT INTO bioinformatics_sheet_clinical (${cols}) 
+        VALUES (${placeholders})
+        ON DUPLICATE KEY UPDATE
+          ${updateCols},
+          modified_at = NOW()
+      `;
+      console.log("Upserting bioinformatics_sheet_clinical record with columns:", keys);
+      const [result] = await pool.execute(upsertQuery, values);
+      const recordId = result.insertId || data.id;
+      console.log("Upserted bioinformatics_sheet_clinical with ID:", recordId);
+      if (data.unique_id) {
+        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ?", [data.unique_id]);
+        return res.json(rows[0] ?? { id: recordId });
+      }
+      res.json({ id: recordId });
+    } catch (error) {
+      console.error("Failed to create/update bioinformatics clinical record", error.message);
+      res.status(500).json({ message: "Failed to create/update bioinformatics clinical record", error: error.message });
+    }
+  });
+  app2.put("/api/bioinfo-clinical-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => updates[k]);
+      values.push(id);
+      await pool.execute(
+        `UPDATE bioinformatics_sheet_clinical SET ${set} WHERE id = ?`,
+        values
+      );
+      const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE id = ?", [id]);
+      res.json(rows[0] ?? null);
+    } catch (error) {
+      console.error("Failed to update bioinformatics clinical record", error.message);
+      res.status(500).json({ message: "Failed to update bioinformatics clinical record" });
+    }
+  });
+  app2.delete("/api/bioinfo-clinical-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM bioinformatics_sheet_clinical WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error("Failed to delete bioinformatics clinical record", error.message);
+      res.status(500).json({ message: "Failed to delete bioinformatics clinical record" });
+    }
+  });
+  app2.post("/api/alert-lab-process", async (req, res) => {
+    try {
+      const { sampleId, projectId, uniqueId, sampleType, clientId, serviceName, sampleDeliveryDate, createdBy } = req.body;
+      console.log("Alert Lab Process triggered for sample:", sampleId, "Project ID:", projectId);
+      if (!projectId) {
+        return res.status(400).json({ message: "Project ID is required" });
+      }
+      const isDiscovery = projectId.startsWith("DG");
+      const isClinical = projectId.startsWith("PG");
+      console.log("Project ID analysis - Discovery:", isDiscovery, "Clinical:", isClinical);
+      if (!isDiscovery && !isClinical) {
+        return res.status(400).json({ message: "Project ID must start with DG (Discovery) or PG (Clinical)" });
+      }
+      let leadData = { service_name: serviceName, sample_type: sampleType };
+      try {
+        const [leadRows] = await pool.execute(
+          "SELECT service_name, sample_type, no_of_samples FROM lead_management WHERE unique_id = ? LIMIT 1",
+          [uniqueId]
+        );
+        if (leadRows && leadRows.length > 0) {
+          const lead = leadRows[0];
+          leadData.service_name = serviceName || lead.service_name || null;
+          leadData.sample_type = sampleType || lead.sample_type || null;
+          leadData.no_of_samples = lead.no_of_samples || null;
+          console.log("Fetched lead data from lead_management table:", leadData);
+        }
+      } catch (leadError) {
+        console.log("Note: Could not fetch lead data -", leadError.message);
+      }
+      const labProcessData = {
+        unique_id: uniqueId || "",
+        project_id: projectId,
+        sample_id: sampleId || null
+      };
+      if (clientId) labProcessData.client_id = clientId;
+      if (leadData.service_name) labProcessData.service_name = leadData.service_name;
+      if (leadData.sample_type) labProcessData.sample_type = leadData.sample_type;
+      if (leadData.no_of_samples) labProcessData.no_of_samples = leadData.no_of_samples;
+      if (sampleDeliveryDate) {
+        const dateObj = new Date(sampleDeliveryDate);
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(dateObj.getUTCDate()).padStart(2, "0");
+        labProcessData.sample_received_date = `${year}-${month}-${day}`;
+      }
+      labProcessData.created_by = createdBy || "system";
+      labProcessData.created_at = /* @__PURE__ */ new Date();
+      const keys = Object.keys(labProcessData);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => labProcessData[k]);
+      let insertResult;
+      let tableName;
+      if (isDiscovery) {
+        tableName = "labprocess_discovery_sheet";
+        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
+        const result = await pool.execute(
+          `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      } else {
+        tableName = "labprocess_clinical_sheet";
+        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
+        const result = await pool.execute(
+          `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      }
+      const insertId = insertResult.insertId || null;
+      console.log(`Inserted into ${tableName} with ID:`, insertId);
+      try {
+        await pool.execute(
+          "UPDATE sample_tracking SET alert_to_labprocess_team = ?, updated_at = ? WHERE id = ?",
+          [true, /* @__PURE__ */ new Date(), sampleId]
+        );
+        console.log("Updated sample_tracking flag for sample:", sampleId);
+      } catch (updateError) {
+        console.error("Warning: Failed to update sample_tracking flag", updateError.message);
+      }
+      res.json({
+        success: true,
+        recordId: insertId,
+        table: tableName,
+        message: `Lab process record created in ${tableName}`
+      });
+    } catch (error) {
+      console.error("Failed to alert lab process", error.message);
+      res.status(500).json({ message: "Failed to alert lab process", error: error.message });
+    }
+  });
+  app2.get("/api/process-master", async (req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM process_master_sheet");
+      res.json(rows || []);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch process master records" });
+    }
+  });
+  app2.post("/api/process-master", async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => data[k]);
+      const [result] = await pool.execute(`INSERT INTO process_master_sheet (${cols}) VALUES (${placeholders})`, values);
+      const insertId = result.insertId || null;
+      const [rows] = await pool.execute("SELECT * FROM process_master_sheet WHERE id = ?", [insertId]);
+      res.json(rows[0] ?? { id: insertId });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create process master record" });
+    }
+  });
+  app2.put("/api/process-master/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => updates[k]);
+      values.push(id);
+      await pool.execute(`UPDATE process_master_sheet SET ${set}, modified_at = NOW() WHERE id = ?`, values);
+      const [rows] = await pool.execute("SELECT * FROM process_master_sheet WHERE id = ?", [id]);
+      const result = rows[0] ?? null;
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update process master record" });
+    }
+  });
+  app2.delete("/api/process-master/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute("DELETE FROM process_master_sheet WHERE id = ?", [id]);
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete process master record" });
+    }
+  });
   app2.get("/api/project-samples", async (_req, res) => {
     try {
       try {
@@ -3254,7 +5214,7 @@ async function registerRoutes(app2) {
               }
             }
             if (!roleForId) roleForId = data.leadType || data.lead_type || "admin";
-            const uid = generateRoleId(String(roleForId));
+            const uid = await generateRoleId(String(roleForId));
             data.unique_id = uid;
             data.uniqueId = uid;
           }
@@ -3379,7 +5339,7 @@ async function registerRoutes(app2) {
   app2.get("/api/lab-process/discovery", async (_req, res) => {
     try {
       try {
-        const [rows] = await pool.execute("SELECT * FROM lab_process_discovery_sheet");
+        const [rows] = await pool.execute("SELECT * FROM labprocess_discovery_sheet");
         return res.json(rows);
       } catch (e) {
         const queue = await storage.getLabProcessingQueue();
@@ -3393,7 +5353,7 @@ async function registerRoutes(app2) {
   app2.get("/api/lab-process/clinical", async (_req, res) => {
     try {
       try {
-        const [rows] = await pool.execute("SELECT * FROM lab_process_clinical_sheet");
+        const [rows] = await pool.execute("SELECT * FROM labprocess_clinical_sheet");
         return res.json(rows);
       } catch (e) {
         const queue = await storage.getLabProcessingQueue();
@@ -3406,13 +5366,8 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/finance-sheet", async (req, res) => {
     try {
-      try {
-        const [rows] = await pool.execute("SELECT * FROM finance_sheet");
-        return res.json({ rows, total: Array.isArray(rows) ? rows.length : 0 });
-      } catch (e) {
-        const result = await storage.getFinanceRecords({ page: 1, pageSize: 1e3 });
-        return res.json(result);
-      }
+      const [rows] = await pool.execute("SELECT * FROM finance_sheet ORDER BY created_at DESC");
+      res.json(rows || []);
     } catch (error) {
       console.error("Failed to fetch finance sheet", error.message);
       res.status(500).json({ message: "Failed to fetch finance sheet" });
@@ -3420,60 +5375,122 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/finance-sheet", async (req, res) => {
     try {
-      try {
-        const data = req.body || {};
-        const keys = Object.keys(data);
-        const cols = keys.map((k) => `\`${k}\``).join(",");
-        const placeholders = keys.map(() => "?").join(",");
-        const values = keys.map((k) => data[k]);
-        const [result] = await pool.execute(`INSERT INTO finance_sheet (${cols}) VALUES (${placeholders})`, values);
-        const insertId = result.insertId || null;
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => data[k]);
+      console.log("Creating finance_sheet record with columns:", keys);
+      const [result] = await pool.execute(
+        `INSERT INTO finance_sheet (${cols}) VALUES (${placeholders})`,
+        values
+      );
+      const insertId = result.insertId || null;
+      console.log("Inserted finance_sheet with ID:", insertId);
+      if (insertId) {
         const [rows] = await pool.execute("SELECT * FROM finance_sheet WHERE id = ?", [insertId]);
         return res.json(rows[0] ?? { id: insertId });
-      } catch (e) {
-        const created = await storage.createFinanceRecord(req.body);
-        return res.json(created);
       }
+      res.json({ id: insertId });
     } catch (error) {
       console.error("Failed to create finance record", error.message);
-      res.status(500).json({ message: "Failed to create finance record" });
+      res.status(500).json({ message: "Failed to create finance record", error: error.message });
     }
   });
   app2.put("/api/finance-sheet/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      try {
-        const updates = req.body || {};
-        const keys = Object.keys(updates);
-        if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
-        const set = keys.map((k) => `\`${k}\` = ?`).join(",");
-        const values = keys.map((k) => updates[k]);
-        values.push(id);
-        await pool.execute(`UPDATE finance_sheet SET ${set} WHERE id = ?`, values);
-        const [rows] = await pool.execute("SELECT * FROM finance_sheet WHERE id = ?", [id]);
-        return res.json(rows[0] ?? null);
-      } catch (e) {
-        const updated = await storage.updateFinanceRecord(id, req.body);
-        return res.json(updated);
+      const updates = req.body || {};
+      const normalizeDateStrings = (obj) => {
+        if (!obj || typeof obj !== "object") return obj;
+        const copy = { ...obj };
+        const dateKeys = ["sampleCollectionDate", "invoiceDate", "paymentReceiptDate", "balanceAmountReceivedDate", "thirdPartyPaymentDate"];
+        const datetimeKeys = ["createdAt", "modifiedAt"];
+        const pad = (n) => String(n).padStart(2, "0");
+        for (const k of dateKeys) {
+          if (copy[k] && typeof copy[k] === "string") {
+            const d = new Date(copy[k]);
+            if (!isNaN(d.getTime())) {
+              copy[k] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+            }
+          }
+        }
+        for (const k of datetimeKeys) {
+          if (copy[k] && typeof copy[k] === "string") {
+            const d = new Date(copy[k]);
+            if (!isNaN(d.getTime())) {
+              copy[k] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            }
+          }
+        }
+        return copy;
+      };
+      const normalizedInput = normalizeDateStrings(updates);
+      if (Object.keys(normalizedInput).length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
       }
+      const snakeCaseUpdates = {};
+      Object.keys(normalizedInput).forEach((k) => {
+        const snakeKey = k.replace(/([A-Z])/g, "_$1").toLowerCase();
+        snakeCaseUpdates[snakeKey] = normalizedInput[k];
+      });
+      const keys = Object.keys(snakeCaseUpdates);
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => snakeCaseUpdates[k]);
+      values.push(id);
+      console.log("Updating finance_sheet ID:", id, "with fields:", keys);
+      await pool.execute(
+        `UPDATE finance_sheet SET ${set} WHERE id = ?`,
+        values
+      );
+      const [rows] = await pool.execute("SELECT * FROM finance_sheet WHERE id = ?", [id]);
+      const result = rows[0] ?? null;
+      console.log("Updated finance_sheet ID:", id);
+      res.json(result);
     } catch (error) {
       console.error("Failed to update finance record", error.message);
-      res.status(500).json({ message: "Failed to update finance record" });
+      res.status(500).json({ message: "Failed to update finance record", error: error.message });
     }
   });
   app2.delete("/api/finance-sheet/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      try {
-        await pool.execute("DELETE FROM finance_sheet WHERE id = ?", [id]);
-        return res.json({ id });
-      } catch (e) {
-        const ok = await storage.deleteFinanceRecord(id);
-        return res.json({ id, fallback: !!ok });
-      }
+      console.log("Deleting finance_sheet ID:", id);
+      await pool.execute("DELETE FROM finance_sheet WHERE id = ?", [id]);
+      res.json({ id });
     } catch (error) {
       console.error("Failed to delete finance record", error.message);
-      res.status(500).json({ message: "Failed to delete finance record" });
+      res.status(500).json({ message: "Failed to delete finance record", error: error.message });
+    }
+  });
+  app2.post("/api/finance-sheet/:id/upload-screenshot", uploadFinance.single("file"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const storagePath = `/uploads/finance/${file.filename}`;
+      const filename = file.originalname || file.filename;
+      const mimeType = file.mimetype || null;
+      const sizeBytes = file.size || null;
+      const uploadedBy = req.headers["x-user-id"] || req.body && req.body.uploaded_by || null;
+      const [result] = await pool.execute(
+        `INSERT INTO finance_sheet_attachments (finance_id, filename, storage_path, mime_type, size_bytes, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [id, filename, storagePath, mimeType, sizeBytes, uploadedBy, /* @__PURE__ */ new Date()]
+      );
+      const insertId = result.insertId || null;
+      try {
+        await pool.execute('UPDATE finance_sheet SET screenshot_document = ? WHERE id = ? AND (screenshot_document IS NULL OR screenshot_document = "")', [storagePath, id]);
+      } catch (e) {
+        console.warn("Failed to update finance_sheet.screenshot_document", e.message);
+      }
+      const [rows] = await pool.execute("SELECT * FROM finance_sheet_attachments WHERE id = ?", [insertId]);
+      const attachment = rows[0] ?? { id: insertId, filename, storage_path: storagePath };
+      res.json({ attachment, url: storagePath });
+    } catch (error) {
+      console.error("Finance screenshot upload failed:", error.message);
+      res.status(500).json({ message: "Failed to upload screenshot", error: error.message });
     }
   });
   app2.get("/api/bioinfo/discovery", async (_req, res) => {
@@ -3560,6 +5577,153 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to delete nutrition record" });
     }
   });
+  app2.get("/api/genetic-counselling-sheet", async (_req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM genetic_counselling_records ORDER BY created_at DESC");
+      console.log("Fetched genetic_counselling_records:", Array.isArray(rows) ? rows.length : 0, "records");
+      res.json(rows || []);
+    } catch (error) {
+      console.error("Failed to fetch genetic counselling sheet", error.message);
+      res.status(500).json({ message: "Failed to fetch genetic counselling sheet" });
+    }
+  });
+  app2.post("/api/genetic-counselling-sheet", async (req, res) => {
+    try {
+      const data = req.body || {};
+      console.log("[GC POST] Request body:", JSON.stringify(data, null, 2));
+      if (data.approval_from_head !== void 0) {
+        data.approval_from_head = data.approval_from_head === 1 || data.approval_from_head === true;
+      }
+      if (data.potential_patient_for_testing_in_future !== void 0) {
+        data.potential_patient_for_testing_in_future = data.potential_patient_for_testing_in_future === 1 || data.potential_patient_for_testing_in_future === true;
+      }
+      if (data.extended_family_testing_requirement !== void 0) {
+        data.extended_family_testing_requirement = data.extended_family_testing_requirement === 1 || data.extended_family_testing_requirement === true;
+      }
+      if (!data.created_at) {
+        data.created_at = /* @__PURE__ */ new Date();
+      }
+      const keys = Object.keys(data).filter((k) => k && data[k] !== void 0);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: "No data provided" });
+      }
+      const processedData = {};
+      keys.forEach((k) => {
+        let value = data[k];
+        if (typeof value === "boolean") {
+          value = value ? 1 : 0;
+        }
+        processedData[k] = value;
+      });
+      const processedKeys = Object.keys(processedData);
+      const cols = processedKeys.map((k) => `\`${k}\``).join(",");
+      const placeholders = processedKeys.map(() => "?").join(",");
+      const values = processedKeys.map((k) => processedData[k]);
+      console.log("[GC POST] Inserting with columns:", processedKeys);
+      console.log("[GC POST] SQL:", `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
+      console.log("[GC POST] Values:", values);
+      const [result] = await pool.execute(
+        `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+        values
+      );
+      const insertId = result.insertId || null;
+      console.log("[GC POST] Insert succeeded with ID:", insertId);
+      if (insertId) {
+        const [rows] = await pool.execute("SELECT * FROM genetic_counselling_records WHERE id = ?", [insertId]);
+        const createdRecord = rows[0] ?? { id: insertId };
+        console.log("[GC POST] Success! Created record:", JSON.stringify(createdRecord, null, 2));
+        return res.json(createdRecord);
+      }
+      res.json({ id: insertId });
+    } catch (error) {
+      console.error("[GC POST] Error:", error.message, error.stack);
+      res.status(500).json({ message: "Failed to create genetic counselling record", error: error.message });
+    }
+  });
+  app2.put("/api/genetic-counselling-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      console.log("[GC PUT] Request ID:", id);
+      console.log("[GC PUT] Request body:", JSON.stringify(updates, null, 2));
+      delete updates.id;
+      if (updates.approval_from_head !== void 0) {
+        updates.approval_from_head = updates.approval_from_head === 1 || updates.approval_from_head === true;
+      }
+      if (updates.potential_patient_for_testing_in_future !== void 0) {
+        updates.potential_patient_for_testing_in_future = updates.potential_patient_for_testing_in_future === 1 || updates.potential_patient_for_testing_in_future === true;
+      }
+      if (updates.extended_family_testing_requirement !== void 0) {
+        updates.extended_family_testing_requirement = updates.extended_family_testing_requirement === 1 || updates.extended_family_testing_requirement === true;
+      }
+      updates.modified_at = /* @__PURE__ */ new Date();
+      const keys = Object.keys(updates).filter((k) => updates[k] !== void 0);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+      const processedUpdates = {};
+      keys.forEach((k) => {
+        let value = updates[k];
+        if (typeof value === "boolean") {
+          value = value ? 1 : 0;
+        }
+        processedUpdates[k] = value;
+      });
+      const decimalFieldPairs = [
+        ["budget_for_test_opted", "budgetForTestOpted"],
+        ["budget", "budget"]
+      ];
+      for (const [snake, camel] of decimalFieldPairs) {
+        if (Object.prototype.hasOwnProperty.call(processedUpdates, snake) || Object.prototype.hasOwnProperty.call(processedUpdates, camel)) {
+          const key = Object.prototype.hasOwnProperty.call(processedUpdates, snake) ? snake : camel;
+          const v = processedUpdates[key];
+          if (v === "" || v === null || v === void 0) {
+            processedUpdates[key] = null;
+          } else {
+            const n = Number(v);
+            processedUpdates[key] = Number.isNaN(n) ? null : n;
+          }
+        }
+      }
+      console.log("[GC PUT] Incoming updates (after preliminary processing):", updates);
+      console.log("[GC PUT] Processed updates (after coercion):", processedUpdates);
+      const processedKeys = Object.keys(processedUpdates);
+      const set = processedKeys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = processedKeys.map((k) => processedUpdates[k]);
+      values.push(id);
+      console.log("[GC PUT] SQL Query:", `UPDATE genetic_counselling_records SET ${set} WHERE id = ?`);
+      console.log("[GC PUT] Values:", values);
+      const result = await pool.execute(
+        `UPDATE genetic_counselling_records SET ${set} WHERE id = ?`,
+        values
+      );
+      const [rows] = await pool.execute("SELECT * FROM genetic_counselling_records WHERE id = ?", [id]);
+      const updatedRecord = rows[0] ?? null;
+      console.log("[GC PUT] Success! Updated record:", JSON.stringify(updatedRecord, null, 2));
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error("[GC PUT] Error:", error.message, error.stack);
+      res.status(500).json({ message: "Failed to update genetic counselling record", error: error.message });
+    }
+  });
+  app2.delete("/api/genetic-counselling-sheet/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log("[GC DELETE] Deleting record ID:", id);
+      const [checkRows] = await pool.execute("SELECT id FROM genetic_counselling_records WHERE id = ?", [id]);
+      if (checkRows.length === 0) {
+        console.log("[GC DELETE] Record not found, ID:", id);
+        return res.status(404).json({ message: "Record not found" });
+      }
+      const result = await pool.execute("DELETE FROM genetic_counselling_records WHERE id = ?", [id]);
+      console.log("[GC DELETE] Delete result:", result);
+      console.log("[GC DELETE] Successfully deleted record ID:", id);
+      res.json({ id });
+    } catch (error) {
+      console.error("[GC DELETE] Error:", error.message, error.stack);
+      res.status(500).json({ message: "Failed to delete genetic counselling record", error: error.message });
+    }
+  });
   app2.get("/api/gc-registration", async (_req, res) => {
     try {
       const rows = await storage.getGeneticCounselling();
@@ -3572,16 +5736,7 @@ async function registerRoutes(app2) {
   app2.post("/api/gc-registration", async (req, res) => {
     try {
       const body = req.body || {};
-      const created = await storage.createGeneticCounselling({
-        sampleId: body.sample_id || body.sampleId || "",
-        gcName: body.gc_name || body.gcName || "",
-        counsellingType: body.counselling_type || body.counsellingType || void 0,
-        counsellingStartTime: body.counselling_start_time || body.counsellingStartTime || void 0,
-        counsellingEndTime: body.counselling_end_time || body.counsellingEndTime || void 0,
-        gcSummary: body.gc_summary || body.gcSummary || void 0,
-        extendedFamilyTesting: body.extended_family_testing ?? body.extendedFamilyTesting ?? false,
-        approvalStatus: body.approval_status || body.approvalStatus || "pending"
-      });
+      const created = await storage.createGeneticCounselling(body);
       res.json(created);
     } catch (error) {
       console.error("Failed to create gc registration", error.message);
@@ -3592,16 +5747,7 @@ async function registerRoutes(app2) {
     try {
       const { id } = req.params;
       const updates = req.body || {};
-      const updated = await storage.updateGeneticCounselling(id, {
-        sampleId: updates.sample_id || updates.sampleId,
-        gcName: updates.gc_name || updates.gcName,
-        counsellingType: updates.counselling_type || updates.counsellingType,
-        counsellingStartTime: updates.counselling_start_time || updates.counsellingStartTime,
-        counsellingEndTime: updates.counselling_end_time || updates.counsellingEndTime,
-        gcSummary: updates.gc_summary || updates.gcSummary,
-        extendedFamilyTesting: updates.extended_family_testing ?? updates.extendedFamilyTesting,
-        approvalStatus: updates.approval_status || updates.approvalStatus
-      });
+      const updated = await storage.updateGeneticCounselling(id, updates);
       if (!updated) return res.status(404).json({ message: "Record not found" });
       res.json(updated);
     } catch (error) {
@@ -3756,14 +5902,14 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/sharepoint/scan", async (_req, res) => {
     try {
-      const dir = process.env.SHEETS_DIR || path.resolve(process.cwd(), "sharepoint sheets");
-      if (!fs.existsSync(dir)) {
+      const dir = process.env.SHEETS_DIR || path2.resolve(process.cwd(), "sharepoint sheets");
+      if (!fs2.existsSync(dir)) {
         return res.status(404).json({ message: `Directory not found: ${dir}` });
       }
-      const files = fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".xlsx") || f.toLowerCase().endsWith(".xls"));
+      const files = fs2.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".xlsx") || f.toLowerCase().endsWith(".xls"));
       const result = [];
       for (const file of files) {
-        const full = path.join(dir, file);
+        const full = path2.join(dir, file);
         try {
           const wb = xlsx.readFile(full, { cellDates: true });
           const sheets = wb.SheetNames.map((name) => {
@@ -3788,9 +5934,9 @@ async function registerRoutes(app2) {
       if (!fileName) {
         return res.status(400).json({ message: "fileName is required" });
       }
-      const dir = process.env.SHEETS_DIR || path.resolve(process.cwd(), "sharepoint sheets");
-      const full = path.join(dir, fileName);
-      if (!fs.existsSync(full)) {
+      const dir = process.env.SHEETS_DIR || path2.resolve(process.cwd(), "sharepoint sheets");
+      const full = path2.join(dir, fileName);
+      if (!fs2.existsSync(full)) {
         return res.status(404).json({ message: `File not found: ${fileName}` });
       }
       const wb = xlsx.readFile(full, { cellDates: true });
@@ -3875,9 +6021,9 @@ async function registerRoutes(app2) {
       if (!fileName) {
         return res.status(400).json({ message: "fileName is required" });
       }
-      const dir = process.env.SHEETS_DIR || path.resolve(process.cwd(), "sharepoint sheets");
-      const full = path.join(dir, fileName);
-      if (!fs.existsSync(full)) {
+      const dir = process.env.SHEETS_DIR || path2.resolve(process.cwd(), "sharepoint sheets");
+      const full = path2.join(dir, fileName);
+      if (!fs2.existsSync(full)) {
         return res.status(404).json({ message: `File not found: ${fileName}` });
       }
       const wb = xlsx.readFile(full, { cellDates: true });
@@ -3937,9 +6083,9 @@ async function registerRoutes(app2) {
       if (!fileName) {
         return res.status(400).json({ message: "fileName is required" });
       }
-      const dir = process.env.SHEETS_DIR || path.resolve(process.cwd(), "sharepoint sheets");
-      const full = path.join(dir, fileName);
-      if (!fs.existsSync(full)) {
+      const dir = process.env.SHEETS_DIR || path2.resolve(process.cwd(), "sharepoint sheets");
+      const full = path2.join(dir, fileName);
+      if (!fs2.existsSync(full)) {
         return res.status(404).json({ message: `File not found: ${fileName}` });
       }
       const wb = xlsx.readFile(full, { cellDates: true });
@@ -3997,9 +6143,9 @@ async function registerRoutes(app2) {
       if (!fileName) {
         return res.status(400).json({ message: "fileName is required" });
       }
-      const dir = process.env.SHEETS_DIR || path.resolve(process.cwd(), "sharepoint sheets");
-      const full = path.join(dir, fileName);
-      if (!fs.existsSync(full)) {
+      const dir = process.env.SHEETS_DIR || path2.resolve(process.cwd(), "sharepoint sheets");
+      const full = path2.join(dir, fileName);
+      if (!fs2.existsSync(full)) {
         return res.status(404).json({ message: `File not found: ${fileName}` });
       }
       const wb = xlsx.readFile(full, { cellDates: true });
@@ -4059,37 +6205,42 @@ async function registerRoutes(app2) {
 
 // server/vite.ts
 import express from "express";
-import fs2 from "fs";
-import path3 from "path";
+import fs3 from "fs";
+import path4 from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path2 from "path";
+import path3 from "path";
 import { fileURLToPath } from "url";
 var __filename = fileURLToPath(import.meta.url);
-var __dirname = path2.dirname(__filename);
+var __dirname = path3.dirname(__filename);
 var vite_config_default = defineConfig({
   plugins: [
     react()
   ],
   resolve: {
     alias: {
-      "@": path2.resolve(__dirname, "client", "src"),
-      "@shared": path2.resolve(__dirname, "shared")
+      "@": path3.resolve(__dirname, "client", "src"),
+      "@shared": path3.resolve(__dirname, "shared")
       // "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     }
   },
-  root: path2.resolve(__dirname, "client"),
+  root: path3.resolve(__dirname, "client"),
   build: {
-    outDir: path2.resolve(__dirname, "dist/public"),
+    outDir: path3.resolve(__dirname, "dist/public"),
     emptyOutDir: true
   },
   server: {
     fs: {
       strict: true,
       deny: ["**/.*"]
+    },
+    watch: {
+      usePolling: true,
+      interval: 1e3,
+      ignored: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/uploads/**"]
     }
   }
 });
@@ -4098,7 +6249,7 @@ var vite_config_default = defineConfig({
 import { nanoid } from "nanoid";
 import { fileURLToPath as fileURLToPath2 } from "url";
 var __filename2 = fileURLToPath2(import.meta.url);
-var __dirname2 = path3.dirname(__filename2);
+var __dirname2 = path4.dirname(__filename2);
 var viteLogger = createLogger();
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
@@ -4125,15 +6276,18 @@ async function setupVite(app2, server) {
         process.exit(1);
       }
     },
-    server: serverOptions,
+    server: {
+      ...vite_config_default.server,
+      ...serverOptions
+    },
     appType: "custom"
   });
   app2.use(vite.middlewares);
   app2.use("*", async (req, res, next) => {
     const url = req.originalUrl;
     try {
-      const clientTemplate = path3.resolve(__dirname2, "..", "client", "index.html");
-      let template = await fs2.promises.readFile(clientTemplate, "utf-8");
+      const clientTemplate = path4.resolve(__dirname2, "..", "client", "index.html");
+      let template = await fs3.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -4147,15 +6301,15 @@ async function setupVite(app2, server) {
   });
 }
 function serveStatic(app2) {
-  const distPath = path3.resolve(__dirname2, "public");
-  if (!fs2.existsSync(distPath)) {
+  const distPath = path4.resolve(__dirname2, "public");
+  if (!fs3.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
   app2.use(express.static(distPath));
   app2.use("*", (_req, res) => {
-    res.sendFile(path3.resolve(distPath, "index.html"));
+    res.sendFile(path4.resolve(distPath, "index.html"));
   });
 }
 
@@ -4364,28 +6518,22 @@ var LeadManagementModule = class extends AbstractModule {
   async validateSchema() {
     try {
       const connection = await mysql3.createConnection({
-        host: process.env.DB_HOST || "192.168.29.12",
+        host: process.env.DB_HOST || "192.168.29.11",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-        database: process.env.DB_NAME || "leadlab_lims"
+        database: process.env.DB_NAME || "lead_lims2"
       });
-      const [rows] = await connection.execute("DESCRIBE leads");
+      const [rows] = await connection.execute("DESCRIBE lead_management");
       await connection.end();
       const columns = rows.map((row) => row.Field);
       const requiredColumns = [
         "id",
-        "organization",
-        "location",
-        "referred_doctor",
-        "phone",
-        "email",
-        "client_email",
-        "test_name",
-        "sample_type",
-        "amount_quoted",
-        "tat",
+        "unique_id",
+        "project_id",
+        "lead_type",
         "status",
-        "category"
+        "organisation_hospital",
+        "patient_client_name"
       ];
       const hasAllColumns = requiredColumns.every(
         (col) => columns.includes(col.replace(/([A-Z])/g, "_$1").toLowerCase())
@@ -4433,12 +6581,22 @@ var LeadManagementModule = class extends AbstractModule {
               }
             }
             if (!roleForId) roleForId = bodyCopy.leadType || bodyCopy.lead_type || "admin";
-            const uid = generateRoleId(String(roleForId));
+            const uid = await generateRoleId(String(roleForId));
             bodyCopy.unique_id = uid;
             bodyCopy.uniqueId = uid;
           }
         } catch (e) {
           console.warn("generateRoleId failed for /api/leads", e);
+        }
+        try {
+          if (!bodyCopy.projectId && !bodyCopy.project_id) {
+            const category = bodyCopy.testCategory || bodyCopy.category || bodyCopy.lead_type || "clinical";
+            const projectId = await generateProjectId(String(category));
+            bodyCopy.projectId = projectId;
+            bodyCopy.project_id = projectId;
+          }
+        } catch (e) {
+          console.warn("generateProjectId failed for /api/leads", e);
         }
         const dateKeys = ["dateSampleCollected", "pickupUpto", "dateSampleReceived", "pickupDate", "sampleShippedDate"];
         for (const k of dateKeys) {
@@ -4455,12 +6613,105 @@ var LeadManagementModule = class extends AbstractModule {
           });
         }
         const lead = await this.storage.createLead(result.data);
-        console.log("Lead created in module, sending notification for:", lead.id, lead.organization);
+        console.log("Lead nutritionalCounsellingRequired check:", lead.nutritionalCounsellingRequired, "Type:", typeof lead.nutritionalCounsellingRequired);
+        if (lead.nutritionalCounsellingRequired === true) {
+          try {
+            const [existingNM] = await pool.execute(
+              "SELECT id FROM nutritional_management WHERE unique_id = ? LIMIT 1",
+              [lead.uniqueId]
+            );
+            if (existingNM && existingNM.length > 0) {
+              console.log("Nutrition record already exists for unique_id:", lead.uniqueId, "- skipping auto-creation");
+            } else {
+              console.log("TRIGGERING nutritional management auto-creation for lead:", lead.id);
+              const nutritionData = {
+                unique_id: lead.uniqueId || "",
+                project_id: lead.projectId || null,
+                service_name: lead.serviceName || null,
+                patient_client_name: lead.patientClientName || null,
+                age: lead.age ? Number(lead.age) : null,
+                gender: lead.gender || null,
+                created_by: lead.leadCreatedBy || "system",
+                created_at: /* @__PURE__ */ new Date()
+              };
+              console.log("Auto-creating nutritional record with data:", {
+                unique_id: nutritionData.unique_id,
+                patient_client_name: nutritionData.patient_client_name,
+                age: nutritionData.age,
+                service_name: nutritionData.service_name
+              });
+              const keys = Object.keys(nutritionData);
+              const cols = keys.map((k) => `\`${k}\``).join(",");
+              const placeholders = keys.map(() => "?").join(",");
+              const values = keys.map((k) => nutritionData[k]);
+              console.log("Executing SQL:", `INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`);
+              console.log("With values:", values);
+              const [result2] = await pool.execute(
+                `INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`,
+                values
+              );
+              console.log("SQL execution result:", result2);
+              console.log("Auto-created nutritional record for lead:", lead.id, "NM Record ID:", result2.insertId);
+            }
+          } catch (err) {
+            console.error("Failed to auto-create nutritional record for lead:", err.message);
+            console.error("Stack trace:", err.stack);
+          }
+        }
+        console.log("Lead geneticCounselorRequired check:", lead.geneticCounselorRequired, "Lead keys:", Object.keys(lead).filter((k) => k.includes("genetic")));
+        if (lead.geneticCounselorRequired) {
+          try {
+            console.log("TRIGGERING genetic counselling auto-creation for lead:", lead.id);
+            const gcData = {
+              unique_id: lead.uniqueId || "",
+              project_id: lead.projectId || null,
+              patient_client_name: lead.patientClientName || null,
+              patient_client_address: lead.patientClientAddress || null,
+              age: lead.age ? Number(lead.age) : null,
+              gender: lead.gender || null,
+              patient_client_email: lead.patientClientEmail || null,
+              patient_client_phone: lead.patientClientPhone || null,
+              clinician_researcher_name: lead.clinicianResearcherName || null,
+              organisation_hospital: lead.organisationHospital || null,
+              speciality: lead.speciality || null,
+              service_name: lead.serviceName || null,
+              budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
+              sample_type: lead.sampleType || null,
+              sales_responsible_person: lead.salesResponsiblePerson || null,
+              created_by: lead.leadCreatedBy || "system",
+              created_at: /* @__PURE__ */ new Date()
+            };
+            console.log("Auto-creating genetic counselling record with data:", {
+              unique_id: gcData.unique_id,
+              patient_client_name: gcData.patient_client_name,
+              patient_client_address: gcData.patient_client_address,
+              age: gcData.age,
+              service_name: gcData.service_name,
+              sample_type: gcData.sample_type
+            });
+            const keys = Object.keys(gcData);
+            const cols = keys.map((k) => `\`${k}\``).join(",");
+            const placeholders = keys.map(() => "?").join(",");
+            const values = keys.map((k) => gcData[k]);
+            console.log("Executing SQL:", `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
+            console.log("With values:", values);
+            const [result2] = await pool.execute(
+              `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            console.log("SQL execution result:", result2);
+            console.log("Auto-created genetic counselling record for lead:", lead.id, "GC Record ID:", result2.insertId);
+          } catch (err) {
+            console.error("Failed to auto-create genetic counselling record for lead:", err.message);
+            console.error("Stack trace:", err.stack);
+          }
+        }
+        console.log("Lead created in module, sending notification for:", lead.id, lead.organisationHospital);
         try {
           await notificationService.notifyLeadCreated(
             lead.id,
-            lead.organization,
-            lead.createdBy || "system"
+            String(lead.organisationHospital ?? ""),
+            lead.leadCreatedBy ?? "system"
           );
           console.log("Lead creation notification sent successfully from module");
         } catch (notificationError) {
@@ -4562,14 +6813,14 @@ var LeadManagementModule = class extends AbstractModule {
           if (conversion.lead && conversion.sample) {
             await notificationService.notifyLeadConverted(
               conversion.lead.id,
-              conversion.lead.organization,
-              conversion.sample.id,
-              conversion.lead.createdBy || "system"
+              String(conversion.lead.organisationHospital ?? ""),
+              String(conversion.sample.id),
+              conversion.lead.leadCreatedBy || "system"
             );
             await notificationService.notifySampleReceived(
-              conversion.sample.id,
-              conversion.lead.organization,
-              conversion.lead.createdBy || "system"
+              String(conversion.sample.id),
+              String(conversion.lead.organisationHospital ?? ""),
+              conversion.lead.leadCreatedBy || "system"
             );
             console.log("Lead conversion notifications sent successfully from module");
           }
@@ -4624,10 +6875,10 @@ var SampleTrackingModule = class extends AbstractModule {
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
         database: process.env.DB_NAME || "leadlab_lims"
       });
-      const [rows] = await connection.execute("DESCRIBE samples");
+      const [rows] = await connection.execute("DESCRIBE sample_tracking");
       await connection.end();
       const columns = rows.map((row) => row.Field);
-      const requiredColumns = ["id", "sample_id", "lead_id", "status", "amount", "paid_amount"];
+      const requiredColumns = ["id", "unique_id", "project_id", "tracking_id", "organisation_hospital"];
       const hasAllColumns = requiredColumns.every((col) => columns.includes(col));
       console.log(`Sample Tracking Schema Check: ${hasAllColumns ? "\u2705" : "\u274C"}`);
       return hasAllColumns;
@@ -4886,7 +7137,7 @@ var DashboardModule = class extends AbstractModule {
       const [tables] = await connection.execute("SHOW TABLES");
       await connection.end();
       const tableNames = tables.map((row) => Object.values(row)[0]);
-      const requiredTables = ["leads", "samples", "users"];
+      const requiredTables = ["lead_management", "sample_tracking", "users"];
       const hasAllTables = requiredTables.every((table) => tableNames.includes(table));
       console.log(`Dashboard Schema Check: ${hasAllTables ? "\u2705" : "\u274C"}`);
       return hasAllTables;
@@ -4916,13 +7167,12 @@ var DashboardModule = class extends AbstractModule {
             database: process.env.DB_NAME || "leadlab_lims"
           });
           const [leadRows] = await connection.execute(`
-            SELECT COUNT(*) as count FROM leads 
+            SELECT COUNT(*) as count FROM lead_management 
             WHERE status IN ('quoted', 'cold', 'hot', 'won')
           `);
           stats.activeLeads = leadRows[0]?.count || 0;
           const [sampleRows] = await connection.execute(`
-            SELECT COUNT(*) as count FROM samples 
-            WHERE status IN ('pickup_scheduled', 'in_transit', 'received', 'lab_processing', 'bioinformatics', 'reporting')
+            SELECT COUNT(*) as count FROM sample_tracking
           `);
           stats.samplesProcessing = sampleRows[0]?.count || 0;
           const [reportRows] = await connection.execute(`
@@ -4931,9 +7181,8 @@ var DashboardModule = class extends AbstractModule {
           `);
           stats.reportsPending = reportRows[0]?.count || 0;
           const [revenueRows] = await connection.execute(`
-            SELECT COALESCE(SUM(amount - COALESCE(paid_amount, 0)), 0) as pending
-            FROM samples 
-            WHERE amount > COALESCE(paid_amount, 0)
+            SELECT COALESCE(SUM(sample_shipment_amount), 0) as pending
+            FROM sample_tracking
           `);
           stats.pendingRevenue = parseFloat(revenueRows[0]?.pending || 0);
           await connection.end();
@@ -5005,56 +7254,40 @@ var FinanceModule = class extends AbstractModule {
     const offset = (page - 1) * pageSize;
     const like = `%${query}%`;
     const searchCols = [
+      "fr.unique_id",
       "fr.invoice_number",
-      "fr.id",
-      "fr.sample_id",
-      "s.sample_id",
-      "fr.patient_name",
-      "fr.organization",
-      "l.organization",
-      "fr.title_unique_id",
-      "lp.title_unique_id",
-      "fr.clinician",
-      "l.referred_doctor",
-      "fr.city",
-      "l.location",
+      "fr.patient_client_name",
+      "fr.organisation_hospital",
       "fr.service_name",
-      "l.service_name",
-      "fr.patient_name",
-      "l.patient_client_name",
       "fr.sales_responsible_person",
-      "l.sales_responsible_person",
-      "fr.payment_status",
-      "fr.payment_method",
-      "COALESCE(fr.title_unique_id, lp.title_unique_id)"
+      "fr.mode_of_payment",
+      "fr.transactional_number",
+      "fr.third_party_name",
+      "s.organisation_hospital",
+      "s.patient_client_name",
+      "l.organisation_hospital",
+      "l.patient_client_name"
     ];
     const whereClauses = searchCols.map((col) => `${col} LIKE ?`);
     const whereClause = `WHERE ${whereClauses.join(" OR ")}`;
     const orderClause = sortBy ? `ORDER BY ${sortBy} ${sortDir.toUpperCase()}` : "ORDER BY fr.created_at DESC";
     const sql3 = `
       SELECT 
-        fr.*,
-        s.id as s_id,
-        s.sample_id as s_sample_id,
-        s.*,
-        l.*,
-        lp.title_unique_id as lp_title_unique_id,
-        COALESCE(fr.title_unique_id, lp.title_unique_id) as effective_title_unique_id
-      FROM finance_records fr
-      LEFT JOIN samples s ON fr.sample_id = s.id OR fr.lead_id = s.lead_id
-      LEFT JOIN leads l ON fr.lead_id = l.id OR s.lead_id = l.id
-      LEFT JOIN lab_processing lp ON (s.id = lp.sample_id OR fr.sample_id = lp.sample_id)
+        fr.*, 
+        s.organisation_hospital AS sample_organisation,
+        l.organisation_hospital AS lead_organisation
+      FROM finance_sheet fr
+      LEFT JOIN sample_tracking s ON s.project_id = fr.project_id
+      LEFT JOIN lead_management l ON l.project_id = fr.project_id
       ${whereClause}
-      GROUP BY fr.id
       ${orderClause}
       LIMIT ? OFFSET ?
     `;
     const countSql = `
       SELECT COUNT(DISTINCT fr.id) as cnt
-      FROM finance_records fr
-      LEFT JOIN samples s ON fr.sample_id = s.id OR fr.lead_id = s.lead_id
-      LEFT JOIN leads l ON fr.lead_id = l.id OR s.lead_id = l.id
-      LEFT JOIN lab_processing lp ON (s.id = lp.sample_id OR fr.sample_id = lp.sample_id)
+      FROM finance_sheet fr
+      LEFT JOIN sample_tracking s ON s.project_id = fr.project_id
+      LEFT JOIN lead_management l ON l.project_id = fr.project_id
       ${whereClause}
     `;
     try {
@@ -5090,10 +7323,10 @@ var FinanceModule = class extends AbstractModule {
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
         database: process.env.DB_NAME || "leadlab_lims"
       });
-      const [rows] = await connection.execute("DESCRIBE finance_records");
+      const [rows] = await connection.execute("DESCRIBE finance_sheet");
       await connection.end();
       const columns = rows.map((row) => row.Field);
-      const requiredColumns = ["id", "sample_id", "lead_id", "invoice_number", "amount", "payment_status"];
+      const requiredColumns = ["id", "unique_id", "project_id", "invoice_number", "organisation_hospital"];
       const hasAllColumns = requiredColumns.every((col) => columns.includes(col));
       console.log(`Finance Schema Check: ${hasAllColumns ? "\u2705" : "\u274C"}`);
       return hasAllColumns;
@@ -5435,9 +7668,9 @@ var ModuleManager = class {
   getModuleTables(moduleName) {
     const tables = {
       "authentication": ["users"],
-      "lead-management": ["leads"],
-      "sample-tracking": ["samples"],
-      "finance": ["finance_records"],
+      "lead-management": ["lead_management"],
+      "sample-tracking": ["sample_tracking"],
+      "finance": ["finance_sheet"],
       "dashboard": []
       // Aggregates from other tables
     };
@@ -5484,7 +7717,7 @@ app.use((req, _res, next) => {
 });
 app.use((req, res, next) => {
   const start = Date.now();
-  const path4 = req.path;
+  const path5 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -5493,8 +7726,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path4.startsWith("/api")) {
-      let logLine = `${req.method} ${path4} ${res.statusCode} in ${duration}ms`;
+    if (path5.startsWith("/api")) {
+      let logLine = `${req.method} ${path5} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }

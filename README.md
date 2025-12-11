@@ -22,6 +22,7 @@ A comprehensive Laboratory Information Management System (LIMS) designed to hand
 
 ### User Management
 - **Role-based Access**: Sales, Operations, Finance, Lab, Bioinformatics, Reporting, Manager, Admin
+ - **Role-based Access**: Sales, Operations, Finance, Lab, Bioinformatics, Reporting, Nutritionist, Manager, Admin
 - **Authentication**: Secure login system
 - **Dashboard**: Real-time statistics and notifications
 
@@ -51,7 +52,7 @@ users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  role VARCHAR(100) NOT NULL, -- sales, operations, finance, lab, bioinformatics, reporting, manager, admin
+  role VARCHAR(100) NOT NULL, -- sales, operations, finance, lab, bioinformatics, reporting, nutritionist, manager, admin
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   last_login TIMESTAMP

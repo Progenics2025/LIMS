@@ -3,7 +3,7 @@ CREATE TABLE nutritional_management (
 
     -- Identifiers
     unique_id VARCHAR(255) NOT NULL,
-    project_id BIGINT UNSIGNED NULL,
+    project_id VARCHAR(255) NULL,
     sample_id VARCHAR(255) NULL,
 
     -- Patient details

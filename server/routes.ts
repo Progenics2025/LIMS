@@ -3,17 +3,20 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { notificationService } from "./services/NotificationService";
-import { 
-  insertUserSchema, 
-  insertLeadSchema, 
-  insertSampleSchema, 
-  insertLabProcessingSchema, 
+import {
+  insertUserSchema,
+  insertLeadSchema,
+  insertSampleSchema,
+  insertLabProcessingSchema,
   insertReportSchema,
   insertFinanceRecordSchema,
   insertLogisticsTrackingSchema,
   insertPricingSchema,
   insertSalesActivitySchema,
-  insertClientSchema
+  insertClientSchema,
+  insertLabProcessDiscoverySheetSchema,
+  insertLabProcessClinicalSheetSchema,
+  insertNutritionalManagementSchema
 } from "@shared/schema";
 import path from "path";
 import fs from "fs";
@@ -21,6 +24,7 @@ import { db, pool } from './db';
 import { sql } from 'drizzle-orm';
 import { generateRoleId } from './lib/generateRoleId';
 import { generateProjectId } from './lib/generateProjectId';
+import { ensureUploadDirectories, handleFileUpload } from './lib/uploadHandler';
 import xlsx from "xlsx";
 import { ZodError } from 'zod';
 import multer from 'multer';
@@ -35,7 +39,16 @@ const storageM = multer.diskStorage({
   filename: function (_req: any, file: any, cb: any) { const unique = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-]/g, '_')}`; cb(null, unique); }
 });
 const uploadDisk = multer({ storage: storageM, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
-const uploadMemory = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Finance-specific uploads directory and multer instance
+const financeUploadsDir = path.join(uploadsDir, 'finance');
+if (!fs.existsSync(financeUploadsDir)) fs.mkdirSync(financeUploadsDir, { recursive: true });
+const storageFinance = multer.diskStorage({
+  destination: function (_req: any, _file: any, cb: any) { cb(null, financeUploadsDir); },
+  filename: function (_req: any, file: any, cb: any) { const unique = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-]/g, '_')}`; cb(null, unique); }
+});
+const uploadFinance = multer({ storage: storageFinance, limits: { fileSize: 20 * 1024 * 1024 } }); // 20MB limit for finance uploads
+
 
 function formatZodErrors(err: ZodError) {
   const out: Record<string, string[]> = {};
@@ -54,7 +67,9 @@ function normalizeDateFields(obj: any) {
   // include sample-related date fields added in the client
   const dateKeys = [
     'dateSampleReceived', 'dateSampleCollected', 'pickupUpto', 'pickupDate', 'createdAt', 'convertedAt',
-    'sampleCollectedDate', 'sampleShippedDate', 'sampleDeliveryDate', 'thirdPartySentDate', 'thirdPartyReceivedDate'
+    'sampleCollectedDate', 'sampleShippedDate', 'sampleDeliveryDate', 'thirdPartySentDate', 'thirdPartyReceivedDate',
+    'sampleCollectionDate', 'sampleDeliveryDate', 'sampleSentToThirdPartyDate', 'sampleReceivedToThirdPartyDate',
+    'leadCreated', 'leadModified', 'deliveryUpTo', 'sampleReceivedDate'
   ];
   // helper to try several parsing strategies for a date-string
   const tryParseDate = (val: string) => {
@@ -93,12 +108,200 @@ function normalizeDateFields(obj: any) {
   return copy;
 }
 
+// ============================================================================
+// BIDIRECTIONAL SYNC HELPERS: Lead Management <-> Process Master
+// ============================================================================
+
+// Helper function to sync lead data to ProcessMaster table
+async function syncLeadToProcessMaster(lead: any, isUpdate: boolean = false) {
+  try {
+    console.log('[Sync Debug] syncLeadToProcessMaster called with lead:', {
+      id: lead.id,
+      uniqueId: lead.uniqueId || lead.unique_id,
+      projectId: lead.projectId || lead.project_id,
+      isUpdate
+    });
+
+    // Build ProcessMaster record from lead data - include ALL available fields
+    const pmRecord = {
+      unique_id: lead.uniqueId || lead.unique_id,
+      project_id: lead.projectId || lead.project_id,
+      sample_id: lead.sampleId || lead.sample_id || null,
+      client_id: lead.clientId || lead.client_id || null,
+      organisation_hospital: lead.organisationHospital || lead.organisation_hospital || null,
+      clinician_researcher_name: lead.clinicianResearcherName || lead.clinician_researcher_name || null,
+      speciality: lead.speciality || null,
+      clinician_researcher_email: lead.clinicianResearcherEmail || lead.clinician_researcher_email || null,
+      clinician_researcher_phone: lead.clinicianResearcherPhone || lead.clinician_researcher_phone || null,
+      clinician_researcher_address: lead.clinicianResearcherAddress || lead.clinician_researcher_address || null,
+      patient_client_name: lead.patientClientName || lead.patient_client_name || null,
+      age: lead.age || null,
+      gender: lead.gender || null,
+      patient_client_email: lead.patientClientEmail || lead.patient_client_email || null,
+      patient_client_phone: lead.patientClientPhone || lead.patient_client_phone || null,
+      patient_client_address: lead.patientClientAddress || lead.patient_client_address || null,
+      sample_collection_date: lead.sampleCollectionDate || lead.sample_collection_date || null,
+      sample_recevied_date: lead.sampleReceivedDate || lead.sample_recevied_date || null,
+      service_name: lead.serviceName || lead.service_name || null,
+      sample_type: lead.sampleType || lead.sample_type || null,
+      no_of_samples: lead.noOfSamples || lead.no_of_samples || null,
+      tat: lead.tat || null,
+      sales_responsible_person: lead.salesResponsiblePerson || lead.sales_responsible_person || null,
+      progenics_trf: lead.progenicsTrf || lead.progenics_trf || null,
+      third_party_trf: null, // Not in lead_management
+      progenics_report: null, // Not directly in lead_management
+      sample_sent_to_third_party_date: null, // Not directly in lead_management
+      third_party_name: null, // Not directly in lead_management
+      third_party_report: null, // Not directly in lead_management
+      results_raw_data_received_from_third_party_date: null, // Not directly in lead_management
+      logistic_status: null, // Set separately
+      finance_status: null, // Set separately
+      lab_process_status: null, // Set separately
+      bioinformatics_status: null, // Set separately
+      nutritional_management_status: null, // Set separately
+      progenics_report_release_date: null, // Set separately
+      Remark_Comment: lead.remarkComment || lead.Remark_Comment || null,
+    };
+
+    // Check if record exists in ProcessMaster
+    const [existing]: any = await pool.execute(
+      'SELECT id FROM process_master_sheet WHERE unique_id = ?',
+      [pmRecord.unique_id]
+    );
+
+    console.log('[Sync Debug] Existing PM record check:', {
+      unique_id: pmRecord.unique_id,
+      found: existing && existing.length > 0,
+      existingCount: existing?.length
+    });
+
+    if (isUpdate || (existing && existing.length > 0)) {
+      // Update existing ProcessMaster record
+      const keys = Object.keys(pmRecord).filter(k => pmRecord[k as keyof typeof pmRecord] !== null);
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => pmRecord[k as keyof typeof pmRecord]);
+      values.push(pmRecord.unique_id);
+
+      console.log('[Sync Debug] Updating PM record with fields:', keys);
+      await pool.execute(
+        `UPDATE process_master_sheet SET ${set}, modified_at = NOW() WHERE unique_id = ?`,
+        values
+      );
+      console.log('[Sync] Lead updated in ProcessMaster:', pmRecord.unique_id);
+    } else {
+      // Create new ProcessMaster record
+      const keys = Object.keys(pmRecord).filter(k => pmRecord[k as keyof typeof pmRecord] !== null);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => pmRecord[k as keyof typeof pmRecord]);
+
+      console.log('[Sync Debug] Creating new PM record with fields:', keys);
+      console.log('[Sync Debug] SQL:', `INSERT INTO process_master_sheet (${cols}, created_at) VALUES (${placeholders}, NOW())`);
+
+      await pool.execute(
+        `INSERT INTO process_master_sheet (${cols}, created_at) VALUES (${placeholders}, NOW())`,
+        values
+      );
+      console.log('[Sync] Lead created in ProcessMaster:', pmRecord.unique_id);
+    }
+  } catch (error) {
+    console.error('Failed to sync lead to ProcessMaster:', error);
+    // Non-fatal: log but don't fail the lead creation/update
+  }
+}
+
+// Helper function to sync ProcessMaster data back to Lead (bidirectional sync)
+async function syncProcessMasterToLead(pmRecord: any) {
+  try {
+    const unique_id = pmRecord.unique_id;
+    if (!unique_id) {
+      console.log('[Sync Debug] No unique_id in PM record, skipping sync');
+      return;
+    }
+
+    console.log('[Sync Debug] syncProcessMasterToLead called for:', unique_id);
+
+    // Map ProcessMaster fields (snake_case) to Lead database columns (also snake_case)
+    // Both tables use snake_case in database, so we map PM field → Lead column directly
+    const leadUpdate: any = {};
+    const fieldMapping: Record<string, string> = {
+      'organisation_hospital': 'organisation_hospital',
+      'clinician_researcher_name': 'clinician_researcher_name',
+      'clinician_researcher_email': 'clinician_researcher_email',
+      'clinician_researcher_phone': 'clinician_researcher_phone',
+      'clinician_researcher_address': 'clinician_researcher_address',
+      'patient_client_name': 'patient_client_name',
+      'patient_client_email': 'patient_client_email',
+      'patient_client_phone': 'patient_client_phone',
+      'patient_client_address': 'patient_client_address',
+      'sample_collection_date': 'sample_collection_date',
+      'sample_recevied_date': 'sample_recevied_date', // Note: typo in DB
+      'service_name': 'service_name',
+      'sample_type': 'sample_type',
+      'no_of_samples': 'no_of_samples',
+      'tat': 'tat',
+      'sales_responsible_person': 'sales_responsible_person',
+      'progenics_trf': 'progenics_trf',
+      'Remark_Comment': 'Remark_Comment',
+      'speciality': 'speciality',
+      'age': 'age',
+      'gender': 'gender',
+    };
+
+    // Build leadUpdate from pmRecord using field mapping
+    for (const [pmField, leadColumn] of Object.entries(fieldMapping)) {
+      if (pmRecord[pmField] !== undefined) {
+        leadUpdate[leadColumn] = pmRecord[pmField];
+      }
+    }
+
+    if (Object.keys(leadUpdate).length === 0) {
+      console.log('[Sync Debug] No fields to update for lead:', unique_id);
+      return;
+    }
+
+    console.log('[Sync Debug] Fields to update:', Object.keys(leadUpdate));
+
+    // Find the lead by unique_id and update it
+    const [leads]: any = await pool.execute(
+      'SELECT id FROM lead_management WHERE unique_id = ?',
+      [unique_id]
+    );
+
+    if (leads && leads.length > 0) {
+      const leadId = leads[0].id;
+      const keys = Object.keys(leadUpdate);
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => leadUpdate[k]);
+      values.push(leadId);
+
+      console.log('[Sync Debug] Executing UPDATE on lead_management for ID:', leadId);
+      await pool.execute(
+        `UPDATE lead_management SET ${set}, lead_modified = NOW() WHERE id = ?`,
+        values
+      );
+      console.log('[Sync] ✓ ProcessMaster synced to Lead:', unique_id);
+    } else {
+      console.log('[Sync Debug] No lead found with unique_id:', unique_id);
+    }
+  } catch (error) {
+    console.error('[Sync Error] Failed to sync ProcessMaster to Lead:', error);
+    // Non-fatal: log but don't fail the ProcessMaster update
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ============================================================================
+  // INITIALIZE UPLOAD DIRECTORY STRUCTURE
+  // ============================================================================
+  ensureUploadDirectories();
+  console.log('✅ File upload directories initialized');
+
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = req.body;
-      
+
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
       }
@@ -165,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: 'Invalid user data', errors: { email: ['Email already exists'] } });
         }
       }
-      
+
       if (updates.password) {
         updates.password = await bcrypt.hash(updates.password, 10);
       }
@@ -247,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { role } = req.body as { role?: string };
-      const allowed = ['sales', 'operations', 'finance', 'lab', 'bioinformatics', 'reporting', 'manager', 'admin'];
+      const allowed = ['sales', 'operations', 'finance', 'lab', 'bioinformatics', 'reporting', 'nutritionist', 'manager', 'admin'];
       if (!role || typeof role !== 'string' || !allowed.includes(role)) {
         return res.status(400).json({ message: 'Invalid role' });
       }
@@ -261,7 +464,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Lead management routes
+  // ============================================================================
+  // Lead Management Routes (LeadManagement.tsx -> lead_management table)
+  // ============================================================================
   // Serve uploaded files statically
   app.use('/uploads', (await import('express')).static(uploadsDir));
   // Serve WES report static HTML and assets (allows opening the WES report HTML directly)
@@ -269,44 +474,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (fs.existsSync(wesReportDir)) {
     app.use('/wes-report', (await import('express')).static(wesReportDir));
   }
+
+  // ============================================================================
+  // UNIFIED FILE UPLOAD ENDPOINT WITH CATEGORY-BASED ROUTING
+  // ============================================================================
+  /**
+   * POST /api/uploads/categorized
+   * 
+   * Upload a file and automatically route it to the correct folder based on category.
+   * 
+   * Query Parameters:
+   *   - category (required): One of ['Progenics_TRF', 'Thirdparty_TRF', 'Progenics_Report', 'Thirdparty_Report']
+   *   - entityType (optional): Type of entity (e.g., 'lead', 'sample', 'lab_process')
+   *   - entityId (optional): ID of the related entity
+   * 
+   * Request: multipart/form-data with file field
+   * 
+   * Response: { success, filePath, filename, message, category, fileSize, mimeType }
+   */
+  app.post('/api/uploads/categorized', uploadDisk.single('file'), async (req, res) => {
+    try {
+      const { category, entityType, entityId } = req.query;
+      const file = (req as any).file;
+
+      // Validate required parameters
+      if (!category || typeof category !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Category parameter is required and must be a string',
+        });
+      }
+
+      // Validate file was uploaded
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file uploaded',
+        });
+      }
+
+      // Call the unified upload handler
+      const uploadResult = handleFileUpload(file, category);
+
+      if (!uploadResult.success) {
+        // Clean up the file if it was uploaded but handler failed
+        try {
+          fs.unlinkSync(file.path);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        return res.status(400).json(uploadResult);
+      }
+
+      // Store upload metadata in database
+      try {
+        const uploadRecord = await storage.createFileUpload({
+          filename: uploadResult.filename || '',
+          originalName: file.originalname,
+          storagePath: uploadResult.filePath || '',
+          category: category as string,
+          fileSize: uploadResult.fileSize || 0,
+          mimeType: uploadResult.mimeType || '',
+          uploadedBy: (req as any).user?.id || 'anonymous',
+          relatedEntityType: (entityType as string) || undefined,
+          relatedEntityId: (entityId as string) || undefined,
+        });
+
+        return res.json({
+          success: true,
+          filePath: uploadResult.filePath,
+          filename: uploadResult.filename,
+          message: uploadResult.message,
+          category: uploadResult.category,
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          uploadId: uploadRecord.id,
+        });
+      } catch (dbError) {
+        console.error('Failed to store upload metadata:', dbError);
+        // Still return success for the upload, but note the DB issue
+        return res.json({
+          success: true,
+          filePath: uploadResult.filePath,
+          filename: uploadResult.filename,
+          message: uploadResult.message + ' (metadata storage failed)',
+          category: uploadResult.category,
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          uploadId: null,
+        });
+      }
+    } catch (error) {
+      console.error('Upload categorized endpoint error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error during file upload',
+        error: (error as Error).message,
+      });
+    }
+  });
+
   // Endpoint to upload progenics TRF file to filesystem (existing)
   app.post('/api/uploads/trf', uploadDisk.single('trf'), async (req, res) => {
     try {
-  if (!(req as any).file) return res.status(400).json({ message: 'No file uploaded' });
-  const url = `/uploads/${(req as any).file.filename}`;
-  res.json({ url, filename: (req as any).file.originalname });
+      if (!(req as any).file) return res.status(400).json({ message: 'No file uploaded' });
+      const url = `/uploads/${(req as any).file.filename}`;
+      res.json({ url, filename: (req as any).file.originalname });
     } catch (error) {
       res.status(500).json({ message: 'Failed to upload file' });
     }
   });
 
   // New: Endpoint to upload progenics TRF directly into DB as blob
-  app.post('/api/uploads/trf-db', uploadMemory.single('trf'), async (req, res) => {
+
+
+  // Endpoint to download TRF by id (fetch blob from DB)
+
+
+  // Generic file upload endpoint (saves to disk)
+  app.post('/api/uploads/file', uploadDisk.single('file'), async (req, res) => {
     try {
-  if (!(req as any).file) return res.status(400).json({ message: 'No file uploaded' });
-  const { originalname, buffer } = (req as any).file as any;
-      const { leadId } = req.body;
-      if (!leadId) return res.status(400).json({ message: 'leadId is required to associate TRF' });
-      // storage.createLeadTrf should store the buffer in the DB
-      const trf = await storage.createLeadTrf({ leadId, filename: originalname, data: buffer });
-      res.json({ id: trf.id, filename: trf.filename });
+      if (!(req as any).file) return res.status(400).json({ message: 'No file uploaded' });
+      const url = `/uploads/${(req as any).file.filename}`;
+      res.json({ url, filename: (req as any).file.originalname });
     } catch (error) {
-      console.error('TRF DB upload failed', error);
-      res.status(500).json({ message: 'Failed to upload TRF to DB' });
+      console.error('File upload failed:', error);
+      res.status(500).json({ message: 'Failed to upload file' });
     }
   });
 
-  // Endpoint to download TRF by id (fetch blob from DB)
-  app.get('/api/uploads/trf/:id', async (req, res) => {
+  // ============================================================================
+  // FILE UPLOAD RETRIEVAL ENDPOINTS
+  // ============================================================================
+  
+  /**
+   * GET /api/uploads/category/:category
+   * Get all uploads for a specific category
+   */
+  app.get('/api/uploads/category/:category', async (req, res) => {
     try {
-      const { id } = req.params;
-      const trf = await storage.getLeadTrf(id);
-      if (!trf) return res.status(404).json({ message: 'TRF not found' });
-      res.setHeader('Content-Disposition', `attachment; filename="${trf.filename}"`);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.send(trf.data);
+      const { category } = req.params;
+      const uploads = await storage.getFileUploadsByCategory(category);
+      res.json({
+        success: true,
+        category,
+        uploads,
+        total: uploads.length,
+      });
     } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch TRF' });
+      console.error('Failed to fetch uploads by category:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch uploads',
+      });
+    }
+  });
+
+  /**
+   * GET /api/uploads/entity/:entityType/:entityId
+   * Get all uploads for a specific entity
+   */
+  app.get('/api/uploads/entity/:entityType/:entityId', async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const uploads = await storage.getFileUploadsByEntity(entityType, entityId);
+      res.json({
+        success: true,
+        entityType,
+        entityId,
+        uploads,
+        total: uploads.length,
+      });
+    } catch (error) {
+      console.error('Failed to fetch uploads by entity:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch uploads',
+      });
+    }
+  });
+
+  // Endpoint to upload progenics TRF file to filesystem (existing)
+  app.post('/api/uploads/trf', uploadDisk.single('trf'), async (req, res) => {
+    try {
+      if (!(req as any).file) return res.status(400).json({ message: 'No file uploaded' });
+      const url = `/uploads/${(req as any).file.filename}`;
+      res.json({ url, filename: (req as any).file.originalname });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to upload file' });
+    }
+  });
+
+  // New: Endpoint to upload progenics TRF directly into DB as blob
+
+
+  // Endpoint to download TRF by id (fetch blob from DB)
+
+  // ADMIN ENDPOINT: Manually sync all existing leads to ProcessMaster (one-time initialization)
+  app.post("/api/sync/leads-to-process-master", async (req, res) => {
+    try {
+      console.log('[SYNC] Starting manual sync of all leads to ProcessMaster...');
+      const leads = await storage.getLeads();
+      let synced = 0;
+      let failed = 0;
+
+      for (const lead of leads) {
+        try {
+          await syncLeadToProcessMaster(lead, false);
+          synced++;
+        } catch (error) {
+          console.error('[SYNC] Failed to sync lead:', lead.uniqueId, error);
+          failed++;
+        }
+      }
+
+      res.json({
+        message: `Sync completed: ${synced} leads synced, ${failed} failed`,
+        synced,
+        failed,
+        total: leads.length
+      });
+      console.log(`[SYNC] Sync completed: ${synced}/${leads.length} leads synced to ProcessMaster`);
+    } catch (error) {
+      console.error('[SYNC] Error during bulk sync:', error);
+      res.status(500).json({ message: 'Failed to sync leads', error: (error as Error).message });
     }
   });
 
@@ -353,20 +744,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const normalized = normalizeDateFields(req.body);
-      
+
       // Generate Project ID based on category (Clinical/Discovery) with timestamp
       try {
         if (!normalized.projectId && !normalized.project_id) {
-          const category = normalized.category || normalized.lead_type || 'clinical';
+          const category = normalized.testCategory || normalized.category || normalized.lead_type || 'clinical';
           const projectId = await generateProjectId(String(category));
           normalized.projectId = projectId;
           normalized.project_id = projectId;
-          console.log(`Generated project ID for ${category} lead:`, projectId);
         }
       } catch (e) {
         console.warn('generateProjectId failed for POST /api/leads', e);
       }
-      
+
       const result = insertLeadSchema.safeParse(normalized);
       if (!result.success) {
         console.error('Lead validation failed on POST /api/leads:', JSON.stringify(result.error.errors, null, 2));
@@ -377,21 +767,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const lead = await storage.createLead(result.data);
-      
+
+      // Automatically sync lead to ProcessMaster table
+      await syncLeadToProcessMaster(lead, false);
+
+      // If nutritional counselling is required, auto-create a nutrition record
+      console.log('Lead nutritionalCounsellingRequired check:', lead.nutritionalCounsellingRequired, 'Type:', typeof lead.nutritionalCounsellingRequired);
+      if (lead.nutritionalCounsellingRequired === true) {
+        try {
+          // Check if nutrition record already exists for this unique_id
+          const [existingNM] = await pool.execute(
+            'SELECT id FROM nutritional_management WHERE unique_id = ? LIMIT 1',
+            [lead.uniqueId]
+          ) as [any[], any];
+
+          if (existingNM && existingNM.length > 0) {
+            console.log('Nutrition record already exists for unique_id:', lead.uniqueId, '- skipping auto-creation');
+          } else {
+            console.log('TRIGGERING nutrition auto-creation for lead:', lead.id);
+            const nutritionRecord = {
+              uniqueId: lead.uniqueId,
+              projectId: lead.projectId,
+              serviceName: lead.serviceName || '',
+              patientClientName: lead.patientClientName || '',
+              age: lead.age,
+              gender: lead.gender || '',
+              createdBy: lead.leadCreatedBy || 'system',
+              createdAt: new Date(),
+            };
+            const [result]: any = await pool.execute(
+              `INSERT INTO nutritional_management (unique_id, project_id, service_name, patient_client_name, age, gender, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [nutritionRecord.uniqueId, nutritionRecord.projectId, nutritionRecord.serviceName, nutritionRecord.patientClientName, nutritionRecord.age, nutritionRecord.gender, nutritionRecord.createdBy, nutritionRecord.createdAt]
+            );
+            console.log('Auto-created nutrition record for lead:', lead.id);
+          }
+        } catch (err) {
+          console.error('Failed to auto-create nutrition record for lead:', (err as Error).message);
+          // Don't fail the request if nutrition record creation fails
+        }
+      }
+
+      // If genetic counselling is required, auto-create a genetic counselling record
+      console.log('Lead geneticCounselorRequired check:', lead.geneticCounselorRequired, 'Lead keys:', Object.keys(lead).filter(k => k.includes('genetic')));
+      console.log('[GC Auto-Create] Full lead object keys:', Object.keys(lead));
+      console.log('[GC Auto-Create] Lead.patientClientAddress:', lead.patientClientAddress);
+      console.log('[GC Auto-Create] Lead.patient_client_address:', lead.patient_client_address);
+      if (lead.geneticCounselorRequired) {
+        try {
+          // Check if GC record already exists for this unique_id
+          const [existingGC] = await pool.execute(
+            'SELECT id FROM genetic_counselling_records WHERE unique_id = ? LIMIT 1',
+            [lead.uniqueId]
+          ) as [any[], any];
+
+          if (existingGC && existingGC.length > 0) {
+            console.log('GC record already exists for unique_id:', lead.uniqueId, '- skipping auto-creation');
+          } else {
+            console.log('TRIGGERING genetic counselling auto-creation for lead:', lead.id);
+            // Prepare data with proper field mapping and null handling
+            const toString = (v: any) => {
+              if (v === null || v === undefined) return null;
+              return String(v).trim() === '' ? null : String(v).trim();
+            };
+
+            const geneticCounsellingRecord = {
+              unique_id: toString(lead.uniqueId) || '',
+              project_id: lead.projectId || null,
+              patient_client_name: toString(lead.patientClientName),
+              patient_client_address: toString(lead.patientClientAddress || lead.patient_client_address),
+              age: lead.age ? Number(lead.age) : null,
+              gender: toString(lead.gender),
+              patient_client_email: toString(lead.patientClientEmail),
+              patient_client_phone: toString(lead.patientClientPhone),
+              clinician_researcher_name: toString(lead.clinicianResearcherName),
+              organisation_hospital: toString(lead.organisationHospital),
+              speciality: toString(lead.speciality),
+              service_name: toString(lead.serviceName),
+              budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
+              sample_type: toString(lead.sampleType),
+              sales_responsible_person: toString(lead.salesResponsiblePerson),
+              created_by: toString(lead.leadCreatedBy) || 'system',
+              created_at: new Date(),
+            };
+
+            console.log('Auto-creating genetic counselling record with data:', {
+              unique_id: geneticCounsellingRecord.unique_id,
+              patient_client_name: geneticCounsellingRecord.patient_client_name,
+              patient_client_address: geneticCounsellingRecord.patient_client_address,
+              age: geneticCounsellingRecord.age,
+              service_name: geneticCounsellingRecord.service_name,
+              sample_type: geneticCounsellingRecord.sample_type
+            });
+            console.log('[GC Auto-Create Debug] Lead source address - patientClientAddress:', lead.patientClientAddress, 'patient_client_address:', lead.patient_client_address);
+
+            // Direct table insert
+            const keys = Object.keys(geneticCounsellingRecord).filter(k => geneticCounsellingRecord[k as keyof typeof geneticCounsellingRecord] !== undefined);
+            console.log('[GC Auto-Create Debug] Fields being inserted:', keys);
+            console.log('[GC Auto-Create Debug] Full record object:', JSON.stringify(geneticCounsellingRecord, null, 2));
+            const cols = keys.map(k => `\`${k}\``).join(',');
+            const placeholders = keys.map(() => '?').join(',');
+            const values = keys.map(k => geneticCounsellingRecord[k as keyof typeof geneticCounsellingRecord]);
+
+            const [result]: any = await pool.execute(
+              `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+              values
+            );
+
+            console.log('Auto-created genetic counselling record for lead:', lead.id, 'GC Record ID:', result.insertId);
+          }
+        } catch (err) {
+          console.error('Failed to auto-create genetic counselling record for lead:', (err as Error).message);
+          // Don't fail the request if genetic counselling record creation fails
+        }
+      }
+
       // Send notification for new lead creation
-      console.log('Lead created successfully, sending notification for:', lead.id, lead.organization);
+      console.log('Lead created successfully, sending notification for:', lead.id, lead.organisationHospital);
       try {
         await notificationService.notifyLeadCreated(
-          lead.id, 
-          lead.organization, 
-          lead.createdBy || 'system'
+          lead.id,
+          lead.organisationHospital || 'Unknown Organization',
+          lead.leadCreatedBy || 'system'
         );
         console.log('Lead creation notification sent successfully');
       } catch (notificationError) {
         console.error('Failed to send lead creation notification:', notificationError);
         // Don't fail the request if notification fails
       }
-      
+
       res.json(lead);
     } catch (error) {
       res.status(500).json({ message: "Failed to create lead" });
@@ -403,7 +906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      
+
       if (!['cold', 'hot', 'won'].includes(status)) {
         return res.status(400).json({ message: "Invalid status. Must be cold, hot, or won" });
       }
@@ -423,7 +926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await notificationService.notifyLeadStatusChanged(
           lead.id,
-          lead.organization,
+          lead.organisationHospital || 'Unknown Organization',
           currentLead.status || 'unknown',
           status,
           'system'
@@ -450,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // eslint-disable-next-line no-console
         console.debug(`PUT /api/leads/${id} normalized pickupUpto:`, JSON.stringify(updates.pickupUpto));
       } catch (e) { /* ignore */ }
-      
+
       // Validate the update data (partial schema)
       const result = insertLeadSchema.partial().safeParse(updates);
       if (!result.success) {
@@ -463,6 +966,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
+
+      // Automatically sync updated lead to ProcessMaster table
+      await syncLeadToProcessMaster(lead, true);
 
       res.json(lead);
     } catch (error) {
@@ -480,7 +986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
-      
+
       if (lead.status !== 'won') {
         return res.status(400).json({ message: "Lead must be in 'won' status before conversion" });
       }
@@ -505,54 +1011,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const requestGcFlag = !!sampleData?.createGeneticCounselling || !!sampleData?.createGc || !!sampleData?.create_genetic_counselling;
         if (requestGcFlag) {
-          // createGeneticCounselling expects sampleId (human readable) and gcName at minimum
-          createdGc = await storage.createGeneticCounselling({ sampleId: conversion.sample.sampleId, gcName: '' });
-          
-          // Send genetic counselling notification
-          try {
-            await notificationService.notifyGeneticCounsellingRequired(
-              conversion.sample.sampleId,
-              conversion.lead.patientClientName || 'Unknown Patient',
-              'system'
-            );
-          } catch (notificationError) {
-            console.error('Failed to send genetic counselling notification:', notificationError);
+          // Check if GC record already exists for this unique_id
+          const [existingGC] = await pool.execute(
+            'SELECT id FROM genetic_counselling_records WHERE unique_id = ? LIMIT 1',
+            [conversion.sample.uniqueId]
+          ) as [any[], any];
+
+          if (existingGC && existingGC.length > 0) {
+            console.log('[convert-lead] GC record already exists for unique_id:', conversion.sample.uniqueId, '- skipping auto-creation');
+            createdGc = { id: existingGC[0].id, uniqueId: conversion.sample.uniqueId, alreadyExists: true };
+          } else {
+            // createGeneticCounselling expects sampleId (human readable) and gcName at minimum
+            createdGc = await storage.createGeneticCounselling({ sampleId: conversion.sample.uniqueId || '', gcName: '' });
+
+            // Send genetic counselling notification
+            try {
+              await notificationService.notifyGeneticCounsellingRequired(
+                conversion.sample.uniqueId || 'Unknown Sample',
+                conversion.lead.patientClientName || 'Unknown Patient',
+                'system'
+              );
+            } catch (notificationError) {
+              console.error('Failed to send genetic counselling notification:', notificationError);
+            }
           }
         }
       } catch (err) {
         console.error('Failed to create genetic counselling after conversion:', (err as Error).message);
       }
-      
+
+      // If nutritional counselling is required, auto-create a nutrition record
+      let createdNutrition: any = null;
+      try {
+        console.log('[convert-lead] nutritionalCounsellingRequired check:', lead.nutritionalCounsellingRequired, 'Type:', typeof lead.nutritionalCounsellingRequired);
+        if (lead.nutritionalCounsellingRequired === true) {
+          // Check if nutrition record already exists for this unique_id
+          const [existingNM] = await pool.execute(
+            'SELECT id FROM nutritional_management WHERE unique_id = ? LIMIT 1',
+            [conversion.lead.uniqueId]
+          ) as [any[], any];
+
+          if (existingNM && existingNM.length > 0) {
+            console.log('[convert-lead] Nutrition record already exists for unique_id:', conversion.lead.uniqueId, '- skipping auto-creation');
+            createdNutrition = { id: existingNM[0].id, uniqueId: conversion.lead.uniqueId, alreadyExists: true };
+          } else {
+            console.log('[convert-lead] TRIGGERING nutrition auto-creation for lead:', conversion.lead.id);
+            const nutritionRecord = {
+              uniqueId: conversion.lead.uniqueId,
+              projectId: conversion.lead.projectId,
+              sampleId: conversion.sample.uniqueId,
+              serviceName: conversion.lead.serviceName || '',
+              patientClientName: conversion.lead.patientClientName || '',
+              age: conversion.lead.age,
+              gender: conversion.lead.gender || '',
+              createdBy: conversion.lead.leadCreatedBy || 'system',
+              createdAt: new Date(),
+            };
+            const [result]: any = await pool.execute(
+              `INSERT INTO nutritional_management (unique_id, project_id, sample_id, service_name, patient_client_name, age, gender, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [nutritionRecord.uniqueId, nutritionRecord.projectId, nutritionRecord.sampleId, nutritionRecord.serviceName, nutritionRecord.patientClientName, nutritionRecord.age, nutritionRecord.gender, nutritionRecord.createdBy, nutritionRecord.createdAt]
+            );
+            const insertId = result.insertId;
+            const [rows]: any = await pool.execute('SELECT * FROM nutritional_management WHERE id = ?', [insertId]);
+            createdNutrition = rows && rows[0] ? rows[0] : null;
+            console.log('Auto-created nutrition record for converted lead:', conversion.lead.id);
+
+            // Send nutrition counselling notification
+            try {
+              await notificationService.notifyGeneticCounsellingRequired(
+                conversion.sample.uniqueId || 'Unknown Sample',
+                conversion.lead.patientClientName || 'Unknown Patient',
+                'system'
+              );
+            } catch (notificationError) {
+              console.error('Failed to send nutrition counselling notification:', notificationError);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to auto-create nutrition record after conversion:', (err as Error).message);
+      }
+
       // Send lead conversion notifications
       try {
         await notificationService.notifyLeadConverted(
           conversion.lead.id,
-          conversion.lead.organization,
-          conversion.sample.sampleId,
+          conversion.lead.organisationHospital || 'Unknown Organization',
+          conversion.sample.uniqueId || 'Unknown Sample',
           'system'
         );
-        
+
         await notificationService.notifySampleReceived(
-          conversion.sample.sampleId,
-          conversion.lead.organization,
+          conversion.sample.uniqueId || 'Unknown Sample',
+          conversion.lead.organisationHospital || 'Unknown Organization',
           'system'
         );
       } catch (notificationError) {
         console.error('Failed to send conversion notifications:', notificationError);
       }
-      
+
       // Legacy notification system for operations team (keeping for compatibility)
       try {
         const operationsUsers = await storage.getAllUsers();
         const opsUsers = operationsUsers.filter(user => user.role === 'operations' && user.isActive);
-        
+
         for (const user of opsUsers) {
           await storage.createNotification({
             userId: user.id,
             title: "New Lead Converted",
-            message: `Lead from ${conversion.lead.organization} has been converted. Sample ID: ${conversion.sample.sampleId}`,
+            message: `Lead from ${conversion.lead.organisationHospital || 'Unknown Organization'} has been converted. Sample ID: ${conversion.sample.uniqueId || 'Unknown Sample'}`,
             type: "lead_converted",
-            relatedId: conversion.sample.id,
+            relatedId: String(conversion.sample.id),
             isRead: false,
           });
         }
@@ -560,13 +1129,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Failed to send legacy notifications:', legacyNotificationError);
       }
 
-      res.json({ ...conversion, geneticCounselling: createdGc });
+      res.json({ ...conversion, geneticCounselling: createdGc, nutritionCounselling: createdNutrition });
     } catch (error) {
       res.status(500).json({ message: error instanceof Error ? error.message : "Failed to convert lead" });
     }
   });
 
-  // Sample management routes
+  // ============================================================================
+  // Sample Management Routes (SampleTracking.tsx -> sample_tracking table)
+  // ============================================================================
   app.get("/api/samples", async (req, res) => {
     try {
       const samples = await storage.getSamples();
@@ -639,20 +1210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sample not found" });
       }
 
-      // Send notification if status changed
-      if (parsed.data.status && parsed.data.status !== currentSample.status) {
-        try {
-          await notificationService.notifySampleStatusChanged(
-            sample.sampleId,
-            sample.organization || 'Unknown Organization',
-            currentSample.status || 'unknown',
-            parsed.data.status,
-            'system'
-          );
-        } catch (notificationError) {
-          console.error('Failed to send sample status change notification:', notificationError);
-        }
-      }
+      // Note: sample table does not have status field, so status change notifications are not sent
+      // Status tracking is handled through labProcess or other related tables if needed
 
       res.json(sample);
     } catch (error) {
@@ -673,7 +1232,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Lab processing routes
+  // ============================================================================
+  // Lab Processing Routes (LabProcessing.tsx -> labprocess_discovery_sheet, labprocess_clinical_sheet tables)
+  // ============================================================================
   app.get("/api/lab-processing", async (req, res) => {
     try {
       const labQueue = await storage.getLabProcessingQueue();
@@ -694,19 +1255,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Use the resolved sampleId returned on the labProcessing row so we update
       // the correct internal sample UUID regardless of what the client submitted.
-      await storage.updateSample(labProcessing.sampleId, { status: "lab_processing" });
+      // Note: sample table does not have a status field, so we skip this update
+      // await storage.updateSample(labProcessing.sampleId, { status: "lab_processing" });
 
       // Send comprehensive lab processing notifications
       try {
         const sample = await storage.getSampleById(labProcessing.sampleId);
         if (sample) {
-          // Get lead information for test type
-          const lead = await storage.getLeadById(sample.leadId);
-          const testType = lead?.testName || 'Unknown Test';
-          
+          // Note: Sample does not have leadId; projects are tracked via projectId in sample table
+          // Use sample's own details for notification
+
           await notificationService.notifyLabProcessingStarted(
-            sample.sampleId || 'Unknown Sample',
-            testType,
+            sample.uniqueId || 'Unknown Sample',
+            'Sample Lab Processing',
             'system'
           );
         }
@@ -775,9 +1336,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send completion notification if processing stage advances
       try {
         const sample = await storage.getSampleById(updated.sampleId);
-        
+
         await notificationService.notifyLabProcessingCompleted(
-          sample?.sampleId || updated.labId,
+          sample?.uniqueId || updated.labId,
           'Lab Processing Update',
           'system'
         );
@@ -804,6 +1365,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // Bioinformatics Routes (Bioinformatics.tsx -> bioinformatics_sheet_discovery, bioinformatics_sheet_clinical tables)
+  // ============================================================================
   // Bioinformatics endpoints - expose lab processing records as bioinformatics items
   app.get('/api/bioinformatics', async (req, res) => {
     try {
@@ -889,6 +1453,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // Genetic Counselling Routes (GeneticCounselling.tsx -> genetic_counselling_records table)
+  // ============================================================================
   // Genetic Counselling endpoints - persist to DB via storage
   app.get('/api/genetic-counselling', async (_req, res) => {
     try {
@@ -902,16 +1469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/genetic-counselling', async (req, res) => {
     try {
       const body = req.body || {};
-      const created = await storage.createGeneticCounselling({
-        sampleId: body.sample_id || body.sampleId || '',
-        gcName: body.gc_name || body.gcName || '',
-        counsellingType: body.counselling_type || body.counsellingType || undefined,
-        counsellingStartTime: body.counselling_start_time || body.counsellingStartTime || undefined,
-        counsellingEndTime: body.counselling_end_time || body.counsellingEndTime || undefined,
-        gcSummary: body.gc_summary || body.gcSummary || undefined,
-        extendedFamilyTesting: body.extended_family_testing ?? body.extendedFamilyTesting ?? false,
-        approvalStatus: body.approval_status || body.approvalStatus || 'pending',
-      });
+      const created = await storage.createGeneticCounselling(body);
       res.json(created);
     } catch (error) {
       console.error('Failed to create genetic counselling record', (error as Error).message);
@@ -923,16 +1481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body || {};
-      const updated = await storage.updateGeneticCounselling(id, {
-        sampleId: updates.sample_id || updates.sampleId,
-        gcName: updates.gc_name || updates.gcName,
-        counsellingType: updates.counselling_type || updates.counsellingType,
-        counsellingStartTime: updates.counselling_start_time || updates.counsellingStartTime,
-        counsellingEndTime: updates.counselling_end_time || updates.counsellingEndTime,
-        gcSummary: updates.gc_summary || updates.gcSummary,
-        extendedFamilyTesting: updates.extended_family_testing ?? updates.extendedFamilyTesting,
-        approvalStatus: updates.approval_status || updates.approvalStatus,
-      });
+      const updated = await storage.updateGeneticCounselling(id, updates);
       if (!updated) return res.status(404).json({ message: 'Record not found' });
       res.json(updated);
     } catch (error) {
@@ -971,13 +1520,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const report = await storage.createReport(result.data);
-      
+
       // Send comprehensive report notifications
       try {
         const sample = await storage.getSampleById(result.data.sampleId);
         const patientName = 'Patient'; // Would need to get from lead/sample data
         const testType = 'Test Report'; // Would need to get from sample/lead data
-        
+
         await notificationService.notifyReportGenerated(
           report.id,
           patientName,
@@ -987,12 +1536,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (notificationError) {
         console.error('Failed to send report generation notification:', notificationError);
       }
-      
+
       // Legacy notification system for finance team (keeping for compatibility)
       try {
         const financeUsers = await storage.getAllUsers();
         const finUsers = financeUsers.filter(user => user.role === 'finance' && user.isActive);
-        
+
         for (const user of finUsers) {
           await storage.createNotification({
             userId: user.id,
@@ -1044,7 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const reportingUsers = await storage.getAllUsers();
         const repUsers = reportingUsers.filter(user => user.role === 'reporting' && user.isActive);
-        
+
         for (const user of repUsers) {
           await storage.createNotification({
             userId: user.id,
@@ -1065,7 +1614,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Finance routes
+  // Send bioinformatics record to Reports module
+  app.post("/api/send-to-reports", async (req, res) => {
+    try {
+      const {
+        bioinformaticsId,
+        sampleId,
+        projectId,
+        uniqueId,
+        serviceName,
+        analysisDate,
+        createdBy,
+      } = req.body;
+
+      console.log('Send to Reports triggered for bioinformatics:', bioinformaticsId, 'Project ID:', projectId);
+
+      if (!projectId) {
+        return res.status(400).json({ message: 'Project ID is required' });
+      }
+
+      // Determine destination table based on project ID prefix
+      const isDiscovery = projectId.startsWith('DG');
+      const isClinical = projectId.startsWith('PG');
+
+      console.log('Project ID analysis - Discovery:', isDiscovery, 'Clinical:', isClinical);
+
+      if (!isDiscovery && !isClinical) {
+        return res.status(400).json({ message: 'Project ID must start with DG (Discovery) or PG (Clinical)' });
+      }
+
+      // Fetch lead data to get additional info if needed
+      let leadData: any = { service_name: serviceName };
+      try {
+        const [leadRows]: any = await pool.execute(
+          'SELECT service_name FROM lead_management WHERE unique_id = ? LIMIT 1',
+          [uniqueId]
+        );
+        if (leadRows && leadRows.length > 0) {
+          const lead = leadRows[0];
+          leadData.service_name = serviceName || lead.service_name || null;
+          console.log('Fetched lead data from lead_management table:', leadData);
+        }
+      } catch (leadError) {
+        console.log('Note: Could not fetch lead data -', (leadError as Error).message);
+      }
+
+      // Prepare report data with required database columns
+      const reportData: Record<string, any> = {
+        unique_id: uniqueId || '',
+        project_id: projectId,
+        bioinformatics_id: bioinformaticsId || null,
+        sample_id: sampleId || null,
+      };
+
+      // Add optional fields if provided
+      if (leadData.service_name) reportData.service_name = leadData.service_name;
+      if (analysisDate) {
+        // Convert ISO date string to DATE format (YYYY-MM-DD)
+        const dateObj = new Date(analysisDate);
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+        reportData.report_date = `${year}-${month}-${day}`;
+      }
+
+      reportData.created_by = createdBy || 'system';
+      reportData.created_at = new Date();
+      reportData.status = 'pending_review';
+
+      const keys = Object.keys(reportData);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => reportData[k]);
+
+      let insertResult;
+      let tableName;
+
+      if (isDiscovery) {
+        tableName = 'report_discovery_sheet';
+        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
+        const result: any = await pool.execute(
+          `INSERT INTO report_discovery_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      } else {
+        tableName = 'report_clinical_sheet';
+        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
+        const result: any = await pool.execute(
+          `INSERT INTO report_clinical_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      }
+
+      const insertId = (insertResult as any).insertId || null;
+      console.log(`Inserted into ${tableName} with ID:`, insertId);
+
+      // Update bioinformatics table to set alert_to_report_team flag
+      try {
+        const bioTableName = isDiscovery ? 'bioinfo_discovery_sheet' : 'bioinfo_clinical_sheet';
+        await pool.execute(
+          `UPDATE ${bioTableName} SET alert_to_report_team = ?, updated_at = ? WHERE id = ?`,
+          [true, new Date(), bioinformaticsId]
+        );
+        console.log('Updated bioinformatics flag for:', bioinformaticsId);
+      } catch (updateError) {
+        console.error('Warning: Failed to update bioinformatics flag', (updateError as Error).message);
+        // Don't fail the entire request if bioinformatics update fails
+      }
+
+      // Send notifications
+      try {
+        await notificationService.notifyReportGenerated(
+          insertId,
+          'Bioinformatics Analysis Report',
+          leadData.service_name || 'Analysis Report',
+          createdBy || 'system'
+        );
+      } catch (notificationError) {
+        console.error('Failed to send report notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
+
+      res.json({
+        success: true,
+        reportId: insertId,
+        bioinformaticsId: bioinformaticsId,
+        table: tableName,
+        message: 'Bioinformatics record sent to Reports module',
+      });
+    } catch (error) {
+      console.error('Error in send-to-reports:', error);
+      res.status(500).json({
+        message: 'Failed to send bioinformatics record to Reports',
+        error: (error as Error).message,
+      });
+    }
+  });
+
+  // ============================================================================
+  // Finance Routes (FinanceManagement.tsx -> finance_sheet table)
+  // ============================================================================
   app.get("/api/finance/records", async (req, res) => {
     try {
       const page = parseInt(String(req.query.page || '1')) || 1;
@@ -1109,37 +1799,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const normalized = normalize(req.body);
+
+      // Warn if projectId is missing - this is crucial for data integrity
+      if (!normalized.projectId) {
+        console.warn('[API] Finance record created without projectId:', {
+          sampleId: normalized.sampleId,
+          uniqueId: normalized.uniqueId,
+          payload: normalized
+        });
+      }
+
       const result = insertFinanceRecordSchema.safeParse(normalized);
       if (!result.success) {
         return res.status(400).json({ message: "Invalid finance record data", errors: result.error.errors });
       }
 
       const record = await storage.createFinanceRecord(result.data);
-      
+
       // Send payment notification
       try {
-        const amount = parseFloat(record.amount?.toString() || '0');
-        const organizationName = record.organization || 'Unknown Organization';
-        
-        if (record.paymentStatus === 'paid') {
+        const totalAmount = parseFloat((record as any).totalAmount?.toString() || '0');
+        const organisationHospital = (record as any).organisationHospital || 'Unknown Organization';
+        const paymentStatus = (record as any).paymentStatus;
+
+        if (paymentStatus === 'paid') {
           await notificationService.notifyPaymentReceived(
-            record.id,
-            amount,
-            organizationName,
+            String(record.id),
+            totalAmount,
+            organisationHospital,
             'system'
           );
-        } else if (record.paymentStatus === 'pending') {
+        } else if (paymentStatus === 'pending') {
           await notificationService.notifyPaymentPending(
-            record.id,
-            amount,
-            organizationName,
+            String(record.id),
+            totalAmount,
+            organisationHospital,
             'system'
           );
         }
       } catch (notificationError) {
         console.error('Failed to send finance notification:', notificationError);
       }
-      
+
       res.json(record);
     } catch (error) {
       res.status(500).json({ message: "Failed to create finance record" });
@@ -1241,11 +1942,1040 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ---------------------------------------------------------------------------
-  // New adapter endpoints for requested sheet/table names
-  // These endpoints try to read/write the explicitly-named tables (if present)
-  // and fall back to existing storage methods when helpful.
-  // ---------------------------------------------------------------------------
+  // ============================================================================
+  // Canonical Endpoints (Preferred Routes)
+  // ============================================================================
+  // These are the canonical endpoints that frontend pages should use:
+  // - /api/leads (LeadManagement.tsx -> lead_management table)
+  // - /api/sample-tracking (SampleTracking.tsx -> sample_tracking table)
+  // - /api/finance (FinanceManagement.tsx -> finance_sheet table)
+  // - /api/genetic-counselling (GeneticCounselling.tsx -> genetic_counselling_records table)
+  // - /api/labprocess-discovery (LabProcessing Discovery -> labprocess_discovery_sheet table)
+  // - /api/labprocess-clinical (LabProcessing Clinical -> labprocess_clinical_sheet table)
+  // - /api/bioinfo-discovery (Bioinformatics Discovery -> bioinformatics_sheet_discovery table)
+  // - /api/bioinfo-clinical (Bioinformatics Clinical -> bioinformatics_sheet_clinical table)
+  // - /api/nutrition (Nutrition.tsx -> nutritional_management table)
+  // - /api/process-master (ProcessMaster.tsx -> process_master_sheet table)
+  // ============================================================================
+
+  // Note: /api/leads is already defined above. Sample tracking routes below...
+
+  // Sample Tracking Canonical Routes - maps to sample_tracking table (via storage)
+  // These route requests directly to the same storage methods as /api/samples
+  app.get('/api/sample-tracking', async (req, res) => {
+    try {
+      const samples = await storage.getSamples();
+      res.json(samples);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch sample tracking records' });
+    }
+  });
+
+  app.put('/api/sample-tracking/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = normalizeDateFields(req.body);
+      const result = insertSampleSchema.partial().safeParse(updates);
+      if (!result.success) {
+        return res.status(400).json({ message: 'Invalid sample data', errors: result.error.errors });
+      }
+      const sample = await storage.updateSample(id, result.data as any);
+      if (!sample) return res.status(404).json({ message: 'Sample not found' });
+      res.json(sample);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to update sample tracking record' });
+    }
+  });
+
+  app.delete('/api/sample-tracking/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteSample(id);
+      if (!ok) return res.status(500).json({ message: 'Failed to delete sample tracking record' });
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete sample tracking record' });
+    }
+  });
+
+  // Finance Canonical Routes - maps to finance_sheet table
+  app.get('/api/finance', async (req, res) => {
+    try {
+      const page = parseInt(String(req.query.page || '1')) || 1;
+      const pageSize = parseInt(String(req.query.pageSize || '25')) || 25;
+      const sortBy = req.query.sortBy ? String(req.query.sortBy) : null;
+      const sortDir = req.query.sortDir === 'asc' ? 'asc' : 'desc';
+      const query = req.query.query ? String(req.query.query) : null;
+      const result = await storage.getFinanceRecords({ page, pageSize, sortBy, sortDir: sortDir as any, query });
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch finance records' });
+    }
+  });
+
+  app.post('/api/finance', async (req, res) => {
+    try {
+      const result = insertFinanceRecordSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: 'Invalid finance data', errors: result.error.errors });
+      }
+      const record = await storage.createFinanceRecord(result.data);
+      res.json(record);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to create finance record' });
+    }
+  });
+
+  app.put('/api/finance/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = normalizeDateFields(req.body);
+      const result = insertFinanceRecordSchema.partial().safeParse(updates);
+      if (!result.success) {
+        return res.status(400).json({ message: 'Invalid finance data', errors: result.error.errors });
+      }
+      const record = await storage.updateFinanceRecord(id, result.data as any);
+      if (!record) return res.status(404).json({ message: 'Finance record not found' });
+      res.json(record);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to update finance record' });
+    }
+  });
+
+  app.delete('/api/finance/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ok = await storage.deleteFinanceRecord(id);
+      if (!ok) return res.status(500).json({ message: 'Failed to delete finance record' });
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete finance record' });
+    }
+  });
+
+  // Lab Processing Discovery Canonical Routes
+  app.get('/api/labprocess-discovery', async (req, res) => {
+    try {
+      const queue = await storage.getLabProcessingQueue();
+      const filtered = queue.filter((r: any) => (r.sample?.lead?.category || r.category || '').toLowerCase() === 'discovery');
+      res.json(filtered);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch discovery lab processing records' });
+    }
+  });
+
+  // Lab Processing Clinical Canonical Routes
+  app.get('/api/labprocess-clinical', async (req, res) => {
+    try {
+      const queue = await storage.getLabProcessingQueue();
+      const filtered = queue.filter((r: any) => (r.sample?.lead?.category || r.category || '').toLowerCase() === 'clinical');
+      res.json(filtered);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch clinical lab processing records' });
+    }
+  });
+
+  // Bioinformatics Discovery Canonical Routes
+  app.get('/api/bioinfo-discovery', async (req, res) => {
+    try {
+      const lp = await storage.getLabProcessingQueue();
+      const filtered = lp.filter((r: any) => (r.sample?.lead?.category || r.category || '').toLowerCase() === 'discovery');
+      const mapped = filtered.map((item: any) => ({
+        id: item.id,
+        sample_id: item.sampleId,
+        sequencing_date: item.processedAt ? new Date(item.processedAt).toISOString() : null,
+        analysis_status: item.qcStatus || 'pending',
+        total_mb_generated: (item as any).totalMbGenerated || 0,
+        result_report_link: (item as any).reportLink || null,
+        progenics_trf: item.progenicsTrf || null,
+        progenics_raw_data: (item as any).progenicsRawData || null,
+        third_party_name: (item as any).thirdPartyName || null,
+        third_party_result_date: (item as any).thirdPartyResultDate ? new Date((item as any).thirdPartyResultDate).toISOString() : null,
+        alert_to_technical: !!(item as any).alertToTechnical,
+        alert_from_lab_team: !!(item as any).alertFromLabTeam,
+        alert_from_finance: !!(item as any).alertFromFinance,
+        report_related_status: (item as any).completeStatus || 'processing',
+      }));
+      res.json(mapped);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch discovery bioinformatics records' });
+    }
+  });
+
+  // Bioinformatics Clinical Canonical Routes
+  app.get('/api/bioinfo-clinical', async (req, res) => {
+    try {
+      const lp = await storage.getLabProcessingQueue();
+      const filtered = lp.filter((r: any) => (r.sample?.lead?.category || r.category || '').toLowerCase() === 'clinical');
+      const mapped = filtered.map((item: any) => ({
+        id: item.id,
+        sample_id: item.sampleId,
+        sequencing_date: item.processedAt ? new Date(item.processedAt).toISOString() : null,
+        analysis_status: item.qcStatus || 'pending',
+        total_mb_generated: (item as any).totalMbGenerated || 0,
+        result_report_link: (item as any).reportLink || null,
+        progenics_trf: item.progenicsTrf || null,
+        progenics_raw_data: (item as any).progenicsRawData || null,
+        third_party_name: (item as any).thirdPartyName || null,
+        third_party_result_date: (item as any).thirdPartyResultDate ? new Date((item as any).thirdPartyResultDate).toISOString() : null,
+        alert_to_technical: !!(item as any).alertToTechnical,
+        alert_from_lab_team: !!(item as any).alertFromLabTeam,
+        alert_from_finance: !!(item as any).alertFromFinance,
+        report_related_status: (item as any).completeStatus || 'processing',
+      }));
+      res.json(mapped);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch clinical bioinformatics records' });
+    }
+  });
+
+  // Nutrition Canonical Routes - maps to nutritional_management table
+  app.get('/api/nutrition', async (req, res) => {
+    try {
+      const { uniqueId } = req.query;
+      let query = 'SELECT * FROM nutritional_management';
+      let params: any[] = [];
+
+      if (uniqueId) {
+        query += ' WHERE unique_id = ?';
+        params.push(uniqueId);
+      }
+
+      const [rows] = await pool.execute(query, params);
+      res.json(rows || []);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch nutrition records' });
+    }
+  });
+
+  app.post('/api/nutrition', async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => data[k]);
+      const [result]: any = await pool.execute(`INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`, values);
+      const insertId = result.insertId || null;
+      const [rows] = await pool.execute('SELECT * FROM nutritional_management WHERE id = ?', [insertId]);
+      res.json((rows as any)[0] ?? { id: insertId });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to create nutrition record' });
+    }
+  });
+
+  app.put('/api/nutrition/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log('[Nutrition PUT] ID:', id, 'Body:', JSON.stringify(req.body, null, 2));
+      const updates = normalizeDateFields(req.body);
+      console.log('[Nutrition PUT] After normalizeDateFields:', JSON.stringify(updates, null, 2));
+      const result = insertNutritionalManagementSchema.partial().safeParse(updates);
+      if (!result.success) {
+        console.error('[Nutrition PUT] Validation failed:', JSON.stringify(result.error.errors, null, 2));
+        return res.status(400).json({ message: 'Invalid nutrition data', errors: result.error.errors });
+      }
+      const validatedUpdates = result.data as any;
+      console.log('[Nutrition PUT] Validated updates:', JSON.stringify(validatedUpdates, null, 2));
+
+      // Convert camelCase keys to snake_case for database
+      const fieldMapping: Record<string, string> = {
+        uniqueId: 'unique_id',
+        projectId: 'project_id',
+        sampleId: 'sample_id',
+        serviceName: 'service_name',
+        patientClientName: 'patient_client_name',
+        age: 'age',
+        gender: 'gender',
+        questionnaire: 'questionnaire',
+        progenicsTrf: 'progenics_trf',
+        questionnaireCallRecording: 'questionnaire_call_recording',
+        dataAnalysisSheet: 'data_analysis_sheet',
+        progenicsReport: 'progenics_report',
+        nutritionChart: 'nutrition_chart',
+        counsellingSessionDate: 'counselling_session_date',
+        furtherCounsellingRequired: 'further_counselling_required',
+        counsellingStatus: 'counselling_status',
+        counsellingSessionRecording: 'counselling_session_recording',
+        alertToTechnicalLead: 'alert_to_technical_lead',
+        alertToReportTeam: 'alert_to_report_team',
+        createdBy: 'created_by',
+        modifiedBy: 'modified_by',
+        modifiedAt: 'modified_at',
+        remarksComment: 'remark_comment',
+        remarkComment: 'remark_comment',
+      };
+
+      // Map camelCase keys to snake_case
+      const dbUpdates: any = {};
+      Object.keys(validatedUpdates).forEach(k => {
+        const dbKey = fieldMapping[k] || k;
+        dbUpdates[dbKey] = validatedUpdates[k];
+      });
+
+      const keys = Object.keys(dbUpdates);
+      if (keys.length === 0) return res.status(400).json({ message: 'No updates provided' });
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => dbUpdates[k]);
+      values.push(id);
+      console.log('[Nutrition PUT] SQL:', `UPDATE nutritional_management SET ${set} WHERE id = ?`);
+      console.log('[Nutrition PUT] Values:', values);
+      await pool.execute(`UPDATE nutritional_management SET ${set} WHERE id = ?`, values);
+      const [rows] = await pool.execute('SELECT * FROM nutritional_management WHERE id = ?', [id]);
+      console.log('[Nutrition PUT] Success! Updated record:', (rows as any)[0]?.id);
+      res.json((rows as any)[0] ?? null);
+    } catch (error) {
+      console.error('[Nutrition PUT] Error:', (error as Error).message);
+      console.error('[Nutrition PUT] Stack:', (error as Error).stack);
+      res.status(500).json({ message: 'Failed to update nutrition record', error: (error as Error).message });
+    }
+  });
+
+  app.delete('/api/nutrition/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute('DELETE FROM nutritional_management WHERE id = ?', [id]);
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete nutrition record' });
+    }
+  });
+
+  // Lab Process Discovery Sheet Direct Table Routes
+  app.get('/api/labprocess-discovery-sheet', async (_req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM labprocess_discovery_sheet ORDER BY created_at DESC');
+      res.json(rows || []);
+    } catch (error) {
+      console.error('Failed to fetch lab process discovery sheet', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch lab process discovery sheet' });
+    }
+  });
+
+  // Lab Processing Discovery Sheet Routes - maps to labprocess_discovery_sheet table
+  app.post('/api/labprocess-discovery-sheet', async (req, res) => {
+    try {
+      const data = req.body || {};
+      
+      // Field mapping: camelCase to snake_case
+      const fieldMapping: Record<string, string> = {
+        titleUniqueId: 'unique_id',
+        projectId: 'project_id',
+        sampleId: 'sample_id',
+        clientId: 'client_id',
+        serviceName: 'service_name',
+        sampleType: 'sample_type',
+        numberOfSamples: 'no_of_samples',
+        sampleDeliveryDate: 'sample_received_date',
+        extractionProtocol: 'extraction_protocol',
+        extractionQualityCheck: 'extraction_quality_check',
+        extractionQCStatus: 'extraction_qc_status',
+        extractionProcess: 'extraction_process',
+        libraryPreparationProtocol: 'library_preparation_protocol',
+        libraryPreparationQualityCheck: 'library_preparation_quality_check',
+        libraryQCStatus: 'library_preparation_qc_status',
+        libraryProcess: 'library_preparation_process',
+        purificationProtocol: 'purification_protocol',
+        purificationQualityCheck: 'purification_quality_check',
+        purificationQCStatus: 'purification_qc_status',
+        purificationProcess: 'purification_process',
+        alertToBioinformaticsTeam: 'alert_to_bioinformatics_team',
+        alertToTechnicalLead: 'alert_to_technical_lead',
+        progenicsTrf: 'progenics_trf',
+        createdBy: 'created_by',
+        remarksComment: 'remark_comment',
+      };
+      
+      // Map camelCase keys to snake_case
+      const mappedData: any = {};
+      Object.keys(data).forEach(k => {
+        const dbKey = fieldMapping[k] || k;
+        mappedData[dbKey] = data[k];
+      });
+      
+      const keys = Object.keys(mappedData);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => mappedData[k]);
+
+      console.log('[Lab Process Discovery POST] Creating record with columns:', keys);
+      const [result]: any = await pool.execute(
+        `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
+        values
+      );
+
+      const insertId = result.insertId || null;
+      console.log('[Lab Process Discovery POST] Inserted with ID:', insertId);
+
+      if (insertId) {
+        const [rows] = await pool.execute('SELECT * FROM labprocess_discovery_sheet WHERE id = ?', [insertId]);
+        return res.json((rows as any)[0] ?? { id: insertId });
+      }
+
+      res.json({ id: insertId });
+    } catch (error) {
+      console.error('[Lab Process Discovery POST] Error:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create lab process discovery record', error: (error as Error).message });
+    }
+  });
+
+  app.put('/api/labprocess-discovery-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log('[Lab Process Discovery PUT] Request body:', JSON.stringify(req.body, null, 2));
+      
+      const updates = normalizeDateFields(req.body);
+      
+      // Convert numeric booleans (0/1) to actual booleans for Zod validation
+      if (updates.alertToBioinformaticsTeam !== undefined) {
+        updates.alertToBioinformaticsTeam = updates.alertToBioinformaticsTeam === 1 || updates.alertToBioinformaticsTeam === true;
+      }
+      if (updates.alertToTechnicalLead !== undefined) {
+        updates.alertToTechnicalLead = updates.alertToTechnicalLead === 1 || updates.alertToTechnicalLead === true;
+      }
+      
+      console.log('[Lab Process Discovery PUT] Normalized updates:', JSON.stringify(updates, null, 2));
+      
+      const result = insertLabProcessDiscoverySheetSchema.partial().safeParse(updates);
+      if (!result.success) {
+        console.error('[Lab Process Discovery PUT] Validation failed:', result.error.errors);
+        return res.status(400).json({ message: 'Invalid lab process data', errors: result.error.errors });
+      }
+      const validatedUpdates = result.data as any;
+      console.log('[Lab Process Discovery PUT] Validated updates:', JSON.stringify(validatedUpdates, null, 2));
+
+      // Convert camelCase keys to snake_case for database
+      const fieldMapping: Record<string, string> = {
+        titleUniqueId: 'unique_id',
+        projectId: 'project_id',
+        sampleId: 'sample_id',
+        clientId: 'client_id',
+        serviceName: 'service_name',
+        sampleType: 'sample_type',
+        numberOfSamples: 'no_of_samples',
+        sampleDeliveryDate: 'sample_received_date',
+        extractionProtocol: 'extraction_protocol',
+        extractionQualityCheck: 'extraction_quality_check',
+        extractionQCStatus: 'extraction_qc_status',
+        extractionProcess: 'extraction_process',
+        libraryPreparationProtocol: 'library_preparation_protocol',
+        libraryPreparationQualityCheck: 'library_preparation_quality_check',
+        libraryQCStatus: 'library_preparation_qc_status',
+        libraryProcess: 'library_preparation_process',
+        purificationProtocol: 'purification_protocol',
+        purificationQualityCheck: 'purification_quality_check',
+        purificationQCStatus: 'purification_qc_status',
+        purificationProcess: 'purification_process',
+        alertToBioinformaticsTeam: 'alert_to_bioinformatics_team',
+        alertToTechnicalLead: 'alert_to_technical_lead',
+        progenicsTrf: 'progenics_trf',
+        createdAt: 'created_at',
+        createdBy: 'created_by',
+        modifiedAt: 'modified_at',
+        modifiedBy: 'modified_by',
+        remarksComment: 'remark_comment',
+      };
+
+      // Map camelCase keys to snake_case
+      const dbUpdates: any = {};
+      Object.keys(validatedUpdates).forEach(k => {
+        const dbKey = fieldMapping[k] || k;
+        let value = validatedUpdates[k];
+        // Convert boolean back to number for database storage (TINYINT)
+        if (typeof value === 'boolean') {
+          value = value ? 1 : 0;
+        }
+        dbUpdates[dbKey] = value;
+      });
+
+      const keys = Object.keys(dbUpdates);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'No updates provided' });
+      }
+
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => dbUpdates[k]);
+      values.push(id);
+
+      console.log('[Lab Process Discovery PUT] SQL Query:', `UPDATE labprocess_discovery_sheet SET ${set} WHERE id = ?`);
+      console.log('[Lab Process Discovery PUT] Query values:', values);
+
+      const result_query = await pool.execute(
+        `UPDATE labprocess_discovery_sheet SET ${set} WHERE id = ?`,
+        values
+      );
+      
+      console.log('[Lab Process Discovery PUT] Update succeeded, fetching updated record');
+
+      const [rows] = await pool.execute('SELECT * FROM labprocess_discovery_sheet WHERE id = ?', [id]);
+      const updatedRecord = (rows as any)[0] ?? null;
+      console.log('[Lab Process Discovery PUT] Success! Updated record:', JSON.stringify(updatedRecord, null, 2));
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error('[Lab Process Discovery PUT] Error:', (error as Error).message, (error as Error).stack);
+      res.status(500).json({ message: 'Failed to update lab process discovery record' });
+    }
+  });
+
+  app.delete('/api/labprocess-discovery-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute('DELETE FROM labprocess_discovery_sheet WHERE id = ?', [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error('Failed to delete lab process discovery record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to delete lab process discovery record' });
+    }
+  });
+
+  // Lab Process Clinical Sheet Direct Table Routes
+  app.get('/api/labprocess-clinical-sheet', async (_req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM labprocess_clinical_sheet ORDER BY created_at DESC');
+      res.json(rows || []);
+    } catch (error) {
+      console.error('Failed to fetch lab process clinical sheet', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch lab process clinical sheet' });
+    }
+  });
+
+  // Lab Processing Clinical Sheet Routes - maps to labprocess_clinical_sheet table
+  app.post('/api/labprocess-clinical-sheet', async (req, res) => {
+    try {
+      const data = req.body || {};
+      
+      // Field mapping: camelCase to snake_case
+      const fieldMapping: Record<string, string> = {
+        titleUniqueId: 'unique_id',
+        projectId: 'project_id',
+        sampleId: 'sample_id',
+        clientId: 'client_id',
+        serviceName: 'service_name',
+        sampleType: 'sample_type',
+        numberOfSamples: 'no_of_samples',
+        sampleDeliveryDate: 'sample_received_date',
+        extractionProtocol: 'extraction_protocol',
+        extractionQualityCheck: 'extraction_quality_check',
+        extractionQCStatus: 'extraction_qc_status',
+        extractionProcess: 'extraction_process',
+        libraryPreparationProtocol: 'library_preparation_protocol',
+        libraryPreparationQualityCheck: 'library_preparation_quality_check',
+        libraryQCStatus: 'library_preparation_qc_status',
+        libraryProcess: 'library_preparation_process',
+        purificationProtocol: 'purification_protocol',
+        purificationQualityCheck: 'purification_quality_check',
+        purificationQCStatus: 'purification_qc_status',
+        purificationProcess: 'purification_process',
+        alertToBioinformaticsTeam: 'alert_to_bioinformatics_team',
+        alertToTechnicalLead: 'alert_to_technical_lead',
+        progenicsTrf: 'progenics_trf',
+        createdBy: 'created_by',
+        remarksComment: 'remark_comment',
+      };
+      
+      // Map camelCase keys to snake_case
+      const mappedData: any = {};
+      Object.keys(data).forEach(k => {
+        const dbKey = fieldMapping[k] || k;
+        mappedData[dbKey] = data[k];
+      });
+      
+      const keys = Object.keys(mappedData);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => mappedData[k]);
+
+      console.log('[Lab Process Clinical POST] Creating record with columns:', keys);
+      const [result]: any = await pool.execute(
+        `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
+        values
+      );
+
+      const insertId = result.insertId || null;
+      console.log('[Lab Process Clinical POST] Inserted with ID:', insertId);
+
+      if (insertId) {
+        const [rows] = await pool.execute('SELECT * FROM labprocess_clinical_sheet WHERE id = ?', [insertId]);
+        return res.json((rows as any)[0] ?? { id: insertId });
+      }
+
+      res.json({ id: insertId });
+    } catch (error) {
+      console.error('[Lab Process Clinical POST] Error:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create lab process clinical record', error: (error as Error).message });
+    }
+  });
+
+  app.put('/api/labprocess-clinical-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log('[Lab Process Clinical PUT] Request body:', JSON.stringify(req.body, null, 2));
+      
+      const updates = normalizeDateFields(req.body);
+      
+      // Convert numeric booleans (0/1) to actual booleans for Zod validation
+      if (updates.alertToBioinformaticsTeam !== undefined) {
+        updates.alertToBioinformaticsTeam = updates.alertToBioinformaticsTeam === 1 || updates.alertToBioinformaticsTeam === true;
+      }
+      if (updates.alertToTechnicalLead !== undefined) {
+        updates.alertToTechnicalLead = updates.alertToTechnicalLead === 1 || updates.alertToTechnicalLead === true;
+      }
+      
+      console.log('[Lab Process Clinical PUT] Normalized updates:', JSON.stringify(updates, null, 2));
+      
+      const result = insertLabProcessClinicalSheetSchema.partial().safeParse(updates);
+      if (!result.success) {
+        console.error('[Lab Process Clinical PUT] Validation failed:', result.error.errors);
+        return res.status(400).json({ message: 'Invalid lab process data', errors: result.error.errors });
+      }
+      const validatedUpdates = result.data as any;
+      console.log('[Lab Process Clinical PUT] Validated updates:', JSON.stringify(validatedUpdates, null, 2));
+
+      // Convert camelCase keys to snake_case for database
+      const fieldMapping: Record<string, string> = {
+        titleUniqueId: 'unique_id',
+        projectId: 'project_id',
+        sampleId: 'sample_id',
+        clientId: 'client_id',
+        serviceName: 'service_name',
+        sampleType: 'sample_type',
+        numberOfSamples: 'no_of_samples',
+        sampleDeliveryDate: 'sample_received_date',
+        extractionProtocol: 'extraction_protocol',
+        extractionQualityCheck: 'extraction_quality_check',
+        extractionQCStatus: 'extraction_qc_status',
+        extractionProcess: 'extraction_process',
+        libraryPreparationProtocol: 'library_preparation_protocol',
+        libraryPreparationQualityCheck: 'library_preparation_quality_check',
+        libraryQCStatus: 'library_preparation_qc_status',
+        libraryProcess: 'library_preparation_process',
+        purificationProtocol: 'purification_protocol',
+        purificationQualityCheck: 'purification_quality_check',
+        purificationQCStatus: 'purification_qc_status',
+        purificationProcess: 'purification_process',
+        alertToBioinformaticsTeam: 'alert_to_bioinformatics_team',
+        alertToTechnicalLead: 'alert_to_technical_lead',
+        progenicsTrf: 'progenics_trf',
+        createdAt: 'created_at',
+        createdBy: 'created_by',
+        modifiedAt: 'modified_at',
+        modifiedBy: 'modified_by',
+        remarksComment: 'remark_comment',
+      };
+
+      // Map camelCase keys to snake_case
+      const dbUpdates: any = {};
+      Object.keys(validatedUpdates).forEach(k => {
+        const dbKey = fieldMapping[k] || k;
+        let value = validatedUpdates[k];
+        // Convert boolean back to number for database storage (TINYINT)
+        if (typeof value === 'boolean') {
+          value = value ? 1 : 0;
+        }
+        dbUpdates[dbKey] = value;
+      });
+
+      const keys = Object.keys(dbUpdates);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'No updates provided' });
+      }
+
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => dbUpdates[k]);
+      values.push(id);
+
+      console.log('[Lab Process Clinical PUT] SQL Query:', `UPDATE labprocess_clinical_sheet SET ${set} WHERE id = ?`);
+      console.log('[Lab Process Clinical PUT] Query values:', values);
+
+      const result_query = await pool.execute(
+        `UPDATE labprocess_clinical_sheet SET ${set} WHERE id = ?`,
+        values
+      );
+
+      console.log('[Lab Process Clinical PUT] Update succeeded, fetching updated record');
+
+      const [rows] = await pool.execute('SELECT * FROM labprocess_clinical_sheet WHERE id = ?', [id]);
+      const updatedRecord = (rows as any)[0] ?? null;
+      console.log('[Lab Process Clinical PUT] Success! Updated record:', JSON.stringify(updatedRecord, null, 2));
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error('[Lab Process Clinical PUT] Error:', (error as Error).message, (error as Error).stack);
+      res.status(500).json({ message: 'Failed to update lab process clinical record' });
+    }
+  });
+
+  app.delete('/api/labprocess-clinical-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute('DELETE FROM labprocess_clinical_sheet WHERE id = ?', [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error('Failed to delete lab process clinical record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to delete lab process clinical record' });
+    }
+  });
+
+  // ============================================================================
+  // Bioinformatics Sheet Routes - Direct table access for bioinformatics_sheet_discovery and bioinformatics_sheet_clinical
+  // ============================================================================
+
+  // Bioinformatics Discovery Sheet Routes
+  app.get('/api/bioinfo-discovery-sheet', async (_req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery ORDER BY created_at DESC');
+      res.json(rows || []);
+    } catch (error) {
+      console.error('Failed to fetch bioinformatics discovery sheet', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch bioinformatics discovery sheet' });
+    }
+  });
+
+  app.post('/api/bioinfo-discovery-sheet', async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => data[k]);
+
+      // Build ON DUPLICATE KEY UPDATE clause for all columns except id
+      const updateCols = keys.filter(k => k !== 'id').map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(',');
+      const upsertQuery = `
+        INSERT INTO bioinformatics_sheet_discovery (${cols}) 
+        VALUES (${placeholders})
+        ON DUPLICATE KEY UPDATE
+          ${updateCols},
+          modified_at = NOW()
+      `;
+
+      console.log('Upserting bioinformatics_sheet_discovery record with columns:', keys);
+      const [result]: any = await pool.execute(upsertQuery, values);
+
+      // Get the affected row ID (insertId for new records, 0 for updates in our case)
+      const recordId = result.insertId || data.id;
+      console.log('Upserted bioinformatics_sheet_discovery with ID:', recordId);
+
+      // Fetch and return the record
+      if (data.unique_id) {
+        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ?', [data.unique_id]);
+        return res.json((rows as any)[0] ?? { id: recordId });
+      }
+
+      res.json({ id: recordId });
+    } catch (error) {
+      console.error('Failed to create/update bioinformatics discovery record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create/update bioinformatics discovery record', error: (error as Error).message });
+    }
+  });
+
+  app.put('/api/bioinfo-discovery-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'No updates provided' });
+      }
+
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => updates[k]);
+      values.push(id);
+
+      await pool.execute(
+        `UPDATE bioinformatics_sheet_discovery SET ${set} WHERE id = ?`,
+        values
+      );
+
+      const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE id = ?', [id]);
+      res.json((rows as any)[0] ?? null);
+    } catch (error) {
+      console.error('Failed to update bioinformatics discovery record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to update bioinformatics discovery record' });
+    }
+  });
+
+  app.delete('/api/bioinfo-discovery-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute('DELETE FROM bioinformatics_sheet_discovery WHERE id = ?', [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error('Failed to delete bioinformatics discovery record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to delete bioinformatics discovery record' });
+    }
+  });
+
+  // Bioinformatics Clinical Sheet Routes
+  app.get('/api/bioinfo-clinical-sheet', async (_req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical ORDER BY created_at DESC');
+      res.json(rows || []);
+    } catch (error) {
+      console.error('Failed to fetch bioinformatics clinical sheet', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch bioinformatics clinical sheet' });
+    }
+  });
+
+  app.post('/api/bioinfo-clinical-sheet', async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => data[k]);
+
+      // Build ON DUPLICATE KEY UPDATE clause for all columns except id
+      const updateCols = keys.filter(k => k !== 'id').map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(',');
+      const upsertQuery = `
+        INSERT INTO bioinformatics_sheet_clinical (${cols}) 
+        VALUES (${placeholders})
+        ON DUPLICATE KEY UPDATE
+          ${updateCols},
+          modified_at = NOW()
+      `;
+
+      console.log('Upserting bioinformatics_sheet_clinical record with columns:', keys);
+      const [result]: any = await pool.execute(upsertQuery, values);
+
+      // Get the affected row ID (insertId for new records, 0 for updates in our case)
+      const recordId = result.insertId || data.id;
+      console.log('Upserted bioinformatics_sheet_clinical with ID:', recordId);
+
+      // Fetch and return the record
+      if (data.unique_id) {
+        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ?', [data.unique_id]);
+        return res.json((rows as any)[0] ?? { id: recordId });
+      }
+
+      res.json({ id: recordId });
+    } catch (error) {
+      console.error('Failed to create/update bioinformatics clinical record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create/update bioinformatics clinical record', error: (error as Error).message });
+    }
+  });
+
+  app.put('/api/bioinfo-clinical-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'No updates provided' });
+      }
+
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => updates[k]);
+      values.push(id);
+
+      await pool.execute(
+        `UPDATE bioinformatics_sheet_clinical SET ${set} WHERE id = ?`,
+        values
+      );
+
+      const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE id = ?', [id]);
+      res.json((rows as any)[0] ?? null);
+    } catch (error) {
+      console.error('Failed to update bioinformatics clinical record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to update bioinformatics clinical record' });
+    }
+  });
+
+  app.delete('/api/bioinfo-clinical-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute('DELETE FROM bioinformatics_sheet_clinical WHERE id = ?', [id]);
+      res.json({ id });
+    } catch (error) {
+      console.error('Failed to delete bioinformatics clinical record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to delete bioinformatics clinical record' });
+    }
+  });
+
+  // Alert Lab Process - Routes based on project ID prefix
+  app.post('/api/alert-lab-process', async (req, res) => {
+    try {
+      const { sampleId, projectId, uniqueId, sampleType, clientId, serviceName, sampleDeliveryDate, createdBy } = req.body;
+
+      console.log('Alert Lab Process triggered for sample:', sampleId, 'Project ID:', projectId);
+
+      if (!projectId) {
+        return res.status(400).json({ message: 'Project ID is required' });
+      }
+
+      // Determine destination table based on project ID prefix
+      const isDiscovery = projectId.startsWith('DG');
+      const isClinical = projectId.startsWith('PG');
+
+      console.log('Project ID analysis - Discovery:', isDiscovery, 'Clinical:', isClinical);
+
+      if (!isDiscovery && !isClinical) {
+        return res.status(400).json({ message: 'Project ID must start with DG (Discovery) or PG (Clinical)' });
+      }
+
+      // Fetch lead data to get serviceName, sampleType, numberOfSamples if not provided
+      let leadData: any = { service_name: serviceName, sample_type: sampleType };
+      try {
+        const [leadRows]: any = await pool.execute(
+          'SELECT service_name, sample_type, no_of_samples FROM lead_management WHERE unique_id = ? LIMIT 1',
+          [uniqueId]
+        );
+        if (leadRows && leadRows.length > 0) {
+          const lead = leadRows[0];
+          leadData.service_name = serviceName || lead.service_name || null;
+          leadData.sample_type = sampleType || lead.sample_type || null;
+          leadData.no_of_samples = lead.no_of_samples || null;
+          console.log('Fetched lead data from lead_management table:', leadData);
+        }
+      } catch (leadError) {
+        console.log('Note: Could not fetch lead data -', (leadError as Error).message);
+      }
+
+      // Prepare lab process data with only valid database columns that exist in both tables
+      const labProcessData: Record<string, any> = {
+        unique_id: uniqueId || '',
+        project_id: projectId,
+        sample_id: sampleId || null,
+      };
+
+      // Add optional fields if provided
+      if (clientId) labProcessData.client_id = clientId;
+      if (leadData.service_name) labProcessData.service_name = leadData.service_name;
+      if (leadData.sample_type) labProcessData.sample_type = leadData.sample_type;
+      if (leadData.no_of_samples) labProcessData.no_of_samples = leadData.no_of_samples;
+      if (sampleDeliveryDate) {
+        // Convert ISO date string to DATE format (YYYY-MM-DD)
+        const dateObj = new Date(sampleDeliveryDate);
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+        labProcessData.sample_received_date = `${year}-${month}-${day}`;
+      }
+
+      labProcessData.created_by = createdBy || 'system';
+      labProcessData.created_at = new Date();
+
+      const keys = Object.keys(labProcessData);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => labProcessData[k]);
+
+      let insertResult;
+      let tableName;
+
+      if (isDiscovery) {
+        tableName = 'labprocess_discovery_sheet';
+        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
+        const result: any = await pool.execute(
+          `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      } else {
+        tableName = 'labprocess_clinical_sheet';
+        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
+        const result: any = await pool.execute(
+          `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        insertResult = result[0];
+      }
+
+      const insertId = (insertResult as any).insertId || null;
+      console.log(`Inserted into ${tableName} with ID:`, insertId);
+
+      // Update sample tracking to set alertToLabprocessTeam flag
+      try {
+        await pool.execute(
+          'UPDATE sample_tracking SET alert_to_labprocess_team = ?, updated_at = ? WHERE id = ?',
+          [true, new Date(), sampleId]
+        );
+        console.log('Updated sample_tracking flag for sample:', sampleId);
+      } catch (updateError) {
+        console.error('Warning: Failed to update sample_tracking flag', (updateError as Error).message);
+        // Don't fail the entire request if sample update fails
+      }
+
+      res.json({
+        success: true,
+        recordId: insertId,
+        table: tableName,
+        message: `Lab process record created in ${tableName}`
+      });
+    } catch (error) {
+      console.error('Failed to alert lab process', (error as Error).message);
+      res.status(500).json({ message: 'Failed to alert lab process', error: (error as Error).message });
+    }
+  });
+
+  // Process Master Canonical Routes - maps to process_master_sheet table
+  app.get('/api/process-master', async (req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM process_master_sheet');
+      res.json(rows || []);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch process master records' });
+    }
+  });
+
+  app.post('/api/process-master', async (req, res) => {
+    try {
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => data[k]);
+      const [result]: any = await pool.execute(`INSERT INTO process_master_sheet (${cols}) VALUES (${placeholders})`, values);
+      const insertId = result.insertId || null;
+      const [rows] = await pool.execute('SELECT * FROM process_master_sheet WHERE id = ?', [insertId]);
+      res.json((rows as any)[0] ?? { id: insertId });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to create process master record' });
+    }
+  });
+
+  app.put('/api/process-master/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) return res.status(400).json({ message: 'No updates provided' });
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => updates[k]);
+      values.push(id);
+      await pool.execute(`UPDATE process_master_sheet SET ${set}, modified_at = NOW() WHERE id = ?`, values);
+      const [rows] = await pool.execute('SELECT * FROM process_master_sheet WHERE id = ?', [id]);
+      const result = (rows as any)[0] ?? null;
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to update process master record' });
+    }
+  });
+
+  app.delete('/api/process-master/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await pool.execute('DELETE FROM process_master_sheet WHERE id = ?', [id]);
+      res.json({ id });
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete process master record' });
+    }
+  });
+
+  // ============================================================================
+  // Adapter Endpoints for Component/Table Mapping (LEGACY - for backward compatibility)
+  // ============================================================================
+  // Maps component-specific table names to storage API methods:
+  // - /api/project-samples (LeadManagement.tsx -> lead_management) [DEPRECATED: use /api/leads]
+  // - /api/finance-sheet (FinanceManagement.tsx -> finance_sheet) [DEPRECATED: use /api/finance]
+  // - /api/nutrition-sheet (Nutrition.tsx -> nutritional_management) [DEPRECATED: use /api/nutrition]
+  // - /api/gc-registration (GeneticCounselling.tsx -> genetic_counselling_records) [already canonical]
+  // - /api/lab-process/* (LabProcessing.tsx) [DEPRECATED: use /api/labprocess-discovery/clinical]
+  // - /api/bioinfo/* (Bioinformatics.tsx) [DEPRECATED: use /api/bioinfo-discovery/clinical]
+  // - /api/process-master (ProcessMaster.tsx) [already canonical]
+  // ============================================================================
 
   // Project samples (adapter -> existing `samples` table)
   app.get('/api/project-samples', async (_req, res) => {
@@ -1430,7 +3160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/lab-process/discovery', async (_req, res) => {
     try {
       try {
-        const [rows] = await pool.execute('SELECT * FROM lab_process_discovery_sheet');
+        const [rows] = await pool.execute('SELECT * FROM labprocess_discovery_sheet');
         return res.json(rows);
       } catch (e) {
         const queue = await storage.getLabProcessingQueue();
@@ -1445,7 +3175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/lab-process/clinical', async (_req, res) => {
     try {
       try {
-        const [rows] = await pool.execute('SELECT * FROM lab_process_clinical_sheet');
+        const [rows] = await pool.execute('SELECT * FROM labprocess_clinical_sheet');
         return res.json(rows);
       } catch (e) {
         const queue = await storage.getLabProcessingQueue();
@@ -1460,13 +3190,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Finance sheet adapter
   app.get('/api/finance-sheet', async (req, res) => {
     try {
-      try {
-        const [rows] = await pool.execute('SELECT * FROM finance_sheet');
-        return res.json({ rows, total: Array.isArray(rows) ? (rows as any).length : 0 });
-      } catch (e) {
-        const result = await storage.getFinanceRecords({ page: 1, pageSize: 1000 });
-        return res.json(result);
-      }
+      const [rows] = await pool.execute('SELECT * FROM finance_sheet ORDER BY created_at DESC');
+      res.json(rows || []);
     } catch (error) {
       console.error('Failed to fetch finance sheet', (error as Error).message);
       res.status(500).json({ message: 'Failed to fetch finance sheet' });
@@ -1475,62 +3200,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/finance-sheet', async (req, res) => {
     try {
-      try {
-        const data = req.body || {};
-        const keys = Object.keys(data);
-        const cols = keys.map(k => `\`${k}\``).join(',');
-        const placeholders = keys.map(() => '?').join(',');
-        const values = keys.map(k => data[k]);
-        const [result]: any = await pool.execute(`INSERT INTO finance_sheet (${cols}) VALUES (${placeholders})`, values);
-        const insertId = result.insertId || null;
+      const data = req.body || {};
+      const keys = Object.keys(data);
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => data[k]);
+
+      console.log('Creating finance_sheet record with columns:', keys);
+      const [result]: any = await pool.execute(
+        `INSERT INTO finance_sheet (${cols}) VALUES (${placeholders})`,
+        values
+      );
+
+      const insertId = result.insertId || null;
+      console.log('Inserted finance_sheet with ID:', insertId);
+
+      if (insertId) {
         const [rows] = await pool.execute('SELECT * FROM finance_sheet WHERE id = ?', [insertId]);
         return res.json((rows as any)[0] ?? { id: insertId });
-      } catch (e) {
-        const created = await storage.createFinanceRecord(req.body as any);
-        return res.json(created);
       }
+
+      res.json({ id: insertId });
     } catch (error) {
       console.error('Failed to create finance record', (error as Error).message);
-      res.status(500).json({ message: 'Failed to create finance record' });
+      res.status(500).json({ message: 'Failed to create finance record', error: (error as Error).message });
     }
   });
 
   app.put('/api/finance-sheet/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      try {
-        const updates = req.body || {};
-        const keys = Object.keys(updates);
-        if (keys.length === 0) return res.status(400).json({ message: 'No updates provided' });
-        const set = keys.map(k => `\`${k}\` = ?`).join(',');
-        const values = keys.map(k => updates[k]);
-        values.push(id);
-        await pool.execute(`UPDATE finance_sheet SET ${set} WHERE id = ?`, values);
-        const [rows] = await pool.execute('SELECT * FROM finance_sheet WHERE id = ?', [id]);
-        return res.json((rows as any)[0] ?? null);
-      } catch (e) {
-        const updated = await storage.updateFinanceRecord(id, req.body as any);
-        return res.json(updated);
+      const updates = req.body || {};
+
+      // Normalize incoming date/datetime strings to DB-friendly formats
+      const normalizeDateStrings = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return obj;
+        const copy = { ...obj };
+        const dateKeys = ['sampleCollectionDate', 'invoiceDate', 'paymentReceiptDate', 'balanceAmountReceivedDate', 'thirdPartyPaymentDate'];
+        const datetimeKeys = ['createdAt', 'modifiedAt'];
+        const pad = (n: number) => String(n).padStart(2, '0');
+
+        for (const k of dateKeys) {
+          if (copy[k] && typeof copy[k] === 'string') {
+            const d = new Date(copy[k]);
+            if (!isNaN(d.getTime())) {
+              copy[k] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; // YYYY-MM-DD
+            }
+          }
+        }
+
+        for (const k of datetimeKeys) {
+          if (copy[k] && typeof copy[k] === 'string') {
+            const d = new Date(copy[k]);
+            if (!isNaN(d.getTime())) {
+              copy[k] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; // YYYY-MM-DD HH:MM:SS
+            }
+          }
+        }
+
+        return copy;
+      };
+
+      const normalizedInput = normalizeDateStrings(updates);
+      
+      if (Object.keys(normalizedInput).length === 0) {
+        return res.status(400).json({ message: 'No updates provided' });
       }
+
+      // Convert camelCase keys to snake_case for database compatibility
+      const snakeCaseUpdates: any = {};
+      Object.keys(normalizedInput).forEach(k => {
+        const snakeKey = k.replace(/([A-Z])/g, '_$1').toLowerCase();
+        snakeCaseUpdates[snakeKey] = normalizedInput[k];
+      });
+
+      const keys = Object.keys(snakeCaseUpdates);
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => snakeCaseUpdates[k]);
+      values.push(id);
+
+      console.log('Updating finance_sheet ID:', id, 'with fields:', keys);
+      await pool.execute(
+        `UPDATE finance_sheet SET ${set} WHERE id = ?`,
+        values
+      );
+
+      const [rows] = await pool.execute('SELECT * FROM finance_sheet WHERE id = ?', [id]);
+      const result = (rows as any)[0] ?? null;
+
+      console.log('Updated finance_sheet ID:', id);
+      res.json(result);
     } catch (error) {
       console.error('Failed to update finance record', (error as Error).message);
-      res.status(500).json({ message: 'Failed to update finance record' });
+      res.status(500).json({ message: 'Failed to update finance record', error: (error as Error).message });
     }
   });
 
   app.delete('/api/finance-sheet/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      try {
-        await pool.execute('DELETE FROM finance_sheet WHERE id = ?', [id]);
-        return res.json({ id });
-      } catch (e) {
-        const ok = await storage.deleteFinanceRecord(id);
-        return res.json({ id, fallback: !!ok });
-      }
+      console.log('Deleting finance_sheet ID:', id);
+      await pool.execute('DELETE FROM finance_sheet WHERE id = ?', [id]);
+      res.json({ id });
     } catch (error) {
       console.error('Failed to delete finance record', (error as Error).message);
-      res.status(500).json({ message: 'Failed to delete finance record' });
+      res.status(500).json({ message: 'Failed to delete finance record', error: (error as Error).message });
+    }
+  });
+
+  // Endpoint: upload screenshot/document for a finance record
+  app.post('/api/finance-sheet/:id/upload-screenshot', uploadFinance.single('file'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      // Accept either the form field 'file' (preferred) or 'screenshot' (backwards-compat)
+      const file = (req as any).file;
+      if (!file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      const storagePath = `/uploads/finance/${file.filename}`;
+      const filename = file.originalname || file.filename;
+      const mimeType = file.mimetype || null;
+      const sizeBytes = file.size || null;
+      const uploadedBy = (req.headers['x-user-id'] as string) || (req.body && req.body.uploaded_by) || null;
+
+      // Insert into finance_sheet_attachments
+      const [result]: any = await pool.execute(
+        `INSERT INTO finance_sheet_attachments (finance_id, filename, storage_path, mime_type, size_bytes, uploaded_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [id, filename, storagePath, mimeType, sizeBytes, uploadedBy, new Date()]
+      );
+
+      const insertId = result.insertId || null;
+
+      // If finance_sheet.screenshot_document is empty, set this upload as the primary screenshot_document
+      try {
+        await pool.execute('UPDATE finance_sheet SET screenshot_document = ? WHERE id = ? AND (screenshot_document IS NULL OR screenshot_document = "")', [storagePath, id]);
+      } catch (e) {
+        console.warn('Failed to update finance_sheet.screenshot_document', (e as Error).message);
+      }
+
+      const [rows] = await pool.execute('SELECT * FROM finance_sheet_attachments WHERE id = ?', [insertId]);
+      const attachment = (rows as any)[0] ?? { id: insertId, filename, storage_path: storagePath };
+
+      res.json({ attachment, url: storagePath });
+    } catch (error) {
+      console.error('Finance screenshot upload failed:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to upload screenshot', error: (error as Error).message });
     }
   });
 
@@ -1627,6 +3442,197 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // Genetic Counselling Sheet Direct Table Routes (Direct SQL)
+  // Maps to genetic_counselling_records table with proper field mapping
+  // ============================================================================
+  app.get('/api/genetic-counselling-sheet', async (_req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM genetic_counselling_records ORDER BY created_at DESC');
+      console.log('Fetched genetic_counselling_records:', Array.isArray(rows) ? (rows as any).length : 0, 'records');
+      res.json(rows || []);
+    } catch (error) {
+      console.error('Failed to fetch genetic counselling sheet', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch genetic counselling sheet' });
+    }
+  });
+
+  app.post('/api/genetic-counselling-sheet', async (req, res) => {
+    try {
+      const data = req.body || {};
+      console.log('[GC POST] Request body:', JSON.stringify(data, null, 2));
+
+      // Convert numeric booleans to actual booleans
+      if (data.approval_from_head !== undefined) {
+        data.approval_from_head = data.approval_from_head === 1 || data.approval_from_head === true;
+      }
+      if (data.potential_patient_for_testing_in_future !== undefined) {
+        data.potential_patient_for_testing_in_future = data.potential_patient_for_testing_in_future === 1 || data.potential_patient_for_testing_in_future === true;
+      }
+      if (data.extended_family_testing_requirement !== undefined) {
+        data.extended_family_testing_requirement = data.extended_family_testing_requirement === 1 || data.extended_family_testing_requirement === true;
+      }
+
+      // Generate created_at if not provided
+      if (!data.created_at) {
+        data.created_at = new Date();
+      }
+
+      const keys = Object.keys(data).filter(k => k && data[k] !== undefined);
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'No data provided' });
+      }
+
+      // Convert booleans to numbers for database storage (TINYINT)
+      const processedData: any = {};
+      keys.forEach(k => {
+        let value = data[k];
+        if (typeof value === 'boolean') {
+          value = value ? 1 : 0;
+        }
+        processedData[k] = value;
+      });
+
+      const processedKeys = Object.keys(processedData);
+      const cols = processedKeys.map(k => `\`${k}\``).join(',');
+      const placeholders = processedKeys.map(() => '?').join(',');
+      const values = processedKeys.map(k => processedData[k]);
+
+      console.log('[GC POST] Inserting with columns:', processedKeys);
+      console.log('[GC POST] SQL:', `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
+      console.log('[GC POST] Values:', values);
+
+      const [result]: any = await pool.execute(
+        `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+        values
+      );
+
+      const insertId = result.insertId || null;
+      console.log('[GC POST] Insert succeeded with ID:', insertId);
+
+      if (insertId) {
+        const [rows] = await pool.execute('SELECT * FROM genetic_counselling_records WHERE id = ?', [insertId]);
+        const createdRecord = (rows as any)[0] ?? { id: insertId };
+        console.log('[GC POST] Success! Created record:', JSON.stringify(createdRecord, null, 2));
+        return res.json(createdRecord);
+      }
+
+      res.json({ id: insertId });
+    } catch (error) {
+      console.error('[GC POST] Error:', (error as Error).message, (error as Error).stack);
+      res.status(500).json({ message: 'Failed to create genetic counselling record', error: (error as Error).message });
+    }
+  });
+
+  app.put('/api/genetic-counselling-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      console.log('[GC PUT] Request ID:', id);
+      console.log('[GC PUT] Request body:', JSON.stringify(updates, null, 2));
+
+      // Remove id from updates to prevent updating the primary key
+      delete updates.id;
+
+      // Convert numeric booleans to actual booleans
+      if (updates.approval_from_head !== undefined) {
+        updates.approval_from_head = updates.approval_from_head === 1 || updates.approval_from_head === true;
+      }
+      if (updates.potential_patient_for_testing_in_future !== undefined) {
+        updates.potential_patient_for_testing_in_future = updates.potential_patient_for_testing_in_future === 1 || updates.potential_patient_for_testing_in_future === true;
+      }
+      if (updates.extended_family_testing_requirement !== undefined) {
+        updates.extended_family_testing_requirement = updates.extended_family_testing_requirement === 1 || updates.extended_family_testing_requirement === true;
+      }
+
+      // Add modified_at timestamp
+      updates.modified_at = new Date();
+
+      const keys = Object.keys(updates).filter(k => updates[k] !== undefined);
+
+      if (keys.length === 0) {
+        return res.status(400).json({ message: 'No updates provided' });
+      }
+
+      // Convert booleans to numbers for database storage (TINYINT)
+      const processedUpdates: any = {};
+      keys.forEach(k => {
+        let value = updates[k];
+        if (typeof value === 'boolean') {
+          value = value ? 1 : 0;
+        }
+        processedUpdates[k] = value;
+      });
+
+      // Coerce known decimal fields (handle both snake_case and camelCase):
+      // convert empty string -> null, numeric-like -> number
+      const decimalFieldPairs: Array<[string, string]> = [
+        ['budget_for_test_opted', 'budgetForTestOpted'],
+        ['budget', 'budget']
+      ];
+      for (const [snake, camel] of decimalFieldPairs) {
+        if (Object.prototype.hasOwnProperty.call(processedUpdates, snake) || Object.prototype.hasOwnProperty.call(processedUpdates, camel)) {
+          const key = Object.prototype.hasOwnProperty.call(processedUpdates, snake) ? snake : camel;
+          const v = processedUpdates[key];
+          if (v === '' || v === null || v === undefined) {
+            processedUpdates[key] = null;
+          } else {
+            const n = Number(v);
+            processedUpdates[key] = Number.isNaN(n) ? null : n;
+          }
+        }
+      }
+
+      // Debug: log processed updates and values to diagnose decimal coercion issues
+      console.log('[GC PUT] Incoming updates (after preliminary processing):', updates);
+      console.log('[GC PUT] Processed updates (after coercion):', processedUpdates);
+
+      const processedKeys = Object.keys(processedUpdates);
+      const set = processedKeys.map(k => `\`${k}\` = ?`).join(',');
+      const values = processedKeys.map(k => processedUpdates[k]);
+      values.push(id);
+
+      console.log('[GC PUT] SQL Query:', `UPDATE genetic_counselling_records SET ${set} WHERE id = ?`);
+      console.log('[GC PUT] Values:', values);
+
+      const result = await pool.execute(
+        `UPDATE genetic_counselling_records SET ${set} WHERE id = ?`,
+        values
+      );
+
+      const [rows] = await pool.execute('SELECT * FROM genetic_counselling_records WHERE id = ?', [id]);
+      const updatedRecord = (rows as any)[0] ?? null;
+
+      console.log('[GC PUT] Success! Updated record:', JSON.stringify(updatedRecord, null, 2));
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error('[GC PUT] Error:', (error as Error).message, (error as Error).stack);
+      res.status(500).json({ message: 'Failed to update genetic counselling record', error: (error as Error).message });
+    }
+  });
+
+  app.delete('/api/genetic-counselling-sheet/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log('[GC DELETE] Deleting record ID:', id);
+
+      // First, fetch the record before deletion to confirm it exists
+      const [checkRows] = await pool.execute('SELECT id FROM genetic_counselling_records WHERE id = ?', [id]);
+      if ((checkRows as any).length === 0) {
+        console.log('[GC DELETE] Record not found, ID:', id);
+        return res.status(404).json({ message: 'Record not found' });
+      }
+
+      const result = await pool.execute('DELETE FROM genetic_counselling_records WHERE id = ?', [id]);
+      console.log('[GC DELETE] Delete result:', result);
+      console.log('[GC DELETE] Successfully deleted record ID:', id);
+      res.json({ id });
+    } catch (error) {
+      console.error('[GC DELETE] Error:', (error as Error).message, (error as Error).stack);
+      res.status(500).json({ message: 'Failed to delete genetic counselling record', error: (error as Error).message });
+    }
+  });
+
   // GC registration adapter -> maps to genetic counselling storage methods
   app.get('/api/gc-registration', async (_req, res) => {
     try {
@@ -1641,16 +3647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/gc-registration', async (req, res) => {
     try {
       const body = req.body || {};
-      const created = await storage.createGeneticCounselling({
-        sampleId: body.sample_id || body.sampleId || '',
-        gcName: body.gc_name || body.gcName || '',
-        counsellingType: body.counselling_type || body.counsellingType || undefined,
-        counsellingStartTime: body.counselling_start_time || body.counsellingStartTime || undefined,
-        counsellingEndTime: body.counselling_end_time || body.counsellingEndTime || undefined,
-        gcSummary: body.gc_summary || body.gcSummary || undefined,
-        extendedFamilyTesting: body.extended_family_testing ?? body.extendedFamilyTesting ?? false,
-        approvalStatus: body.approval_status || body.approvalStatus || 'pending',
-      });
+      const created = await storage.createGeneticCounselling(body);
       res.json(created);
     } catch (error) {
       console.error('Failed to create gc registration', (error as Error).message);
@@ -1662,16 +3659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body || {};
-      const updated = await storage.updateGeneticCounselling(id, {
-        sampleId: updates.sample_id || updates.sampleId,
-        gcName: updates.gc_name || updates.gcName,
-        counsellingType: updates.counselling_type || updates.counsellingType,
-        counsellingStartTime: updates.counselling_start_time || updates.counsellingStartTime,
-        counsellingEndTime: updates.counselling_end_time || updates.counsellingEndTime,
-        gcSummary: updates.gc_summary || updates.gcSummary,
-        extendedFamilyTesting: updates.extended_family_testing ?? updates.extendedFamilyTesting,
-        approvalStatus: updates.approval_status || updates.approvalStatus,
-      });
+      const updated = await storage.updateGeneticCounselling(id, updates);
       if (!updated) return res.status(404).json({ message: 'Record not found' });
       res.json(updated);
     } catch (error) {
@@ -1807,7 +3795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const success = await storage.markNotificationAsRead(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Notification not found" });
       }
@@ -1823,7 +3811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const success = await storage.deleteNotification(id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Notification not found" });
       }

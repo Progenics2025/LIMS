@@ -36,7 +36,7 @@ async function idExists(uniqueId: string): Promise<boolean> {
     const connection = await pool.getConnection();
     try {
       const [rows] = await connection.query(
-        'SELECT id FROM leads WHERE unique_id = ? LIMIT 1',
+        'SELECT id FROM lead_management WHERE unique_id = ? LIMIT 1',
         [uniqueId]
       );
       return Array.isArray(rows) && rows.length > 0;

@@ -71,21 +71,21 @@ app.use((req, res, next) => {
 (async () => {
   // Initialize module manager
   const moduleManager = new ModuleManager(storage);
-  
+
   console.log('🚀 Starting LIMS server with modular architecture...');
-  
+
   try {
     // Initialize modules first
     await moduleManager.initializeModules();
-    
+
     // Register modular routes
     moduleManager.registerRoutes(app);
-    
+
     console.log('✅ Modular routes registered successfully');
   } catch (error) {
     console.warn('⚠️ Module initialization failed, falling back to legacy routes:', error);
   }
-  
+
   // Register legacy routes for backward compatibility
   const server = await registerRoutes(app);
 

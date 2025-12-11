@@ -4,6 +4,65 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
+// Helper to format timestamp - database stores in IST so just format it
+// Don't convert timezone since it's already in IST
+// Helper to format timestamp - database stores in IST so just format it
+// Don't convert timezone since it's already in IST
+function formatTimestamp(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) return '-';
+
+  try {
+    if (typeof dateValue === 'string') {
+      const s = dateValue.trim();
+
+      // Case 1: MySQL style "2025-11-22 19:39:20"
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) {
+        const [datePart, timePart] = s.split(' '); // ["2025-11-22", "19:39:20"]
+        const [year, month, day] = datePart.split('-');
+        return `${day}/${month}/${year}, ${timePart}`;
+      }
+
+      // Case 2: ISO without timezone or with extra stuff
+      // e.g. "2025-11-22T19:39:20", "2025-11-22T19:39:20.000Z"
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) {
+        const [datePart, timeAndRest] = s.split('T');
+        // strip milliseconds / Z / +offset
+        const timePart = timeAndRest.split(/[.,Z+]/)[0]; // "19:39:20"
+        const [year, month, day] = datePart.split('-');
+        return `${day}/${month}/${year}, ${timePart}`;
+      }
+
+      // Already formatted like "22/11/2025, 19:39:20"
+      if (s.includes('/')) {
+        return s;
+      }
+
+      // Fallback: just return raw string
+      return s;
+    }
+
+    // If a real Date object is passed, just format it as-is (local time)
+    if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+      return formatDateOnly(dateValue);
+    }
+
+    return 'Invalid date';
+  } catch {
+    return 'Invalid date';
+  }
+}
+
+function formatDateOnly(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+}
+
+
 export default function RecycleBin() {
   const { items, remove, add, clear, refresh } = useRecycle();
   const queryClient = useQueryClient();
@@ -41,7 +100,7 @@ export default function RecycleBin() {
               break;
             case 'finance_records':
             case 'finance':
-              queryClient.invalidateQueries({ queryKey: ['/api/finance/records'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
               queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'] });
               break;
             case 'lab_processing':
@@ -106,9 +165,12 @@ export default function RecycleBin() {
               <div className="space-y-2">
                 {grouped[entityType].map((it) => (
                   <div key={it.uid} className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <div>
+                    <div className="flex-1">
                       <div className="font-medium">{it.name ?? `${it.entityType} — ${it.entityId}`}</div>
-                      <div className="text-xs text-muted-foreground">Deleted at {new Date(it.deletedAt).toLocaleString()}{it.originalPath ? ` • from ${it.originalPath}` : ''}</div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>Deleted at {formatTimestamp(it.deletedAt)}{it.originalPath ? ` • from ${it.originalPath}` : ''}</div>
+                        {it.createdBy && <div>Deleted by {it.createdBy}</div>}
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button size="sm" onClick={() => { handleRestore(it.uid); }}>Restore</Button>

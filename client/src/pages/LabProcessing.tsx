@@ -14,17 +14,37 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { insertLabProcessingSchema, type LabProcessingWithSample } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { DataTable, ColumnDef } from "@/components/DataTable";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Eye, Edit, FlaskConical, TestTube, Microscope, Activity, Trash2 } from "lucide-react";
+import { Plus, Eye, Edit, FlaskConical, TestTube, Microscope, Activity, Trash2, AlertCircle } from "lucide-react";
 import { useRecycle } from '@/contexts/RecycleContext';
 
 const labFormSchema = insertLabProcessingSchema.extend({
-  dnaRnaQuantity: z.number().optional(),
-  approvedToBioinformatics: z.boolean().optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
+  projectId: z.string().optional(),
+  clientId: z.string().optional(),
+  numberOfSamples: z.string().optional(),
+  extractionProtocol: z.string().optional(),
+  extractionQualityCheck: z.string().optional(),
+  extractionQCStatus: z.string().optional(),
+  extractionProcess: z.string().optional(),
+  libraryPreparationProtocol: z.string().optional(),
+  libraryPreparationQualityCheck: z.string().optional(),
+  libraryQCStatus: z.string().optional(),
+  libraryProcess: z.string().optional(),
+  purificationProtocol: z.string().optional(),
+  purificationQualityCheck: z.string().optional(),
+  purificationQCStatus: z.string().optional(),
+  purificationProcess: z.string().optional(),
+  alertToBioinformaticsTeam: z.boolean().optional(),
+  alertToTechnicalLead: z.boolean().optional(),
+  progenicsTrf: z.string().optional(),
+  createdAt: z.string().optional(),
+  createdBy: z.string().optional(),
+  modifiedAt: z.string().optional(),
+  modifiedBy: z.string().optional(),
+  remarksComment: z.string().optional(),
 });
 
 type LabFormData = z.infer<typeof labFormSchema>;
@@ -41,69 +61,122 @@ export default function LabProcessing() {
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  // Lab type filter: 'all' | 'clinical' | 'discovery'
-  const [labTypeFilter, setLabTypeFilter] = useState<'all' | 'clinical' | 'discovery'>('all');
+  // Lab type filter: 'all' | 'clinical' | 'discovery' - Default to 'discovery' to show data immediately
+  const [labTypeFilter, setLabTypeFilter] = useState<'all' | 'clinical' | 'discovery'>('discovery');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
 
   // Fetch both discovery and clinical lab process sheets and merge them
-  const { data: discoveryRows = [] } = useQuery<any[]>({ queryKey: ['/api/lab-process/discovery'], queryFn: async () => { const r = await fetch('/api/lab-process/discovery'); if (!r.ok) throw new Error('Failed'); return r.json(); } });
-  const { data: clinicalRows = [] } = useQuery<any[]>({ queryKey: ['/api/lab-process/clinical'], queryFn: async () => { const r = await fetch('/api/lab-process/clinical'); if (!r.ok) throw new Error('Failed'); return r.json(); } });
-  const labQueue = Array.isArray(discoveryRows) || Array.isArray(clinicalRows) ? ([...(discoveryRows || []), ...(clinicalRows || [])]) : [];
-  const isLoading = false;
+  const { data: discoveryRows = [], isLoading: discoveryLoading } = useQuery<any[]>({
+    queryKey: ['/api/labprocess-discovery-sheet'],
+    queryFn: async () => {
+      const r = await fetch('/api/labprocess-discovery-sheet');
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    }
+  });
+  const { data: clinicalRows = [], isLoading: clinicalLoading } = useQuery<any[]>({
+    queryKey: ['/api/labprocess-clinical-sheet'],
+    queryFn: async () => {
+      const r = await fetch('/api/labprocess-clinical-sheet');
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    }
+  });
+
+  // Fetch sample tracking data to check for alerts
+  const { data: sampleTrackingData = [] } = useQuery<any[]>({
+    queryKey: ['/api/sample-tracking'],
+    queryFn: async () => {
+      const r = await fetch('/api/sample-tracking');
+      if (!r.ok) throw new Error('Failed');
+      return r.json();
+    }
+  });
+
+  // Properly merge data from both sheets
+  const labQueue = useMemo(() => {
+    const discovery = Array.isArray(discoveryRows) ? discoveryRows : [];
+    const clinical = Array.isArray(clinicalRows) ? clinicalRows : [];
+    return [...discovery, ...clinical];
+  }, [discoveryRows, clinicalRows]);
+
+  const isLoading = discoveryLoading || clinicalLoading;
 
   // Mapping between frontend table labels / UI fields and database columns
   // This mapping documents which DB column corresponds to each UI column and
   // is used as reference when normalizing API responses or creating queries.
   const labProcessingFieldMap: Record<string, string> = {
-    // Title / Unique ID => title_unique_id
-    'Id': 'id',
+    // Unique ID => unique_id
+    'UniqueId': 'unique_id',
+    // Project ID => project_id
+    'projectId': 'project_id',
     // Sample ID => sample_id
     'sampleId': 'sample_id',
-    // Sample Delivery Date => sample_delivery_date
-    'sampleDeliveryDate': 'sample_delivery_date',
-    // Sample Type => sample_type
-    'sampleType': 'sample_type',
+    // Client ID => client_id
+    'clientId': 'client_id',
     // Service Name => service_name
     'serviceName': 'service_name',
-    // Patient Name => NOT present in lab_processing table (usually comes from related lead or sample table)
-    'patientName': '',
-    // Protocol1 (DNA Extraction) => protocol_1
-    'protocol1': 'protocol_1',
-    // Isolation => isolation_method
-    'isolationMethod': 'isolation_method',
-    // Quality Check 2 => quality_check_2
-    'qualityCheck2': 'quality_check_2',
+    // Sample Type => sample_type
+    'sampleType': 'sample_type',
+    // No of Samples => no_of_samples
+    'numberOfSamples': 'no_of_samples',
+    // Sample Received Date => sample_received_date
+    'sampleDeliveryDate': 'sample_received_date',
+    // Extraction Protocol => extraction_protocol
+    'extractionProtocol': 'extraction_protocol',
+    // Extraction Quality Check => extraction_quality_check
+    'extractionQualityCheck': 'extraction_quality_check',
+    // Extraction QC Status => extraction_qc_status
+    'extractionQCStatus': 'extraction_qc_status',
+    // Extraction Process => extraction_process
+    'extractionProcess': 'extraction_process',
+    // Library Preparation Protocol => library_preparation_protocol
+    'libraryPreparationProtocol': 'library_preparation_protocol',
+    // Library Preparation Quality Check => library_preparation_quality_check
+    'libraryPreparationQualityCheck': 'library_preparation_quality_check',
+    // Library Preparation QC Status => library_preparation_qc_status
+    'libraryQCStatus': 'library_preparation_qc_status',
+    // Library Preparation Process => library_preparation_process
+    'libraryProcess': 'library_preparation_process',
     // Purification Protocol => purification_protocol
     'purificationProtocol': 'purification_protocol',
-    // Quality Check of Product => product_quality_check
-    'productQualityCheck': 'product_quality_check',
-    // Status (Library Preparation) => status_library_preparation
-    'statusLibraryPreparation': 'status_library_preparation',
-    // Transit Status => transit_status
-    'transitStatus': 'transit_status',
-    // Finance Approval => finance_approval
-    'financeApproval': 'finance_approval',
-    // Complete Status => complete_status
-    'completeStatus': 'complete_status',
+    // Purification Quality Check => purification_quality_check
+    'purificationQualityCheck': 'purification_quality_check',
+    // Purification QC Status => purification_qc_status
+    'purificationQCStatus': 'purification_qc_status',
+    // Purification Process => purification_process
+    'purificationProcess': 'purification_process',
+    // Alert to Bioinformatics Team => alert_to_bioinformatics_team
+    'alertToBioinformaticsTeam': 'alert_to_bioinformatics_team',
+    // Alert to Technical Lead => alert_to_technical_lead / alert_to_technical_leadd
+    'alertToTechnicalLead': 'alert_to_technical_lead',
     // Progenics TRF => progenics_trf
     'progenicsTrf': 'progenics_trf',
-    // Protocol (Other) => protocol_2
-    'protocol2': 'protocol_2',
-    // QC Status => qc_status
-    'qcStatus': 'qc_status',
+    // Created At => created_at
+    'createdAt': 'created_at',
+    // Created By => created_by
+    'createdBy': 'created_by',
+    // Modified At => modified_at
+    'modifiedAt': 'modified_at',
+    // Modified By => modified_by
+    'modifiedBy': 'modified_by',
+    // Remark/Comment => remark_comment
+    'remarksComment': 'remark_comment',
   };
 
   // Normalize lab processing records returned by the API into a stable shape.
-  // The API may return camelCase fields (e.g., sampleDeliveryDate) or snake_case from DB.
+  // The API may return camelCase fields (e.g., extractionProtocol) or snake_case from DB.
   function normalizeLab(l: any) {
     if (!l) return l;
     const get = (snake: string, camel: string) => {
-      if (l[camel] !== undefined) return l[camel];
-      if (l[snake] !== undefined) return l[snake];
+      // Use != null to treat both null and undefined as "not found"
+      // This allows fallback logic to continue looking in nested objects
+      if (l[camel] != null) return l[camel];
+      if (l[snake] != null) return l[snake];
       // some fields are present on nested sample: check there too
-      if (l.sample && l.sample[camel] !== undefined) return l.sample[camel];
-      if (l.sample && l.sample[snake] !== undefined) return l.sample[snake];
+      if (l.sample && l.sample[camel] != null) return l.sample[camel];
+      if (l.sample && l.sample[snake] != null) return l.sample[snake];
       return undefined;
     };
 
@@ -111,31 +184,36 @@ export default function LabProcessing() {
     const lead = sample.lead || {};
 
     return {
-      id: get('id','id') ?? l.id,
-      titleUniqueId: get('title_unique_id','titleUniqueId') ?? sample.titleUniqueId ?? sample.title_unique_id ?? lead.id ?? undefined,
-      sampleId: get('sample_id','sampleId') ?? sample.sampleId ?? sample.sample_id ?? undefined,
-      sampleDeliveryDate: get('sample_delivery_date','sampleDeliveryDate') ?? sample.sampleDeliveryDate ?? sample.sample_delivery_date ?? sample.sampleCollectedDate ?? sample.sample_collected_date ?? null,
-      sampleType: get('sample_type','sampleType') ?? sample.sampleType ?? sample.sample_type ?? lead.sampleType ?? lead.sample_type ?? undefined,
-      serviceName: get('service_name','serviceName') ?? sample.serviceName ?? sample.service_name ?? lead.serviceName ?? lead.service_name ?? undefined,
-      patientName: lead.patientClientName ?? lead.patient_client_name ?? undefined,
-      protocol1: get('protocol_1','protocol1') ?? (l as any).protocol1 ?? undefined,
-      isolationMethod: get('isolation_method','isolationMethod') ?? (l as any).isolationMethod ?? undefined,
-      qualityCheckDNA: get('quality_check_dna','qualityCheckDNA') ?? (l as any).qualityCheckDNA ?? undefined,
-      statusDNAExtraction: get('status_dna_extraction','statusDNAExtraction') ?? (l as any).statusDNAExtraction ?? undefined,
-      qualityCheck2: get('quality_check_2','qualityCheck2') ?? (l as any).qualityCheck2 ?? undefined,
-      purificationProtocol: get('purification_protocol','purificationProtocol') ?? (l as any).purificationProtocol ?? undefined,
-      productQualityCheck: get('product_quality_check','productQualityCheck') ?? (l as any).productQualityCheck ?? undefined,
-      statusLibraryPreparation: get('status_library_preparation','statusLibraryPreparation') ?? (l as any).statusLibraryPreparation ?? undefined,
-      libraryPreparationProtocol: get('library_preparation_protocol','libraryPreparationProtocol') ?? (l as any).libraryPreparationProtocol ?? undefined,
-      transitStatus: get('transit_status','transitStatus') ?? (l as any).transitStatus ?? undefined,
-      financeApproval: get('finance_approval','financeApproval') ?? (l as any).financeApproval ?? undefined,
-      completeStatus: get('complete_status','completeStatus') ?? (l as any).completeStatus ?? undefined,
-      progenicsTrf: get('progenics_trf','progenicsTrf') ?? (l as any).progenicsTrf ?? lead.progenicsTRF ?? lead.progenics_trf ?? undefined,
-      protocol2: get('protocol_2','protocol2') ?? (l as any).protocol2 ?? undefined,
-      qcStatus: get('qc_status','qcStatus') ?? (l as any).qcStatus ?? null,
-      labId: get('lab_id','labId') ?? (l as any).labId ?? undefined,
-      dnaRnaQuantity: get('dna_rna_quantity','dnaRnaQuantity') ?? (l as any).dnaRnaQuantity ?? undefined,
-      approvedToBioinformatics: get('approved_to_bioinformatics','approvedToBioinformatics') ?? (l as any).approvedToBioinformatics ?? false,
+      id: get('id', 'id') ?? l.id,
+      titleUniqueId: get('unique_id', 'titleUniqueId') ?? sample.titleUniqueId ?? sample.unique_id ?? lead.id ?? undefined,
+      uniqueId: get('unique_id', 'uniqueId') ?? sample.uniqueId ?? sample.unique_id ?? lead.uniqueId ?? lead.unique_id ?? undefined,
+      projectId: get('project_id', 'projectId') ?? l.projectId ?? undefined,
+      sampleId: get('sample_id', 'sampleId') ?? sample.sampleId ?? sample.sample_id ?? undefined,
+      clientId: get('client_id', 'clientId') ?? l.clientId ?? undefined,
+      sampleDeliveryDate: get('sample_received_date', 'sampleDeliveryDate') ?? sample.sampleDeliveryDate ?? sample.sample_received_date ?? sample.sampleCollectedDate ?? sample.sample_collected_date ?? null,
+      sampleType: get('sample_type', 'sampleType') ?? sample.sampleType ?? sample.sample_type ?? lead.sampleType ?? lead.sample_type ?? undefined,
+      serviceName: get('service_name', 'serviceName') ?? sample.serviceName ?? sample.service_name ?? lead.serviceName ?? lead.service_name ?? undefined,
+      numberOfSamples: get('no_of_samples', 'numberOfSamples') ?? l.numberOfSamples ?? undefined,
+      extractionProtocol: get('extraction_protocol', 'extractionProtocol') ?? (l as any).extractionProtocol ?? (l as any).protocol1 ?? undefined,
+      extractionQualityCheck: get('extraction_quality_check', 'extractionQualityCheck') ?? (l as any).extractionQualityCheck ?? (l as any).qualityCheckDNA ?? undefined,
+      extractionQCStatus: get('extraction_qc_status', 'extractionQCStatus') ?? (l as any).extractionQCStatus ?? undefined,
+      extractionProcess: get('extraction_process', 'extractionProcess') ?? (l as any).extractionProcess ?? undefined,
+      libraryPreparationProtocol: get('library_preparation_protocol', 'libraryPreparationProtocol') ?? (l as any).libraryPreparationProtocol ?? undefined,
+      libraryPreparationQualityCheck: get('library_preparation_quality_check', 'libraryPreparationQualityCheck') ?? (l as any).libraryPreparationQualityCheck ?? (l as any).qualityCheck2 ?? undefined,
+      libraryQCStatus: get('library_preparation_qc_status', 'libraryQCStatus') ?? (l as any).libraryQCStatus ?? undefined,
+      libraryProcess: get('library_preparation_process', 'libraryProcess') ?? (l as any).libraryProcess ?? undefined,
+      purificationProtocol: get('purification_protocol', 'purificationProtocol') ?? (l as any).purificationProtocol ?? undefined,
+      purificationQualityCheck: get('purification_quality_check', 'purificationQualityCheck') ?? (l as any).purificationQualityCheck ?? (l as any).productQualityCheck ?? undefined,
+      purificationQCStatus: get('purification_qc_status', 'purificationQCStatus') ?? (l as any).purificationQCStatus ?? undefined,
+      purificationProcess: get('purification_process', 'purificationProcess') ?? (l as any).purificationProcess ?? undefined,
+      alertToBioinformaticsTeam: get('alert_to_bioinformatics_team', 'alertToBioinformaticsTeam') ?? (l as any).alertToBioinformaticsTeam ?? (l as any).approvedToBioinformatics ?? false,
+      alertToTechnicalLead: get('alert_to_technical_lead', 'alertToTechnicalLead') ?? get('alert_to_technical_leadd', 'alertToTechnicalLead') ?? (l as any).alertToTechnicalLead ?? (l as any).alertToTechnical ?? false,
+      progenicsTrf: get('progenics_trf', 'progenicsTrf') ?? (l as any).progenicsTrf ?? lead.progenicsTRF ?? lead.progenics_trf ?? undefined,
+      createdAt: get('created_at', 'createdAt') ?? (l as any).createdAt ?? (l as any).created_at ?? undefined,
+      createdBy: get('created_by', 'createdBy') ?? (l as any).createdBy ?? undefined,
+      modifiedAt: get('modified_at', 'modifiedAt') ?? (l as any).modifiedAt ?? (l as any).updated_at ?? undefined,
+      modifiedBy: get('modified_by', 'modifiedBy') ?? (l as any).modifiedBy ?? undefined,
+      remarksComment: get('remark_comment', 'remarksComment') ?? (l as any).remarksComment ?? (l as any).remark ?? undefined,
       // keep original raw with full nested structure
       _raw: l,
       sample,
@@ -150,16 +228,21 @@ export default function LabProcessing() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Filter lab processing records based on search and status (use normalized shape)
-  // New behavior: only match by ID or Sample ID (case-insensitive)
+  // Auto-detect lab type from project_id prefix: PG = clinical, DG = discovery
   const filteredLabs = normalizedLabs.filter((lab) => {
     // Apply status filter
     if (statusFilter && statusFilter !== 'all' && lab.qcStatus !== statusFilter) {
       return false;
     }
 
-    // Apply lab type filter (category on the lead/sample)
+    // Apply lab type filter - auto-detect from project_id prefix if not found in other fields
     if (labTypeFilter && labTypeFilter !== 'all') {
-      const category = (lab.sample && lab.sample.lead && (lab.sample.lead.category || lab.sample.lead.type)) || (lab.lead && (lab.lead.category || lab.lead.type)) || (lab._raw && lab._raw.category) || 'clinical';
+      let category = (lab.sample && lab.sample.lead && (lab.sample.lead.category || lab.sample.lead.type)) || (lab.lead && (lab.lead.category || lab.lead.type)) || (lab._raw && lab._raw.category);
+      // If no explicit category, infer from project_id prefix
+      if (!category) {
+        const projectId = lab.projectId || lab._raw?.project_id || '';
+        category = String(projectId).startsWith('DG') ? 'discovery' : 'clinical';
+      }
       if (String(category).toLowerCase() !== labTypeFilter) return false;
     }
 
@@ -167,21 +250,63 @@ export default function LabProcessing() {
     if (!searchQuery) return true;
 
     const q = String(searchQuery).toLowerCase();
-    const idMatches = String(lab.id ?? '').toLowerCase().includes(q) || String(lab.titleUniqueId ?? '').toLowerCase().includes(q);
-    const sampleMatches = String(lab.sampleId ?? '').toLowerCase().includes(q) || String(lab.sample?.sampleId ?? '').toLowerCase().includes(q) || String(lab.sample?.sample_id ?? '').toLowerCase().includes(q);
-
-    return idMatches || sampleMatches;
+    return (
+      (String(lab.titleUniqueId ?? lab.id ?? '')).toLowerCase().includes(q) ||
+      (String(lab.projectId || lab._raw?.project_id || '')).toLowerCase().includes(q) ||
+      (String(lab.sampleId || lab.sample?.sampleId || lab.sample?.sample_id || '')).toLowerCase().includes(q) ||
+      (String(lab.clientId || lab._raw?.client_id || '')).toLowerCase().includes(q) ||
+      (String(lab.lead?.patientClientName || lab.sample?.lead?.patientClientName || '')).toLowerCase().includes(q) ||
+      (String(lab.lead?.patientClientPhone || lab.sample?.lead?.patientClientPhone || '')).toLowerCase().includes(q)
+    );
   });
 
-  // Pagination + sorting calculations
-  const totalFiltered = filteredLabs.length;
+  // Separate labs by type based on project_id prefix (PG = clinical, DG = discovery)
+  const clinicalLabs = filteredLabs.filter(lab => {
+    const projectId = lab.projectId || lab._raw?.project_id || '';
+    return String(projectId).startsWith('PG');
+  });
+
+  const discoveryLabs = filteredLabs.filter(lab => {
+    const projectId = lab.projectId || lab._raw?.project_id || '';
+    return String(projectId).startsWith('DG');
+  });
+
+  // Helper function to check if a sample has been alerted from Sample Tracking
+  const isAlertedFromSampleTracking = (titleUniqueId: string | undefined): boolean => {
+    if (!titleUniqueId) return false;
+    return sampleTrackingData.some((sample: any) =>
+      (sample.uniqueId === titleUniqueId || sample.unique_id === titleUniqueId) &&
+      (sample.alertToLabprocessTeam === true || sample.alert_to_labprocess_team === true)
+    );
+  };
+
+  // Helper function to get sequential sample ID counter for a given project
+  const getSequentialSampleId = (lab: any, labsToCheck: any[]): number => {
+    const projectId = lab.projectId || lab._raw?.project_id || '';
+    if (!projectId) return 1;
+
+    // Count how many records exist for this project ID in the current view
+    // Filter labs with the same project ID and that come before or are the current lab
+    const sameProjectLabs = labsToCheck.filter((l: any) => {
+      const pid = l.projectId || l._raw?.project_id || '';
+      return pid === projectId;
+    });
+
+    // Find the index of the current lab in the sorted list
+    const index = sameProjectLabs.findIndex((l: any) => l.id === lab.id);
+    return index >= 0 ? index + 1 : 1;
+  };
+
+  // Pagination + sorting calculations - use separated lists based on active filter
+  const labsToDisplay = labTypeFilter === 'clinical' ? clinicalLabs : labTypeFilter === 'discovery' ? discoveryLabs : filteredLabs;
+  const totalFiltered = labsToDisplay.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   if (page > totalPages) setPage(totalPages);
   const start = (page - 1) * pageSize;
 
   const sortedLabs = (() => {
-    if (!sortKey) return filteredLabs;
-    const copy = [...filteredLabs];
+    if (!sortKey) return labsToDisplay;
+    const copy = [...labsToDisplay];
     copy.sort((a: any, b: any) => {
       const A = a[sortKey];
       const B = b[sortKey];
@@ -200,8 +325,8 @@ export default function LabProcessing() {
 
   const visibleLabs = sortedLabs.slice(start, start + pageSize);
 
-  const CLINICAL_HEADER_COUNT = 22;
-  const DISCOVERY_HEADER_COUNT = 25;
+  const CLINICAL_HEADER_COUNT = 29;
+  const DISCOVERY_HEADER_COUNT = 29;
   const DEFAULT_HEADER_COUNT = 20;
 
   const getStatusCounts = () => ({
@@ -242,11 +367,30 @@ export default function LabProcessing() {
 
   const createLabProcessingMutation = useMutation({
     mutationFn: async (data: LabFormData) => {
-      const response = await apiRequest('POST', '/api/lab-processing', { ...data, processedBy: user?.id });
+      // Determine if this is discovery or clinical based on project ID
+      const projectId = data.projectId || '';
+      const isDiscovery = projectId.startsWith('DG');
+      const endpoint = isDiscovery ? '/api/labprocess-discovery-sheet' : '/api/labprocess-clinical-sheet';
+
+      // Get current data to count existing samples for this project
+      const currentSheetData = isDiscovery ? discoveryRows : clinicalRows;
+      const sameProjectCount = currentSheetData.filter(lab =>
+        (lab.projectId || lab._raw?.project_id) === projectId
+      ).length;
+
+      // Generate sequential sample_id: PROJECT_ID_COUNTER
+      const sequentialSampleId = `${projectId}_${sameProjectCount + 1}`;
+
+      const response = await apiRequest('POST', endpoint, {
+        ...data,
+        sampleId: sequentialSampleId,
+        processedBy: user?.id
+      });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
@@ -260,11 +404,12 @@ export default function LabProcessing() {
   const form = useForm<LabFormData>({
     resolver: zodResolver(labFormSchema),
     defaultValues: {
-      sampleId: '', labId: '', qcStatus: 'passed', libraryPrepared: false, isOutsourced: false,
-      titleUniqueId: '', sampleDeliveryDate: undefined, serviceName: '', protocol1: '', isolationMethod: '',
-      qualityCheckDNA: '', statusDNAExtraction: '', protocol2: '', libraryPreparationProtocol: '', qualityCheck2: '',
-      purificationProtocol: '', productQualityCheck: '', statusLibraryPreparation: '', transitStatus: '',
-      financeApproval: '', completeStatus: '', progenicsTrf: '',
+      sampleId: '', titleUniqueId: '', projectId: '', clientId: '', serviceName: '', sampleType: '', numberOfSamples: '',
+      sampleDeliveryDate: undefined, extractionProtocol: '', extractionQualityCheck: '', extractionQCStatus: '', extractionProcess: '',
+      libraryPreparationProtocol: '', libraryPreparationQualityCheck: '', libraryQCStatus: '', libraryProcess: '',
+      purificationProtocol: '', purificationQualityCheck: '', purificationQCStatus: '', purificationProcess: '',
+      alertToBioinformaticsTeam: false, alertToTechnicalLead: false, progenicsTrf: '',
+      createdAt: '', createdBy: '', modifiedAt: '', modifiedBy: '', remarksComment: '',
     },
   });
 
@@ -272,39 +417,48 @@ export default function LabProcessing() {
   const editForm = useForm<Partial<LabFormData>>({
     defaultValues: {
       sampleId: '',
-      labId: '',
-      qcStatus: 'passed',
-      libraryPrepared: false,
-      isOutsourced: false,
       titleUniqueId: '',
-      sampleDeliveryDate: undefined,
+      projectId: '',
+      clientId: '',
       serviceName: '',
-      protocol1: '',
-      isolationMethod: '',
-      qualityCheckDNA: '',
-      statusDNAExtraction: '',
-      protocol2: '',
+      sampleType: '',
+      numberOfSamples: '',
+      sampleDeliveryDate: undefined,
+      extractionProtocol: '',
+      extractionQualityCheck: '',
+      extractionQCStatus: '',
+      extractionProcess: '',
       libraryPreparationProtocol: '',
-      qualityCheck2: '',
+      libraryPreparationQualityCheck: '',
+      libraryQCStatus: '',
+      libraryProcess: '',
       purificationProtocol: '',
-      productQualityCheck: '',
-      statusLibraryPreparation: '',
-      transitStatus: '',
-      financeApproval: '',
-      completeStatus: '',
+      purificationQualityCheck: '',
+      purificationQCStatus: '',
+      purificationProcess: '',
+      alertToBioinformaticsTeam: false,
+      alertToTechnicalLead: false,
       progenicsTrf: '',
-      dnaRnaQuantity: undefined,
-      approvedToBioinformatics: false,
+      createdAt: '',
+      createdBy: '',
+      modifiedAt: '',
+      modifiedBy: '',
+      remarksComment: '',
     },
   });
 
   const updateLabMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
-      const response = await apiRequest('PUT', `/api/lab-processing/${id}`, updates);
+      // Determine if this is discovery or clinical based on selected lab's project ID
+      const projectId = selectedLab?.sample?.lead?.id || '';
+      const isDiscovery = projectId.startsWith('DG');
+      const endpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${id}` : `/api/labprocess-clinical-sheet/${id}`;
+      const response = await apiRequest('PUT', endpoint, updates);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
@@ -313,15 +467,23 @@ export default function LabProcessing() {
       setSelectedLab(null);
       toast({ title: 'Lab processing updated', description: 'Record updated successfully' });
     },
+    onError: (error: any) => {
+      toast({ title: 'Update failed', description: error.message || 'Failed to update lab processing record', variant: 'destructive' });
+    },
   });
 
   const deleteLabMutation = useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const response = await apiRequest('DELETE', `/api/lab-processing/${id}`);
+      // Determine if this is discovery or clinical based on selected lab
+      const projectId = selectedLab?.sample?.lead?.id || '';
+      const isDiscovery = projectId.startsWith('DG');
+      const endpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${id}` : `/api/labprocess-clinical-sheet/${id}`;
+      const response = await apiRequest('DELETE', endpoint);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
@@ -335,20 +497,96 @@ export default function LabProcessing() {
     }
   });
 
+  // Alert to Bioinformatics mutation
+  const alertBioinformaticsMutation = useMutation({
+    mutationFn: async ({ labId }: { labId: string }) => {
+      // Find the lab record from the normalized list
+      const labRecord = normalizedLabs.find(l => String(l.id) === String(labId));
+      if (!labRecord) {
+        throw new Error('Lab record not found');
+      }
+
+      // Determine if this is discovery or clinical based on project ID
+      const projectId = labRecord.projectId || '';
+      const isDiscovery = projectId.startsWith('DG');
+      const isClinical = projectId.startsWith('PG');
+
+      if (!isDiscovery && !isClinical) {
+        throw new Error('Invalid project ID format. Must start with DG (Discovery) or PG (Clinical)');
+      }
+
+      // First, update the lab process sheet to mark alert as sent
+      const labSheetEndpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${labId}` : `/api/labprocess-clinical-sheet/${labId}`;
+      await apiRequest('PUT', labSheetEndpoint, {
+        alert_to_bioinformatics_team: true,
+      });
+
+      // Then, create a record in the appropriate bioinformatics sheet
+      const bioinfoEndpoint = isDiscovery ? '/api/bioinfo-discovery-sheet' : '/api/bioinfo-clinical-sheet';
+
+      // Get lead data from sample tracking data which includes the full lead object
+      const uniqueId = labRecord.titleUniqueId || labRecord.unique_id;
+      const sampleRecord = sampleTrackingData.find(s =>
+        s.uniqueId === uniqueId || s.unique_id === uniqueId
+      );
+      const lead = sampleRecord?.lead || {};
+      const sample = sampleRecord || {};
+
+      // Prepare bioinformatics record data with complete lead information
+      const bioinfoData = {
+        unique_id: uniqueId || labRecord.projectId || '',
+        project_id: labRecord.projectId || null,
+        sample_id: labRecord.sampleId || sample.sampleId || sample.sample_id || null,
+        client_id: labRecord.clientId || lead.clientId || null,
+        organisation_hospital: lead.organisationHospital || sample.organisationHospital || null,
+        clinician_researcher_name: lead.clinicianResearcherName || sample.clinicianResearcherName || null,
+        patient_client_name: lead.patientClientName || sample.patientClientName || null,
+        age: lead.age || null,
+        gender: lead.gender || null,
+        service_name: lead.serviceName || labRecord.serviceName || null,
+        no_of_samples: lead.noOfSamples || labRecord.numberOfSamples || null,
+        sequencing_status: 'pending',
+        analysis_status: 'pending',
+        tat: lead.tat || null,
+        created_by: user?.email || 'system',
+      };
+
+      const response = await apiRequest('POST', bioinfoEndpoint, bioinfoData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'] });
+      toast({
+        title: "Sent for Processing",
+        description: "Sample has been sent to Bioinformatics for processing.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Send",
+        description: error.message || "Failed to send sample to bioinformatics team",
+        variant: "destructive",
+      });
+    }
+  });
+
   const { add } = useRecycle();
 
   // Editable fields per user rule (Lab Processing edit modal only)
   const labEditable = new Set<string>([
-    'protocol1','isolationMethod','qualityCheckDNA','statusDNAExtraction','protocol2','libraryPreparationProtocol','qualityCheck2','purificationProtocol','productQualityCheck','statusLibraryPreparation','transitStatus','completeStatus',
-    // allow editing of sample type and patient name from the edit dialog
-    'sampleType','patientName','serviceName','progenicsTrf','financeApproval','approvedToBioinformatics','created_at','updated_at'
+    'extractionProtocol', 'extractionQualityCheck', 'extractionQCStatus', 'extractionProcess',
+    'libraryPreparationProtocol', 'libraryPreparationQualityCheck', 'libraryQCStatus', 'libraryProcess',
+    'purificationProtocol', 'purificationQualityCheck', 'purificationQCStatus', 'purificationProcess',
+    // allow editing of sample details from the edit dialog
+    'clientId',
+    'alertToBioinformaticsTeam', 'alertToTechnicalLead', 'remarksComment'
   ]);
 
   const onSubmit = (data: LabFormData) => {
-    const processedData: any = { ...data, outsourceDetails: showOutsourceDetails ? data.outsourceDetails : null };
-    ['dnaRnaQuantity','concentration','purity','volume','processingTime','temperature','humidity'].forEach(k => {
-      if (processedData[k] != null) processedData[k] = String(processedData[k]);
-    });
+    const processedData: any = { ...data };
     createLabProcessingMutation.mutate(processedData);
   };
 
@@ -356,6 +594,121 @@ export default function LabProcessing() {
     setShowOutsourceDetails(checked);
     form.setValue('isOutsourced', checked);
   };
+
+  const columns: ColumnDef<any>[] = [
+    { header: "Unique ID", accessorKey: "uniqueId" },
+    { header: "Project ID", accessorKey: "projectId" },
+    {
+      header: "Sample ID",
+      cell: (lab) => lab.projectId
+        ? `${lab.projectId}_${getSequentialSampleId(lab, labTypeFilter === 'clinical' ? clinicalLabs : discoveryLabs)}`
+        : lab.sampleId ?? '-'
+    },
+    { header: "Client ID", accessorKey: "clientId" },
+    { header: "Service name", accessorKey: "serviceName" },
+    { header: "Sample Type", accessorKey: "sampleType" },
+    { header: "No of Samples", accessorKey: "numberOfSamples" },
+    {
+      header: "Sample received date",
+      cell: (lab) => lab.sampleDeliveryDate ? new Date(lab.sampleDeliveryDate).toLocaleDateString() : '-'
+    },
+    { header: "Extraction protocol", accessorKey: "extractionProtocol" },
+    { header: "Extraction quality check", accessorKey: "extractionQualityCheck" },
+    { header: "Extraction QC status", accessorKey: "extractionQCStatus" },
+    { header: "Extraction process", accessorKey: "extractionProcess" },
+    { header: "Library preparation protocol", accessorKey: "libraryPreparationProtocol" },
+    { header: "Library preparation quality check", accessorKey: "libraryPreparationQualityCheck" },
+    { header: "Library preparation QC status", accessorKey: "libraryQCStatus" },
+    { header: "Library preparation process", accessorKey: "libraryProcess" },
+    { header: "Purification protocol", accessorKey: "purificationProtocol" },
+    { header: "Purification quality check", accessorKey: "purificationQualityCheck" },
+    { header: "Purification QC status", accessorKey: "purificationQCStatus" },
+    { header: "Purification process", accessorKey: "purificationProcess" },
+    {
+      header: "Alert to Bioinformatics team",
+      cell: (lab) => lab.alertToBioinformaticsTeam ? 'Yes' : 'No'
+    },
+    {
+      header: "Alert to Technical lead",
+      cell: (lab) => lab.alertToTechnicalLead ? 'Yes' : 'No'
+    },
+    { header: "Progenics TRF", accessorKey: "progenicsTrf" },
+    {
+      header: "Created at",
+      cell: (lab) => lab.createdAt ? new Date(lab.createdAt).toLocaleString() : '-'
+    },
+    { header: "Created by", accessorKey: "createdBy" },
+    {
+      header: "Modified at",
+      cell: (lab) => lab.modifiedAt ? new Date(lab.modifiedAt).toLocaleString() : '-'
+    },
+    { header: "Modified by", accessorKey: "modifiedBy" },
+    { header: "Remark/Comment", accessorKey: "remarksComment" },
+    {
+      header: "Actions",
+      className: "sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 min-w-[180px]",
+      cell: (lab) => (
+        <div className="flex space-x-2 items-center justify-center">
+          <Button variant="outline" size="sm" onClick={() => {
+            setSelectedLab(lab);
+            editForm.reset({
+              sampleId: lab.sampleId ?? '',
+              titleUniqueId: lab.titleUniqueId ?? '',
+              projectId: lab.projectId ?? '',
+              clientId: lab.clientId ?? '',
+              serviceName: lab.serviceName ?? '',
+              sampleType: lab.sampleType ?? '',
+              numberOfSamples: lab.numberOfSamples ?? '',
+              sampleDeliveryDate: lab.sampleDeliveryDate ? (new Date(lab.sampleDeliveryDate).toISOString().slice(0, 10) as any) : undefined,
+              extractionProtocol: lab.extractionProtocol ?? '',
+              extractionQualityCheck: lab.extractionQualityCheck ?? '',
+              extractionQCStatus: lab.extractionQCStatus ?? '',
+              extractionProcess: lab.extractionProcess ?? '',
+              libraryPreparationProtocol: lab.libraryPreparationProtocol ?? '',
+              libraryPreparationQualityCheck: lab.libraryPreparationQualityCheck ?? '',
+              libraryQCStatus: lab.libraryQCStatus ?? '',
+              libraryProcess: lab.libraryProcess ?? '',
+              purificationProtocol: lab.purificationProtocol ?? '',
+              purificationQualityCheck: lab.purificationQualityCheck ?? '',
+              purificationQCStatus: lab.purificationQCStatus ?? '',
+              purificationProcess: lab.purificationProcess ?? '',
+              alertToBioinformaticsTeam: lab.alertToBioinformaticsTeam ?? false,
+              alertToTechnicalLead: lab.alertToTechnicalLead ?? false,
+              progenicsTrf: lab.progenicsTrf ?? '',
+              createdAt: lab.createdAt ? new Date(lab.createdAt).toISOString().slice(0, 16) : '',
+              modifiedAt: lab.modifiedAt ? new Date(lab.modifiedAt).toISOString().slice(0, 16) : '',
+              createdBy: lab.createdBy ?? '',
+              modifiedBy: lab.modifiedBy ?? '',
+              remarksComment: lab.remarksComment ?? '',
+            });
+            setIsEditDialogOpen(true);
+          }}><Edit className="h-4 w-4" /></Button>
+          <Button
+            variant="default"
+            size="sm"
+            className={`px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm ${lab.alertToBioinformaticsTeam
+                ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+              } disabled:bg-gray-400 disabled:cursor-not-allowed`}
+            onClick={() => {
+              alertBioinformaticsMutation.mutate({ labId: lab.id });
+            }}
+            disabled={alertBioinformaticsMutation.isPending || lab.alertToBioinformaticsTeam}
+            title={lab.alertToBioinformaticsTeam ? 'Already sent for Bioinformatics' : 'Send sample for Bioinformatics'}
+            aria-label="Send For Bioinformatics "
+          >
+            {lab.alertToBioinformaticsTeam ? 'Sent ✓' : 'Send For Bioinformatics'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (!confirm('Delete this lab processing record? This action cannot be undone.')) return;
+            deleteLabMutation.mutate({ id: lab.id });
+          }}>
+            <Trash2 className="h-4 w-4 text-red-600" />
+          </Button>
+        </div>
+      )
+    }
+  ];
 
   return (
     <div className="space-y-8">
@@ -415,19 +768,19 @@ export default function LabProcessing() {
           {/* Search and Filter Controls */}
           <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center space-x-2">
-                <Input 
-                  placeholder="Search by ID or Sample ID" 
-                  value={searchQuery} 
-                  onChange={(e) => { 
-                    setSearchQuery(e.target.value); 
-                    setPage(1); // Reset to first page when searching
-                  }} 
-                />
-              <Select 
-                onValueChange={(v) => { 
-                  setStatusFilter(v); 
+              <Input
+                placeholder="Search Unique ID / Project ID / Sample ID / Client ID / Patient Name / Phone"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1); // Reset to first page when searching
+                }}
+              />
+              <Select
+                onValueChange={(v) => {
+                  setStatusFilter(v);
                   setPage(1); // Reset to first page when filtering
-                }} 
+                }}
                 value={statusFilter}
               >
                 <SelectTrigger>
@@ -443,11 +796,11 @@ export default function LabProcessing() {
             </div>
             <div className="flex items-center space-x-2">
               <Label>Page size</Label>
-              <Select 
-                onValueChange={(v) => { 
-                  setPageSize(parseInt(v || '25', 10)); 
+              <Select
+                onValueChange={(v) => {
+                  setPageSize(parseInt(v || '25', 10));
                   setPage(1); // Reset to first page when changing page size
-                }} 
+                }}
                 value={String(pageSize)}
               >
                 <SelectTrigger>
@@ -462,251 +815,24 @@ export default function LabProcessing() {
               </Select>
             </div>
           </div>
-          
+
           {isLoading ? (
             <div className="text-center py-8">Loading lab processing data...</div>
           ) : (
-            <div className="overflow-x-auto">
-              <div className="max-h-[60vh] overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-10 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                    {labTypeFilter === 'clinical' ? (
-                      <TableRow>
-                        <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Unique ID</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Sample type</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Service Name</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Sample Received Date</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Extraction Protocol</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Extraction Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Quality Check Extraction</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Extraction QC Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Library preparation Protocol</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Library preparation</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Quality Check Library preparation</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Library preparation Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Purification protocol</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Quality Check Purifications</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Purification QC Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Purification Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Created At</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Updated At</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Transit status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Finance status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Alert Technical Team</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Progenics TRF</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Actions</TableHead>
-                      </TableRow>
-                    ) : labTypeFilter === 'discovery' ? (
-                      <TableRow>
-                        <TableHead className="whitespace-nowrap font-semibold">Unique ID</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Project ID</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">No of samples</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Sample type</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Service Name</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Sample Received Date</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Extraction Protocol</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Extraction Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Quality Check Extraction</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Extraction QC Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Library preparation Protocol</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Library preparation Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Quality Check Library</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Library QC Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Purification protocol</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Quality Check Purification</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Purification QC Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Transit Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Finance Status</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Alert Technical Team</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Created At</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Updated At</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Progenics TRF</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>
-                        <TableHead className="whitespace-nowrap font-semibold">Actions</TableHead>
-                      </TableRow>
-                    ) : (
-                      <TableRow>
-                        <TableHead colSpan={4} className="whitespace-nowrap font-semibold text-left text-gray-600">Select "Clinical" or "Discovery" to view the corresponding table</TableHead>
-                      </TableRow>
-                    )}
-                  </TableHeader>
-                  <TableBody>
-                    {labTypeFilter === 'all' ? (
-                      <TableRow>
-                        <TableCell colSpan={DEFAULT_HEADER_COUNT} className="text-center py-8">
-                          <p className="text-gray-500 dark:text-gray-400">Select "Clinical" or "Discovery" to view the corresponding table</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : visibleLabs.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={labTypeFilter === 'clinical' ? CLINICAL_HEADER_COUNT : DISCOVERY_HEADER_COUNT} className="text-center py-8">
-                          <p className="text-gray-500 dark:text-gray-400">
-                            {filteredLabs.length === 0 ? 'No lab processing records found' : 'No records match your search criteria'}
-                          </p>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      visibleLabs.map((lab) => {
-                        if (labTypeFilter === 'clinical') {
-                          return (
-                            <TableRow key={lab.id}>
-                              <TableCell>{lab.id ?? (lab as any).titleUniqueId ?? (lab.sampleId ?? lab.sample?.sampleId ?? '-')}</TableCell>
-                              <TableCell>{lab.sampleId ?? lab.sample?.sampleId ?? '-'}</TableCell>
-                              <TableCell>{lab.sample?.lead?.sampleType ?? lab.sampleType ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).serviceName ?? lab.sample?.lead?.serviceName ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).sampleDeliveryDate ? new Date((lab as any).sampleDeliveryDate).toLocaleDateString() : (lab.sample?.sampleDeliveryDate ? new Date(lab.sample.sampleDeliveryDate).toLocaleDateString() : '-')}</TableCell>
-                              <TableCell>{(lab as any).protocol1 ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).isolationMethod ?? (lab as any).extractionMethod ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).qualityCheckDNA ?? (lab as any).qualityCheck2 ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).statusDNAExtraction ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).libraryPreparationProtocol ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).libraryPrepared ? 'Yes' : 'No'}</TableCell>
-                              <TableCell>{(lab as any).qualityCheck2 ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).statusLibraryPreparation ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).purificationProtocol ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).productQualityCheck ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).qcStatus ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).transitStatus ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).financeApproval ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).completeStatus ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).progenicsTrf ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).created_at ? new Date((lab as any).created_at).toLocaleString() : '-'}</TableCell>
-                              <TableCell>{(lab as any).updated_at ? new Date((lab as any).updated_at).toLocaleString() : '-'}</TableCell>
-                              <TableCell>{(lab as any).remark ?? (lab as any)._raw?.remark ?? '-'}</TableCell>
-                              <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 min-w-[130px]">
-                                <div className="flex space-x-2 items-center justify-center">
-                                  <Button variant="outline" size="sm" onClick={() => {
-                                    setSelectedLab(lab);
-                                    editForm.reset({
-                                      sampleId: lab.sampleId ?? '',
-                                      labId: lab.labId ?? '',
-                                      qcStatus: lab.qcStatus ?? 'passed',
-                                      libraryPrepared: lab.libraryPrepared ?? false,
-                                      isOutsourced: lab.isOutsourced ?? false,
-                                      titleUniqueId: (lab as any).titleUniqueId ?? (lab.sample?.sampleId ?? ''),
-                                      sampleDeliveryDate: (lab as any).sampleDeliveryDate ? (new Date((lab as any).sampleDeliveryDate).toISOString().slice(0,16) as any) : (lab.sample?.sampleDeliveryDate ? new Date(lab.sample.sampleDeliveryDate).toISOString().slice(0,16) as any : undefined),
-                                      serviceName: (lab as any).serviceName ?? '',
-                                      protocol1: (lab as any).protocol1 ?? '',
-                                      isolationMethod: (lab as any).isolationMethod ?? '',
-                                      qualityCheckDNA: (lab as any).qualityCheckDNA ?? '',
-                                      statusDNAExtraction: (lab as any).statusDNAExtraction ?? '',
-                                      protocol2: (lab as any).protocol2 ?? '',
-                                      libraryPreparationProtocol: (lab as any).libraryPreparationProtocol ?? '',
-                                      qualityCheck2: (lab as any).qualityCheck2 ?? '',
-                                      purificationProtocol: (lab as any).purificationProtocol ?? '',
-                                      productQualityCheck: (lab as any).productQualityCheck ?? '',
-                                      statusLibraryPreparation: (lab as any).statusLibraryPreparation ?? '',
-                                      transitStatus: (lab as any).transitStatus ?? '',
-                                      financeApproval: (lab as any).financeApproval ?? '',
-                                      completeStatus: (lab as any).completeStatus ?? '',
-                                      progenicsTrf: (lab as any).progenicsTrf ?? '',
-                                      dnaRnaQuantity: lab.dnaRnaQuantity ? Number(lab.dnaRnaQuantity) : undefined,
-                                      approvedToBioinformatics: (lab as any).approvedToBioinformatics ?? false,
-                                      created_at: (lab as any).created_at ? new Date((lab as any).created_at).toISOString().slice(0, 16) : '',
-                                      updated_at: (lab as any).updated_at ? new Date((lab as any).updated_at).toISOString().slice(0, 16) : '',
-                                    });
-                                    setIsEditDialogOpen(true);
-                                  }}><Edit className="h-4 w-4" /></Button>
-                                  <Button variant="ghost" size="sm" onClick={() => {
-                                    if (!confirm('Delete this lab processing record? This action cannot be undone.')) return;
-                                    deleteLabMutation.mutate({ id: lab.id });
-                                  }}>
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        }
-
-                        if (labTypeFilter === 'discovery') {
-                          return (
-                            <TableRow key={lab.id}>
-                              <TableCell>{(lab as any).projectId ?? lab.sample?.lead?.projectId ?? lab.sample?.lead?.project_id ?? '-'}</TableCell>
-                              <TableCell>{lab.id ?? (lab as any).titleUniqueId ?? (lab.sampleId ?? lab.sample?.sampleId ?? '-')}</TableCell>
-                              <TableCell>{(lab as any).clientId ?? lab.sample?.lead?.clientId ?? lab.sample?.lead?.client_id ?? '-'}</TableCell>
-                              <TableCell>{lab.sampleId ?? lab.sample?.sampleId ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).numberOfSamples ?? lab.sample?.numberOfSamples ?? lab.sample?.count ?? '-'}</TableCell>
-                              <TableCell>{lab.sample?.lead?.sampleType ?? lab.sampleType ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).serviceName ?? lab.sample?.lead?.serviceName ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).sampleDeliveryDate ? new Date((lab as any).sampleDeliveryDate).toLocaleDateString() : (lab.sample?.sampleDeliveryDate ? new Date(lab.sample.sampleDeliveryDate).toLocaleDateString() : '-')}</TableCell>
-                              <TableCell>{(lab as any).protocol1 ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).isolationMethod ?? (lab as any).extractionMethod ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).qualityCheckDNA ?? (lab as any).qualityCheck2 ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).statusDNAExtraction ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).libraryPreparationProtocol ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).libraryPrepared ? 'Yes' : 'No'}</TableCell>
-                              <TableCell>{(lab as any).qualityCheck2 ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).statusLibraryPreparation ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).purificationProtocol ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).productQualityCheck ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).qcStatus ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).transitStatus ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).financeApproval ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).alertToTechnical ?? (lab as any)._raw?.alert_to_technical_team ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).created_at ? new Date((lab as any).created_at).toLocaleString() : '-'}</TableCell>
-                              <TableCell>{(lab as any).updated_at ? new Date((lab as any).updated_at).toLocaleString() : '-'}</TableCell>
-                              <TableCell>{(lab as any).progenicsTrf ?? '-'}</TableCell>
-                              <TableCell>{(lab as any).remark ?? (lab as any)._raw?.remark ?? '-'}</TableCell>
-                              <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 min-w-[130px]">
-                                <div className="flex space-x-2 items-center justify-center">
-                                  <Button variant="outline" size="sm" onClick={() => {
-                                    setSelectedLab(lab);
-                                    editForm.reset({
-                                      sampleId: lab.sampleId ?? '',
-                                      labId: lab.labId ?? '',
-                                      qcStatus: lab.qcStatus ?? 'passed',
-                                      libraryPrepared: lab.libraryPrepared ?? false,
-                                      isOutsourced: lab.isOutsourced ?? false,
-                                      titleUniqueId: (lab as any).titleUniqueId ?? (lab.sample?.sampleId ?? ''),
-                                      sampleDeliveryDate: (lab as any).sampleDeliveryDate ? (new Date((lab as any).sampleDeliveryDate).toISOString().slice(0,16) as any) : (lab.sample?.sampleDeliveryDate ? new Date(lab.sample.sampleDeliveryDate).toISOString().slice(0,16) as any : undefined),
-                                      serviceName: (lab as any).serviceName ?? '',
-                                      protocol1: (lab as any).protocol1 ?? '',
-                                      isolationMethod: (lab as any).isolationMethod ?? '',
-                                      qualityCheckDNA: (lab as any).qualityCheckDNA ?? '',
-                                      statusDNAExtraction: (lab as any).statusDNAExtraction ?? '',
-                                      protocol2: (lab as any).protocol2 ?? '',
-                                      libraryPreparationProtocol: (lab as any).libraryPreparationProtocol ?? '',
-                                      qualityCheck2: (lab as any).qualityCheck2 ?? '',
-                                      purificationProtocol: (lab as any).purificationProtocol ?? '',
-                                      productQualityCheck: (lab as any).productQualityCheck ?? '',
-                                      statusLibraryPreparation: (lab as any).statusLibraryPreparation ?? '',
-                                      transitStatus: (lab as any).transitStatus ?? '',
-                                      financeApproval: (lab as any).financeApproval ?? '',
-                                      completeStatus: (lab as any).completeStatus ?? '',
-                                      progenicsTrf: (lab as any).progenicsTrf ?? '',
-                                      dnaRnaQuantity: lab.dnaRnaQuantity ? Number(lab.dnaRnaQuantity) : undefined,
-                                      approvedToBioinformatics: (lab as any).approvedToBioinformatics ?? false,
-                                      created_at: (lab as any).created_at ? new Date((lab as any).created_at).toISOString().slice(0, 16) : '',
-                                      updated_at: (lab as any).updated_at ? new Date((lab as any).updated_at).toISOString().slice(0, 16) : '',
-                                    });
-                                    setIsEditDialogOpen(true);
-                                  }}><Edit className="h-4 w-4" /></Button>
-                                  <Button variant="ghost" size="sm" onClick={() => {
-                                    if (!confirm('Delete this lab processing record? This action cannot be undone.')) return;
-                                    deleteLabMutation.mutate({ id: lab.id });
-                                  }}>
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        }
-
-                        return null; // we only render clinical or discovery rows
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
+            <DataTable
+              data={visibleLabs}
+              columns={columns}
+              emptyMessage={
+                labTypeFilter === 'all'
+                  ? 'Select "Clinical" or "Discovery" to view the corresponding table'
+                  : filteredLabs.length === 0
+                    ? 'No lab processing records found'
+                    : 'No records match your search criteria'
+              }
+              rowClassName={(lab) => lab.alertToBioinformaticsTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}
+            />
           )}
-          
+
           {/* Pagination Controls */}
           {visibleLabs.length > 0 && (
             <div className="p-4 flex items-center justify-between border-t">
@@ -714,8 +840,8 @@ export default function LabProcessing() {
                 Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
               </div>
               <div className="flex items-center space-x-2">
-                <Button 
-                  disabled={page <= 1} 
+                <Button
+                  disabled={page <= 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                 >
                   Prev
@@ -723,8 +849,8 @@ export default function LabProcessing() {
                 <div>
                   Page {page} / {totalPages}
                 </div>
-                <Button 
-                  disabled={page >= totalPages} 
+                <Button
+                  disabled={page >= totalPages}
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 >
                   Next
@@ -749,53 +875,47 @@ export default function LabProcessing() {
             Object.keys(vals || {}).forEach((k) => {
               if (labEditable.has(k)) updates[k] = (vals as any)[k];
             });
-            // convert numeric fields
-            ['dnaRnaQuantity','concentration','purity','volume','processingTime','temperature','humidity'].forEach(k => {
-              if (updates[k] != null) updates[k] = String(updates[k]);
-            });
-            if (!updates.isOutsourced) updates.outsourceDetails = null;
             updateLabMutation.mutate({ id: selectedLab.id, updates });
           })} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div><Label>Unique ID</Label><Input {...editForm.register('titleUniqueId')} disabled={!labEditable.has('titleUniqueId')} /></div>
+              <div><Label>Project ID</Label><Input {...editForm.register('projectId')} disabled={!labEditable.has('projectId')} /></div>
               <div><Label>Sample ID</Label><Input {...editForm.register('sampleId')} disabled={!labEditable.has('sampleId')} /></div>
-              <div><Label>Lab ID</Label><Input {...editForm.register('labId')} disabled={!labEditable.has('labId')} /></div>
-              <div><Label>ID</Label><Input value={selectedLab?.id ?? ''} disabled /></div>
-              <div><Label>Sample Delivery Date</Label><Input type="datetime-local" {...editForm.register('sampleDeliveryDate')} disabled={!labEditable.has('sampleDeliveryDate')} /></div>
+              <div><Label>Client ID</Label><Input {...editForm.register('clientId')} disabled={!labEditable.has('clientId')} /></div>
               <div><Label>Service Name</Label><Input {...editForm.register('serviceName')} disabled={!labEditable.has('serviceName')} /></div>
-              <div><Label>Sample Type</Label><Input {...editForm.register('sampleType' as any)} disabled={!labEditable.has('sampleType')} /></div>
-              <div><Label>Patient Name</Label><Input {...editForm.register('patientName' as any)} disabled={!labEditable.has('patientName')} /></div>
-              <div><Label>Protocol 1 (DNA Extraction)</Label><Input {...editForm.register('protocol1')} disabled={!labEditable.has('protocol1')} /></div>
-              <div><Label>Isolation</Label><Input {...editForm.register('isolationMethod')} disabled={!labEditable.has('isolationMethod')} /></div>
-              <div><Label>Quality Check (DNA)</Label><Input {...editForm.register('qualityCheckDNA')} disabled={!labEditable.has('qualityCheckDNA')} /></div>
-              <div><Label>Status (DNA Extraction)</Label><Input {...editForm.register('statusDNAExtraction')} disabled={!labEditable.has('statusDNAExtraction')} /></div>
-              <div><Label>Protocol 2</Label><Input {...editForm.register('protocol2')} disabled={!labEditable.has('protocol2')} /></div>
-              <div><Label>Library Preparation</Label><Input {...editForm.register('libraryPreparationProtocol')} disabled={!labEditable.has('libraryPreparationProtocol')} /></div>
-              <div><Label>Quality Check 2</Label><Input {...editForm.register('qualityCheck2')} disabled={!labEditable.has('qualityCheck2')} /></div>
+              <div><Label>Sample Type</Label><Input {...editForm.register('sampleType')} disabled={!labEditable.has('sampleType')} /></div>
+              <div><Label>No of Samples</Label><Input {...editForm.register('numberOfSamples')} disabled={!labEditable.has('numberOfSamples')} /></div>
+              <div><Label>Sample Received Date</Label><Input type="date" {...editForm.register('sampleDeliveryDate')} disabled={!labEditable.has('sampleDeliveryDate')} /></div>
+
+              <div><Label>Extraction Protocol</Label><Input {...editForm.register('extractionProtocol')} disabled={!labEditable.has('extractionProtocol')} /></div>
+              <div><Label>Extraction Quality Check</Label><Input {...editForm.register('extractionQualityCheck')} disabled={!labEditable.has('extractionQualityCheck')} /></div>
+              <div><Label>Extraction QC Status</Label><Input {...editForm.register('extractionQCStatus')} disabled={!labEditable.has('extractionQCStatus')} /></div>
+              <div><Label>Extraction Process</Label><Input {...editForm.register('extractionProcess')} disabled={!labEditable.has('extractionProcess')} /></div>
+
+              <div><Label>Library Preparation Protocol</Label><Input {...editForm.register('libraryPreparationProtocol')} disabled={!labEditable.has('libraryPreparationProtocol')} /></div>
+              <div><Label>Library Preparation Quality Check</Label><Input {...editForm.register('libraryPreparationQualityCheck')} disabled={!labEditable.has('libraryPreparationQualityCheck')} /></div>
+              <div><Label>Library QC Status</Label><Input {...editForm.register('libraryQCStatus')} disabled={!labEditable.has('libraryQCStatus')} /></div>
+              <div><Label>Library Process</Label><Input {...editForm.register('libraryProcess')} disabled={!labEditable.has('libraryProcess')} /></div>
+
               <div><Label>Purification Protocol</Label><Input {...editForm.register('purificationProtocol')} disabled={!labEditable.has('purificationProtocol')} /></div>
-              <div><Label>Quality Check of Product</Label><Input {...editForm.register('productQualityCheck')} disabled={!labEditable.has('productQualityCheck')} /></div>
-              <div><Label>Status (Library Preparation)</Label><Input {...editForm.register('statusLibraryPreparation')} disabled={!labEditable.has('statusLibraryPreparation')} /></div>
-              <div><Label>Transit Status</Label><Input {...editForm.register('transitStatus')} disabled={!labEditable.has('transitStatus')} /></div>
-              <div><Label>Finance Approval</Label><Input {...editForm.register('financeApproval')} disabled={!labEditable.has('financeApproval')} /></div>
-              <div><Label>Complete Status</Label><Input {...editForm.register('completeStatus')} disabled={!labEditable.has('completeStatus')} /></div>
-              <div><Label>Progenics TRF</Label><Input {...editForm.register('progenicsTrf')} disabled={!labEditable.has('progenicsTrf')} /></div>
+              <div><Label>Purification Quality Check</Label><Input {...editForm.register('purificationQualityCheck')} disabled={!labEditable.has('purificationQualityCheck')} /></div>
+              <div><Label>Purification QC Status</Label><Input {...editForm.register('purificationQCStatus')} disabled={!labEditable.has('purificationQCStatus')} /></div>
+              <div><Label>Purification Process</Label><Input {...editForm.register('purificationProcess')} disabled={!labEditable.has('purificationProcess')} /></div>
+
+              <div><Label>Alert to Bioinformatics Team</Label><div className="pt-2"><Checkbox {...editForm.register('alertToBioinformaticsTeam')} disabled={!labEditable.has('alertToBioinformaticsTeam')} /></div></div>
+              <div><Label>Alert to Technical Lead</Label><div className="pt-2"><Checkbox {...editForm.register('alertToTechnicalLead')} disabled={!labEditable.has('alertToTechnicalLead')} /></div></div>
+
               <div>
-                <Label>QC Status</Label>
-                <Select onValueChange={(v) => editForm.setValue('qcStatus', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select QC Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="passed">Passed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                    <SelectItem value="retest_required">Retest Required</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Progenics TRF</Label>
+                <Input {...editForm.register('progenicsTrf')} disabled placeholder="TRF reference" />
               </div>
-              <div><Label>DNA/RNA Quantity (ng/μL)</Label><Input type="number" step="0.1" {...editForm.register('dnaRnaQuantity', { valueAsNumber: true })} /></div>
-              <div><Label>Library Prepared</Label><div className="pt-2"><Checkbox {...editForm.register('libraryPrepared')} /></div></div>
-              <div><Label>Outsourced</Label><div className="pt-2"><Checkbox {...editForm.register('isOutsourced')} /></div></div>
-              <div><Label>Approved to Bioinformatics</Label><div className="pt-2"><Checkbox {...editForm.register('approvedToBioinformatics')} disabled={!labEditable.has('approvedToBioinformatics')} /></div></div>
-              <div><Label>Created At</Label><Input type="datetime-local" {...editForm.register('created_at')} disabled={!labEditable.has('created_at')} /></div>
-              <div><Label>Updated At</Label><Input type="datetime-local" {...editForm.register('updated_at')} disabled={!labEditable.has('updated_at')} /></div>
-              <div><Label>Outsource Details</Label><Textarea {...editForm.register('outsourceDetails' as any)} /></div>
+
+              <div><Label>Created At</Label><Input type="datetime-local" {...editForm.register('createdAt')} disabled={!labEditable.has('createdAt')} /></div>
+              <div><Label>Created By</Label><Input {...editForm.register('createdBy')} disabled={!labEditable.has('createdBy')} /></div>
+              <div><Label>Modified At</Label><Input type="datetime-local" {...editForm.register('modifiedAt')} disabled={!labEditable.has('modifiedAt')} /></div>
+              <div><Label>Modified By</Label><Input {...editForm.register('modifiedBy')} disabled={!labEditable.has('modifiedBy')} /></div>
+
+              <div className="col-span-2"><Label>Remark/Comment</Label><Textarea {...editForm.register('remarksComment')} disabled={!labEditable.has('remarksComment')} /></div>
             </div>
             <div className="flex justify-end space-x-3">
               <Button type="button" variant="outline" onClick={() => { setIsEditDialogOpen(false); setSelectedLab(null); }}>Cancel</Button>

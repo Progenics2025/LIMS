@@ -27,7 +27,7 @@ export class DashboardModule extends AbstractModule {
       await connection.end();
       
       const tableNames = (tables as any[]).map(row => Object.values(row)[0]);
-      const requiredTables = ['leads', 'samples', 'users'];
+      const requiredTables = ['lead_management', 'sample_tracking', 'users'];
       
       const hasAllTables = requiredTables.every(table => tableNames.includes(table));
       
@@ -67,15 +67,14 @@ export class DashboardModule extends AbstractModule {
           
           // Count active leads (not converted, not closed)
           const [leadRows] = await connection.execute(`
-            SELECT COUNT(*) as count FROM leads 
+            SELECT COUNT(*) as count FROM lead_management 
             WHERE status IN ('quoted', 'cold', 'hot', 'won')
           `);
           stats.activeLeads = (leadRows as any[])[0]?.count || 0;
           
           // Count samples in processing (not completed)
           const [sampleRows] = await connection.execute(`
-            SELECT COUNT(*) as count FROM samples 
-            WHERE status IN ('pickup_scheduled', 'in_transit', 'received', 'lab_processing', 'bioinformatics', 'reporting')
+            SELECT COUNT(*) as count FROM sample_tracking
           `);
           stats.samplesProcessing = (sampleRows as any[])[0]?.count || 0;
           
@@ -88,9 +87,8 @@ export class DashboardModule extends AbstractModule {
           
           // Calculate pending revenue (samples where amount > paid_amount)
           const [revenueRows] = await connection.execute(`
-            SELECT COALESCE(SUM(amount - COALESCE(paid_amount, 0)), 0) as pending
-            FROM samples 
-            WHERE amount > COALESCE(paid_amount, 0)
+            SELECT COALESCE(SUM(sample_shipment_amount), 0) as pending
+            FROM sample_tracking
           `);
           stats.pendingRevenue = parseFloat((revenueRows as any[])[0]?.pending || 0);
           

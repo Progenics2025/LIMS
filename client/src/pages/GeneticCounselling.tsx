@@ -13,215 +13,116 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 type GCRecord = {
   id: string;
-  sample_id: string;
-  gc_name: string;
-  counselling_type: string;
-  counselling_start_time?: string;
-  counselling_end_time?: string;
-  gc_summary?: string;
-  extended_family_testing?: boolean;
-  approval_status?: string;
-  // Additional optional frontend-only / backend-mapped fields
-  created_at?: string;
-  registration_start_time?: string;
-  registration_end_time?: string;
-  client_name?: string;
-  client_contact?: string;
-  client_email?: string;
+  unique_id: string;
+  project_id: string;
+  counselling_date?: string;
+  gc_registration_start_time?: string;
+  gc_registration_end_time?: string;
+  patient_client_name?: string;
   age?: number;
-  sex?: string;
+  gender?: string;
+  patient_client_email?: string;
+  patient_client_phone?: string;
+  patient_client_address?: string;
   payment_status?: string;
   mode_of_payment?: string;
-  approval_from_head?: string;
-  referral_doctor?: string;
-  organisation?: string;
+  approval_from_head?: boolean;
+  clinician_researcher_name?: string;
+  organisation_hospital?: string;
   speciality?: string;
-  query?: string;
+  query_suspection?: string;
+  gc_name: string;
   gc_other_members?: string;
   service_name?: string;
+  counseling_type?: string;
+  counseling_start_time?: string;
+  counseling_end_time?: string;
   budget_for_test_opted?: string;
   testing_status?: string;
   action_required?: string;
-  potential_patient_future?: boolean;
+  potential_patient_for_testing_in_future?: boolean;
+  extended_family_testing_requirement?: boolean;
   budget?: string;
   sample_type?: string;
-  created_by?: string;
   gc_summary_sheet?: string;
-  gcf_video_links?: string;
-  modified?: string;
-  assigned_sales_person?: string;
+  gc_video_link?: string;
+  gc_audio_link?: string;
+  sales_responsible_person?: string;
+  created_at?: string;
+  created_by?: string;
+  modified_at?: string;
+  modified_by?: string;
+  remark_comment?: string;
 };
 
-const initialData: GCRecord[] = [
-  {
-    id: 'GC-001',
-    sample_id: 'SAMP-1001',
-      created_at: '2025-09-15T09:45',
-    gc_name: 'Dr. Meera Rao',
-      client_name: 'Mr. Ajay Kumar',
-      client_contact: '+91-9876543210',
-      client_email: 'ajay.k@example.com',
-      age: 34,
-      sex: 'Male',
-      payment_status: 'Paid',
-      mode_of_payment: 'Card',
-      referral_doctor: 'Dr. S. Nair',
-      organisation: 'City Hospital',
-      service_name: 'WES',
-    counselling_type: 'Pre-test',
-    counselling_start_time: '2025-09-15T10:00',
-    counselling_end_time: '2025-09-15T10:45',
-    gc_summary: 'Discussed family history and consent.',
-    extended_family_testing: false,
-    approval_status: 'pending',
-  },
-  {
-    id: 'GC-002',
-    sample_id: 'SAMP-1002',
-      created_at: '2025-09-17T13:40',
-    gc_name: 'Dr. Arun Patel',
-      client_name: 'Ms. Rekha Singh',
-      client_contact: '+91-9123456789',
-      client_email: 'rekha.s@example.com',
-      age: 29,
-      sex: 'Female',
-      payment_status: 'Pending',
-      mode_of_payment: 'UPI',
-      referral_doctor: 'Dr. K. Verma',
-      organisation: 'Genome Clinic',
-      service_name: 'CMA',
-    counselling_type: 'Post-test',
-    counselling_start_time: '2025-09-17T14:00',
-    counselling_end_time: '2025-09-17T14:30',
-    gc_summary: 'Explained results and next steps.',
-    extended_family_testing: true,
-    approval_status: 'approved',
-  },
-  {
-    id: 'GC-003',
-    sample_id: 'SAMP-1003',
-      created_at: '2025-09-18T10:40',
-    gc_name: 'Dr. Priya Sharma',
-      client_name: 'Mr. Ramesh Iyer',
-      client_contact: '+91-9988776655',
-      client_email: 'r.iyer@example.com',
-      age: 45,
-      sex: 'Male',
-      payment_status: 'Paid',
-      mode_of_payment: 'Cash',
-      referral_doctor: 'Dr. L. Menon',
-      organisation: 'Sunrise Labs',
-      service_name: 'WES',
-    counselling_type: 'Pre-test',
-    counselling_start_time: '2025-09-18T11:00',
-    counselling_end_time: '2025-09-18T11:50',
-    gc_summary: 'Genetic risk assessment completed.',
-    extended_family_testing: false,
-    approval_status: 'pending',
-  },
-  {
-    id: 'GC-004',
-    sample_id: 'SAMP-1004',
-      created_at: '2025-09-19T14:40',
-    gc_name: 'Dr. Rajesh Kumar',
-      client_name: 'Ms. Anjali Rao',
-      client_contact: '+91-9012345678',
-      client_email: 'anjali.rao@example.com',
-      age: 38,
-      sex: 'Female',
-      payment_status: 'Paid',
-      mode_of_payment: 'Card',
-      referral_doctor: 'Dr. P. Singh',
-      organisation: 'Health Plus',
-      service_name: 'NBS',
-    counselling_type: 'Follow-up',
-    counselling_start_time: '2025-09-19T15:00',
-    counselling_end_time: '2025-09-19T15:40',
-    gc_summary: 'Follow-up on previous test results.',
-    extended_family_testing: true,
-    approval_status: 'approved',
-  },
-  {
-    id: 'GC-005',
-    sample_id: 'SAMP-1005',
-      created_at: '2025-09-20T09:00',
-    gc_name: 'Dr. Meera Rao',
-      client_name: 'Mr. Suresh Patel',
-      client_contact: '+91-9234567890',
-      client_email: 'suresh.p@example.com',
-      age: 52,
-      sex: 'Male',
-      payment_status: 'Rejected',
-      mode_of_payment: 'NA',
-      referral_doctor: 'Dr. R. Karthik',
-      organisation: 'City Hospital',
-      service_name: 'WES',
-    counselling_type: 'Post-test',
-    counselling_start_time: '2025-09-20T09:30',
-    counselling_end_time: '2025-09-20T10:15',
-    gc_summary: 'Results interpretation and management plan.',
-    extended_family_testing: false,
-    approval_status: 'rejected',
-  },
-];
+const initialData: GCRecord[] = [];
 
 export default function GeneticCounselling() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: serverRows = null } = useQuery<GCRecord[]>({ queryKey: ['/api/gc-registration'], queryFn: async () => {
-    const r = await fetch('/api/gc-registration');
-    if (!r.ok) throw new Error('Failed to fetch');
-    return r.json();
-  }, staleTime: 1000 * 60 * 5, retry: 1 });
+  const { data: serverRows = null } = useQuery<GCRecord[]>({ 
+    queryKey: ['/api/genetic-counselling-sheet'], 
+    queryFn: async () => {
+      const r = await fetch('/api/genetic-counselling-sheet');
+      if (!r.ok) throw new Error('Failed to fetch');
+      return r.json();
+    }, 
+    staleTime: 1000 * 60 * 5, 
+    retry: 1 
+  });
 
   // Keep local rows in sync with server query results when available.
-  const [rows, setRows] = useState<GCRecord[]>(serverRows ?? initialData);
+  const [rows, setRows] = useState<GCRecord[]>(initialData);
 
   // Normalizer: map server row (camelCase or snake_case) to client GCRecord shape (snake_case)
   const normalizeServerRow = (r: any): GCRecord => ({
     id: r.id,
-    sample_id: r.sampleId ?? r.sample_id ?? '',
-    gc_name: r.gcName ?? r.gc_name ?? '',
-    counselling_type: r.counsellingType ?? r.counselling_type ?? '',
-    counselling_start_time: r.counsellingStartTime ?? r.counselling_start_time ?? undefined,
-    counselling_end_time: r.counsellingEndTime ?? r.counselling_end_time ?? undefined,
-    gc_summary: r.gcSummary ?? r.gc_summary ?? undefined,
-    extended_family_testing: (r.extendedFamilyTesting ?? r.extended_family_testing) ?? false,
-    approval_status: r.approvalStatus ?? r.approval_status ?? 'pending',
-    // map additional optional fields from server (try camelCase and snake_case)
-    created_at: r.createdAt ?? r.created_at ?? r.created ?? undefined,
-    registration_start_time: r.registrationStartTime ?? r.registration_start_time ?? undefined,
-    registration_end_time: r.registrationEndTime ?? r.registration_end_time ?? undefined,
-    // client / patient name + contact fallbacks (many possible server keys)
-    client_name: r.clientName ?? r.client_name ?? r.client_name_display ?? r.patientName ?? r.patient_name ?? r.patient_client_name ?? r.patient_client_name_display ?? r.name ?? r.patient ?? undefined,
-    client_contact: r.clientContact ?? r.client_contact ?? r.client_phone ?? r.patientContact ?? r.patient_contact ?? r.patient_phone ?? r.patient_client_phone ?? undefined,
-    client_email: r.clientEmail ?? r.client_email ?? r.patientEmail ?? r.patient_email ?? r.patient_client_email ?? undefined,
+    unique_id: r.unique_id ?? r.uniqueId ?? '',
+    project_id: r.projectId ?? r.project_id ?? '',
+    counselling_date: r.counsellingDate ?? r.counselling_date ?? r.createdAt ?? r.created_at ?? undefined,
+    gc_registration_start_time: r.gcRegistrationStartTime ?? r.gc_registration_start_time ?? undefined,
+    gc_registration_end_time: r.gcRegistrationEndTime ?? r.gc_registration_end_time ?? undefined,
+    patient_client_name: r.patientClientName ?? r.patient_client_name ?? undefined,
     age: r.age ?? undefined,
-    sex: r.sex ?? r.gender ?? undefined,
+    gender: r.gender ?? undefined,
+    patient_client_email: r.patientClientEmail ?? r.patient_client_email ?? undefined,
+    patient_client_phone: r.patientClientPhone ?? r.patient_client_phone ?? undefined,
+    patient_client_address: r.patientClientAddress ?? r.patient_client_address ?? undefined,
     payment_status: r.paymentStatus ?? r.payment_status ?? undefined,
     mode_of_payment: r.modeOfPayment ?? r.mode_of_payment ?? undefined,
-    approval_from_head: r.approvalFromHead ?? r.approval_from_head ?? undefined,
-    referral_doctor: r.referralDoctor ?? r.referral_doctor ?? undefined,
-    organisation: r.organisation ?? r.organization ?? r.organisation_name ?? undefined,
-    speciality: r.speciality ?? r.specialty ?? undefined,
-    query: r.query ?? undefined,
+    approval_from_head: !!(r.approvalFromHead ?? r.approval_from_head),
+    clinician_researcher_name: r.clinicianResearcherName ?? r.clinician_researcher_name ?? undefined,
+    organisation_hospital: r.organisationHospital ?? r.organisation_hospital ?? undefined,
+    speciality: r.speciality ?? undefined,
+    query_suspection: r.querySuspection ?? r.query_suspection ?? undefined,
+    gc_name: r.gcName ?? r.gc_name ?? '',
     gc_other_members: r.gcOtherMembers ?? r.gc_other_members ?? undefined,
     service_name: r.serviceName ?? r.service_name ?? undefined,
+    counseling_type: r.counselingType ?? r.counseling_type ?? undefined,
+    counseling_start_time: r.counselingStartTime ?? r.counseling_start_time ?? undefined,
+    counseling_end_time: r.counselingEndTime ?? r.counseling_end_time ?? undefined,
     budget_for_test_opted: r.budgetForTestOpted ?? r.budget_for_test_opted ?? undefined,
     testing_status: r.testingStatus ?? r.testing_status ?? undefined,
     action_required: r.actionRequired ?? r.action_required ?? undefined,
-    potential_patient_future: (r.potentialPatientFuture ?? r.potential_patient_future) ?? false,
+    potential_patient_for_testing_in_future: !!(r.potentialPatientForTestingInFuture ?? r.potential_patient_for_testing_in_future),
+    extended_family_testing_requirement: !!(r.extendedFamilyTestingRequirement ?? r.extended_family_testing_requirement),
     budget: r.budget ?? undefined,
     sample_type: r.sampleType ?? r.sample_type ?? undefined,
-    created_by: r.createdBy ?? r.created_by ?? undefined,
     gc_summary_sheet: r.gcSummarySheet ?? r.gc_summary_sheet ?? undefined,
-    gcf_video_links: r.gcfVideoLinks ?? r.gcf_video_links ?? undefined,
-    modified: r.updatedAt ?? r.updated_at ?? r.modified ?? undefined,
-    assigned_sales_person: r.assignedSalesPerson ?? r.assigned_sales_person ?? undefined,
+    gc_video_link: r.gcVideoLink ?? r.gc_video_link ?? undefined,
+    gc_audio_link: r.gcAudioLink ?? r.gc_audio_link ?? undefined,
+    sales_responsible_person: r.salesResponsiblePerson ?? r.sales_responsible_person ?? undefined,
+    created_at: r.createdAt ?? r.created_at ?? undefined,
+    created_by: r.createdBy ?? r.created_by ?? undefined,
+    modified_at: r.modifiedAt ?? r.modified_at ?? undefined,
+    modified_by: r.modifiedBy ?? r.modified_by ?? undefined,
+    remark_comment: r.remarkComment ?? r.remark_comment ?? undefined,
   });
 
   // When serverRows is available (DB reachable), replace local rows so the UI reflects DB state.
@@ -229,11 +130,6 @@ export default function GeneticCounselling() {
     if (serverRows && Array.isArray(serverRows)) {
       try {
         const normalized = serverRows.map(normalizeServerRow);
-        // debug: show incoming and normalized shape when developing
-        // eslint-disable-next-line no-console
-        console.debug('GC serverRows sample:', serverRows[0]);
-        // eslint-disable-next-line no-console
-        console.debug('GC normalized sample:', normalized[0]);
         setRows(normalized);
         setPage(1);
       } catch (e) {
@@ -244,13 +140,33 @@ export default function GeneticCounselling() {
     }
   }, [serverRows]);
 
+  // Helper function to format TIME-only strings (HH:MM:SS) for display
+  const formatTimeString = (timeStr: string | undefined): string => {
+    if (!timeStr) return '-';
+    // If it's just a time string (HH:MM:SS format), format it directly
+    if (timeStr.includes(':') && !timeStr.includes('T') && !timeStr.includes('Z')) {
+      return timeStr; // Just return as-is (09:00:00)
+    }
+    // Otherwise try to parse as date
+    try {
+      return new Date(timeStr).toLocaleString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch {
+      return timeStr;
+    }
+  };
+
+  // Helper function to format DATE/DATETIME strings for display
+
   const [isOpen, setIsOpen] = useState(false);
   const [editing, setEditing] = useState<GCRecord | null>(null);
   const { add } = useRecycle();
   
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [counsellingTypeFilter, setCounsellingTypeFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -258,17 +174,18 @@ export default function GeneticCounselling() {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const form = useForm<GCRecord>({ defaultValues: {} as any });
+  const form = useForm<GCRecord>({ 
+    defaultValues: {
+      approval_from_head: false,
+      potential_patient_for_testing_in_future: false,
+      extended_family_testing_requirement: false,
+    } as any
+  });
 
   // Filter records based on search and filters
   const filteredRows = rows.filter((record) => {
-    // Apply status filter
-    if (statusFilter !== 'all' && record.approval_status !== statusFilter) {
-      return false;
-    }
-    
     // Apply counselling type filter
-    if (counsellingTypeFilter !== 'all' && record.counselling_type !== counsellingTypeFilter) {
+    if (counsellingTypeFilter !== 'all' && record.counseling_type !== counsellingTypeFilter) {
       return false;
     }
     
@@ -277,12 +194,12 @@ export default function GeneticCounselling() {
     
     const query = searchQuery.toLowerCase();
     return (
-      record.id.toLowerCase().includes(query) ||
-      record.sample_id.toLowerCase().includes(query) ||
-      record.gc_name.toLowerCase().includes(query) ||
-      (record.gc_summary || '').toLowerCase().includes(query)
+      (String(record.unique_id || '')).toLowerCase().includes(query) ||
+      (String(record.project_id || '')).toLowerCase().includes(query) ||
+      (String(record.patient_client_name || '')).toLowerCase().includes(query) ||
+      (String(record.patient_client_phone || '')).toLowerCase().includes(query)
     );
-  });
+  }).filter((record, index, self) => self.findIndex(r => r.id === record.id) === index);
 
   // Pagination calculations
   const totalFiltered = filteredRows.length;
@@ -331,7 +248,7 @@ export default function GeneticCounselling() {
         add({ 
           entityType: 'genetic_counselling', 
           entityId: id, 
-          name: `${item.id || item.sample_id || id} - ${item.client_name || 'No Name'}`,
+          name: `${item.id || id} - ${item.patient_client_name || 'No Name'}`,
           originalPath: '/genetic-counselling', 
           data: { 
             ...item,
@@ -348,9 +265,9 @@ export default function GeneticCounselling() {
     // attempt server delete, fallback to local state on failure
     (async () => {
       try {
-        const res = await fetch(`/api/gc-registration/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/genetic-counselling-sheet/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Delete failed');
-        queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
         toast({ title: 'Deleted', description: 'Record deleted' });
         // Notify recycle UI to pick up the new entry created by the server
         window.dispatchEvent(new Event('ll:recycle:update'));
@@ -368,45 +285,53 @@ export default function GeneticCounselling() {
   };
 
   const onSave = (data: GCRecord) => {
+    console.log('[GC onSave] Starting save operation for record:', data.id || 'new');
     (async () => {
       try {
         if (editing) {
-          const res = await fetch(`/api/gc-registration/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-          if (!res.ok) throw new Error('Update failed');
-          const updated = await res.json();
-          queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
-          const normalized = normalizeServerRow(updated);
-          setRows((s) => s.map((r) => (r.id === normalized.id ? normalized : r)));
+          console.log('[GC onSave] Updating record ID:', data.id);
+          const res = await fetch(`/api/genetic-counselling-sheet/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          console.log('[GC onSave] PUT response status:', res.status);
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('[GC onSave] PUT failed:', errorText);
+            throw new Error('Update failed');
+          }
+          const result = await res.json();
+          console.log('[GC onSave] PUT success, result:', result);
+          // Let React Query refetch handle the update - don't manually update state
+          queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
           toast({ title: 'Updated', description: 'Record updated' });
         } else {
-          const res = await fetch('/api/gc-registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-          if (!res.ok) throw new Error('Create failed');
-          const created = await res.json();
-          queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
-          const normalized = normalizeServerRow(created);
-          setRows((s) => [normalized, ...s]);
+          console.log('[GC onSave] Creating new record');
+          const res = await fetch('/api/genetic-counselling-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+          console.log('[GC onSave] POST response status:', res.status);
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('[GC onSave] POST failed:', errorText);
+            throw new Error('Create failed');
+          }
+          const result = await res.json();
+          console.log('[GC onSave] POST success, result:', result);
+          // Let React Query refetch handle adding the new record - don't manually update state
+          queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
           toast({ title: 'Created', description: 'Record created' });
         }
       } catch (e) {
-        // fallback to local update
-        setRows((s) => s.map((r) => (r.id === data.id ? data : r)));
-        if (!editing) setRows((s) => [data, ...s]);
-  toast({ title: 'Saved locally', description: 'Server operation failed; changes kept locally' });
+        console.error('[GC onSave] Error:', e);
+        // fallback to local update only if server fails
+        if (editing) {
+          setRows((s) => s.map((r) => (r.id === data.id ? data : r)));
+        } else {
+          setRows((s) => [data, ...s]);
+        }
+        toast({ title: 'Saved locally', description: 'Server operation failed; changes kept locally' });
       } finally {
         setIsOpen(false);
         setEditing(null);
         setPage(1);
       }
     })();
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
   };
 
   const getCounsellingTypeBadgeColor = (type: string) => {
@@ -426,7 +351,15 @@ export default function GeneticCounselling() {
           <p className="text-muted-foreground">Manage genetic counselling sessions and approvals</p>
         </div>
         <div>
-          <Button onClick={() => { setEditing(null); form.reset({} as any); setIsOpen(true); }}>
+          <Button onClick={() => { 
+            setEditing(null); 
+            form.reset({
+              approval_from_head: false,
+              potential_patient_for_testing_in_future: false,
+              extended_family_testing_requirement: false,
+            } as any); 
+            setIsOpen(true); 
+          }}>
             + Add New GC
           </Button>
         </div>
@@ -445,16 +378,16 @@ export default function GeneticCounselling() {
           <div className="w-12 h-12 rounded-md bg-yellow-50 flex items-center justify-center mb-3">
             <Clock className="w-6 h-6 text-yellow-600" />
           </div>
-          <div className="text-2xl font-extrabold">{rows.filter((r) => r.approval_status === 'pending').length}</div>
-          <div className="text-sm text-muted-foreground mt-1">Pending Approval</div>
+          <div className="text-2xl font-extrabold">{rows.filter((r) => r.counseling_type === 'Pre-test').length}</div>
+          <div className="text-sm text-muted-foreground mt-1">Pre-test</div>
         </div>
 
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 flex flex-col items-center">
           <div className="w-12 h-12 rounded-md bg-blue-50 flex items-center justify-center mb-3">
             <Check className="w-6 h-6 text-blue-600" />
           </div>
-          <div className="text-2xl font-extrabold">{rows.filter((r) => r.approval_status === 'approved').length}</div>
-          <div className="text-sm text-muted-foreground mt-1">Approved</div>
+          <div className="text-2xl font-extrabold">{rows.filter((r) => r.counseling_type === 'Post-test').length}</div>
+          <div className="text-sm text-muted-foreground mt-1">Post-test</div>
         </div>
       </div>
 
@@ -469,7 +402,7 @@ export default function GeneticCounselling() {
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Search by ID, sample, GC name..."
+                  placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -480,24 +413,6 @@ export default function GeneticCounselling() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-2">
-                <Select 
-                  value={statusFilter} 
-                  onValueChange={(value) => {
-                    setStatusFilter(value);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select 
                   value={counsellingTypeFilter} 
                   onValueChange={(value) => {
@@ -544,132 +459,203 @@ export default function GeneticCounselling() {
             <Table>
               <TableHeader className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b-2">
                 <TableRow>
-                  <TableHead onClick={() => { setSortKey('id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Unique ID{sortKey === 'id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('created_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Date{sortKey === 'created_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gc registration start time{sortKey === 'registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('registration_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gc registration end time{sortKey === 'registration_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('client_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient / Client Name{sortKey === 'client_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('client_contact'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Contact{sortKey === 'client_contact' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('client_email'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Email ID{sortKey === 'client_email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('counselling_date'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling date{sortKey === 'counselling_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gc_registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration start time{sortKey === 'gc_registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gc_registration_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration end time{sortKey === 'gc_registration_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('patient_client_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patient_client_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('sex'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'sex' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('patient_client_email'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client email{sortKey === 'patient_client_email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('patient_client_phone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client phone{sortKey === 'patient_client_phone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('patient_client_address'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client address{sortKey === 'patient_client_address' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('payment_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Payment status{sortKey === 'payment_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('mode_of_payment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Mode of Payment{sortKey === 'mode_of_payment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('approval_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Approval{sortKey === 'approval_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('referral_doctor'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Referral Doctor{sortKey === 'referral_doctor' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('organisation'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation / Hospital{sortKey === 'organisation' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('mode_of_payment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Mode of payment{sortKey === 'mode_of_payment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('approval_from_head'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Approval from head{sortKey === 'approval_from_head' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('clinician_researcher_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Clinician/Researcher name{sortKey === 'clinician_researcher_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('organisation_hospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation/Hospital{sortKey === 'organisation_hospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('speciality'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Speciality{sortKey === 'speciality' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('query'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Suspection{sortKey === 'query' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('query_suspection'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Query/Suspection{sortKey === 'query_suspection' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('gc_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC name{sortKey === 'gc_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_other_members'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Other Gc names{sortKey === 'gc_other_members' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gc_other_members'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC other members{sortKey === 'gc_other_members' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('service_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Service name{sortKey === 'service_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('counselling_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling type{sortKey === 'counselling_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('counseling_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling type{sortKey === 'counseling_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('counseling_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling start time{sortKey === 'counseling_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('counseling_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling end time{sortKey === 'counseling_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('budget_for_test_opted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Budget for Test opted{sortKey === 'budget_for_test_opted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('testing_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Testing status{sortKey === 'testing_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('action_required'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Action required{sortKey === 'action_required' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('potential_patient_future'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Potential Patient for testing in future{sortKey === 'potential_patient_future' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('extended_family_testing'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Extended family testing requirement{sortKey === 'extended_family_testing' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('potential_patient_for_testing_in_future'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Potential Patient for testing in future{sortKey === 'potential_patient_for_testing_in_future' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('extended_family_testing_requirement'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Extended family testing requirement{sortKey === 'extended_family_testing_requirement' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('budget'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Budget{sortKey === 'budget' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('sample_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample Type{sortKey === 'sample_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gc_summary_sheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC summary sheet{sortKey === 'gc_summary_sheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gc_video_link'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC video link{sortKey === 'gc_video_link' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('gc_audio_link'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC audio link{sortKey === 'gc_audio_link' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('sales_responsible_person'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sales/Responsible person{sortKey === 'sales_responsible_person' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('created_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created at{sortKey === 'created_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('created_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created by{sortKey === 'created_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gcf_video_links'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gc Video links{sortKey === 'gcf_video_links' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_summary'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gc summary{sortKey === 'gc_summary' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('modified_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modified_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('modified_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modified_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('remark_comment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remark_comment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={40} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={41} className="text-center py-8 text-muted-foreground">
                       {filteredRows.length === 0 ? "No genetic counselling records found" : "No records match your search criteria"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   visibleRows.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">{r.id}</TableCell>
+                    <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                      <TableCell className="font-medium">{r.unique_id}</TableCell>
+                      <TableCell>{r.project_id ?? '-'}</TableCell>
                       <TableCell className="text-sm">
-                        {r.created_at ? (
-                          <span title={new Date(r.created_at).toISOString()}>
-                            {new Date(r.created_at).toLocaleString(undefined, {
-                              year: 'numeric',
-                              month: 'numeric',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              timeZoneName: 'short'
-                            })}
-                          </span>
+                        {r.counselling_date ? (
+                          (() => {
+                            try {
+                              const parsed = Date.parse(String(r.counselling_date));
+                              if (isNaN(parsed)) return <span>{String(r.counselling_date)}</span>;
+                              const d = new Date(parsed);
+                              return (
+                                <span title={d.toISOString()}>
+                                  {d.toLocaleString(undefined, {
+                                    year: 'numeric',
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    timeZoneName: 'short'
+                                  })}
+                                </span>
+                              );
+                            } catch (e) {
+                              return <span>{String(r.counselling_date)}</span>;
+                            }
+                          })()
                         ) : '-'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {r.registration_start_time ? (
-                          <span title={new Date(r.registration_start_time).toISOString()}>
-                            {new Date(r.registration_start_time).toLocaleString(undefined, {
-                              year: 'numeric',
-                              month: 'numeric',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              timeZoneName: 'short'
-                            })}
-                          </span>
+                        {r.gc_registration_start_time ? (
+                          <span>{formatTimeString(r.gc_registration_start_time)}</span>
                         ) : '-'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {r.registration_end_time ? (
-                          <span title={new Date(r.registration_end_time).toISOString()}>
-                            {new Date(r.registration_end_time).toLocaleString(undefined, {
-                              year: 'numeric',
-                              month: 'numeric',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                              timeZoneName: 'short'
-                            })}
-                          </span>
+                        {r.gc_registration_end_time ? (
+                          <span>{formatTimeString(r.gc_registration_end_time)}</span>
                         ) : '-'}
                       </TableCell>
-                      <TableCell>{r.client_name ?? '-'}</TableCell>
-                      <TableCell>{r.client_contact ?? '-'}</TableCell>
-                      <TableCell>{r.client_email ?? '-'}</TableCell>
+                      <TableCell>{r.patient_client_name ?? '-'}</TableCell>
                       <TableCell>{r.age != null ? String(r.age) : '-'}</TableCell>
-                      <TableCell>{r.sex ?? '-'}</TableCell>
+                      <TableCell>{r.gender ?? '-'}</TableCell>
+                      <TableCell>{r.patient_client_email ?? '-'}</TableCell>
+                      <TableCell>{r.patient_client_phone ?? '-'}</TableCell>
+                      <TableCell>{r.patient_client_address ?? '-'}</TableCell>
                       <TableCell>{r.payment_status ?? '-'}</TableCell>
                       <TableCell>{r.mode_of_payment ?? '-'}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(r.approval_status || 'pending')}`}>
-                          {r.approval_status || 'Pending'}
-                        </span>
-                      </TableCell>
-                      <TableCell>{r.referral_doctor ?? '-'}</TableCell>
-                      <TableCell>{r.organisation ?? '-'}</TableCell>
+                      <TableCell>{r.approval_from_head ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>{r.clinician_researcher_name ?? '-'}</TableCell>
+                      <TableCell>{r.organisation_hospital ?? '-'}</TableCell>
                       <TableCell>{r.speciality ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.query ?? '-'}</TableCell>
+                      <TableCell className="max-w-xs truncate">{r.query_suspection ?? '-'}</TableCell>
                       <TableCell>{r.gc_name ?? '-'}</TableCell>
                       <TableCell>{r.gc_other_members ?? '-'}</TableCell>
                       <TableCell>{r.service_name ?? '-'}</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCounsellingTypeBadgeColor(r.counselling_type)}`}>
-                          {r.counselling_type}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCounsellingTypeBadgeColor(r.counseling_type ?? '')}`}>
+                          {r.counseling_type}
                         </span>
                       </TableCell>
+                      <TableCell className="text-sm">
+                        {r.counseling_start_time ? (
+                          <span>{formatTimeString(r.counseling_start_time)}</span>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {r.counseling_end_time ? (
+                          <span>{formatTimeString(r.counseling_end_time)}</span>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>{r.budget_for_test_opted ?? '-'}</TableCell>
                       <TableCell>{r.testing_status ?? '-'}</TableCell>
                       <TableCell className="max-w-xs truncate">{r.action_required ?? '-'}</TableCell>
-                      <TableCell>{r.potential_patient_future ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>{r.potential_patient_for_testing_in_future ? 'Yes' : 'No'}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          r.extended_family_testing 
+                          r.extended_family_testing_requirement 
                             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
                         }`}>
-                          {r.extended_family_testing ? 'Yes' : 'No'}
+                          {r.extended_family_testing_requirement ? 'Yes' : 'No'}
                         </span>
                       </TableCell>
+                      <TableCell>{r.budget ?? '-'}</TableCell>
+                      <TableCell>{r.sample_type ?? '-'}</TableCell>
+                      <TableCell className="max-w-xs truncate">{r.gc_summary_sheet ?? '-'}</TableCell>
+                      <TableCell className="max-w-xs truncate">{r.gc_video_link ?? '-'}</TableCell>
+                      <TableCell className="max-w-xs truncate">{r.gc_audio_link ?? '-'}</TableCell>
+                      <TableCell>{r.sales_responsible_person ?? '-'}</TableCell>
+                      <TableCell className="text-sm">
+                        {r.created_at ? (
+                          (() => {
+                            try {
+                              const parsed = Date.parse(String(r.created_at));
+                              if (isNaN(parsed)) return <span>{String(r.created_at)}</span>;
+                              const d = new Date(parsed);
+                              return (
+                                <span title={d.toISOString()}>
+                                  {d.toLocaleString(undefined, {
+                                    year: 'numeric',
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    timeZoneName: 'short'
+                                  })}
+                                </span>
+                              );
+                            } catch (e) {
+                              return <span>{String(r.created_at)}</span>;
+                            }
+                          })()
+                        ) : '-'}
+                      </TableCell>
                       <TableCell>{r.created_by ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.gcf_video_links ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.gc_summary ?? '-'}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-sm">
+                        {r.modified_at ? (
+                          (() => {
+                            try {
+                              const parsed = Date.parse(String(r.modified_at));
+                              if (isNaN(parsed)) return <span>{String(r.modified_at)}</span>;
+                              const d = new Date(parsed);
+                              return (
+                                <span title={d.toISOString()}>
+                                  {d.toLocaleString(undefined, {
+                                    year: 'numeric',
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    timeZoneName: 'short'
+                                  })}
+                                </span>
+                              );
+                            } catch (e) {
+                              return <span>{String(r.modified_at)}</span>;
+                            }
+                          })()
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>{r.modified_by ?? '-'}</TableCell>
+                      <TableCell className="max-w-xs truncate">{r.remark_comment ?? '-'}</TableCell>
+                      <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2">
                         <div className="flex space-x-2">
                           <Button size="sm" variant="ghost" aria-label="Edit GC" onClick={() => openEdit(r)}>
                             <EditIcon className="h-4 w-4" />
@@ -719,58 +705,135 @@ export default function GeneticCounselling() {
             <DialogDescription>{editing ? 'Edit counselling details for the selected sample.' : 'Create a new genetic counselling record.'}</DialogDescription>
           </DialogHeader>
           <form
-            onSubmit={form.handleSubmit((vals) => {
-              // ensure boolean flags are consistent
-              vals.extended_family_testing = !!vals.extended_family_testing;
-              vals.potential_patient_future = !!vals.potential_patient_future;
-              onSave(vals as GCRecord);
-            })}
+            onSubmit={form.handleSubmit(
+              (vals) => {
+                // Ensure ID is present for updates
+                if (editing && editing.id) {
+                  vals.id = editing.id;
+                }
+                // ensure boolean flags are consistent - checkboxes may not be captured properly
+                vals.approval_from_head = !!vals.approval_from_head;
+                vals.extended_family_testing_requirement = !!vals.extended_family_testing_requirement;
+                vals.potential_patient_for_testing_in_future = !!vals.potential_patient_for_testing_in_future;
+                
+                // Convert datetime values to MySQL-friendly format (YYYY-MM-DD HH:mm:ss)
+                // Handle three types of inputs safely:
+                //  - HTML datetime-local: 'YYYY-MM-DDTHH:MM' -> append ':00'
+                //  - ISO timestamps: parse and format to local YYYY-MM-DD HH:MM:SS
+                //  - Already formatted DB datetimes: leave as-is
+                const dateTimeFields = [
+                  'counselling_date',
+                  'gc_registration_start_time',
+                  'gc_registration_end_time',
+                  'counseling_start_time',
+                  'counseling_end_time',
+                  'created_at',
+                  'modified_at'
+                ];
+
+                const datetimeLocalRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/; // e.g. 2025-12-04T11:45
+                const isoLikeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?$/; // e.g. 2025-12-04T11:45:00.000Z
+
+                const pad = (n: number) => n.toString().padStart(2, '0');
+
+                dateTimeFields.forEach(field => {
+                  const raw = vals[field as keyof GCRecord];
+                  if (!raw || typeof raw !== 'string') return;
+
+                  const dateValue = raw as string;
+
+                  // Exact datetime-local (no seconds) -> append seconds
+                  if (datetimeLocalRegex.test(dateValue)) {
+                    (vals as any)[field] = dateValue.replace('T', ' ') + ':00';
+                    return;
+                  }
+
+                  // ISO-like timestamps -> parse and reformat
+                  if (isoLikeRegex.test(dateValue) || dateValue.includes('Z')) {
+                    const parsed = Date.parse(dateValue);
+                    if (!isNaN(parsed)) {
+                      const d = new Date(parsed);
+                      const converted = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                      (vals as any)[field] = converted;
+                      return;
+                    }
+                    // if parsing fails, set null to avoid sending malformed strings to server
+                    (vals as any)[field] = null;
+                    return;
+                  }
+
+                  // Otherwise assume it's already in DB-friendly 'YYYY-MM-DD HH:MM:SS' format and leave it
+                });
+                
+                // Convert empty strings to null for numeric fields (age cannot be empty string)
+                const numericFields = ['age'];
+                numericFields.forEach(field => {
+                  if (vals[field as keyof GCRecord] === '' || vals[field as keyof GCRecord] === undefined) {
+                    (vals as any)[field] = null;
+                  } else if (typeof vals[field as keyof GCRecord] === 'string') {
+                    // Convert string to number if it's a valid numeric field
+                    const numValue = parseInt(vals[field as keyof GCRecord] as string, 10);
+                    (vals as any)[field] = isNaN(numValue) ? null : numValue;
+                  }
+                });
+                
+                console.log('[GC Form] Submitting form data:', vals);
+                onSave(vals as GCRecord);
+              },
+              (errors) => {
+                console.error('[GC Form] Validation errors:', errors);
+                Object.keys(errors).forEach(field => {
+                  const error = errors[field as keyof typeof errors];
+                  if (error) {
+                    toast({ title: 'Validation Error', description: `${field}: ${error.message}`, variant: 'destructive' });
+                  }
+                });
+              }
+            )}
             className="grid grid-cols-1 gap-4 p-2"
           >
-            {/* Canonical GC fields (in the same order as the table) */}
+            {/* Hidden ID field for updates */}
+            {editing && <Input type="hidden" {...form.register('id')} />}
+
+            {/* Unique ID and Project ID fields */}
             <div>
               <Label>Unique ID</Label>
-              <Input {...form.register('id')} placeholder="e.g. GC-001" readOnly={!!editing} />
+              <Input {...form.register('unique_id', { required: 'Unique ID is required' })} placeholder="e.g., GC_001" disabled={!!editing} />
             </div>
 
             <div>
-              <Label>Date</Label>
-              <Input {...form.register('created_at')} type="datetime-local" readOnly />
+              <Label>Project ID</Label>
+              <Input {...form.register('project_id')} placeholder="e.g., PG251202001" disabled={!!editing} />
+            </div>
+            
+            <div>
+              <Label>Counselling date</Label>
+              <Input {...form.register('counselling_date')} type="datetime-local" />
             </div>
 
             <div>
               <Label>GC registration start time</Label>
-              <Input type="datetime-local" {...form.register('registration_start_time')} />
+              <Input type="datetime-local" {...form.register('gc_registration_start_time')} />
             </div>
 
             <div>
               <Label>GC registration end time</Label>
-              <Input type="datetime-local" {...form.register('registration_end_time')} />
+              <Input type="datetime-local" {...form.register('gc_registration_end_time')} />
             </div>
 
             <div>
-              <Label>Name</Label>
-              <Input {...form.register('client_name')} />
-            </div>
-
-            <div>
-              <Label>Contact</Label>
-              <Input {...form.register('client_contact')} />
-            </div>
-
-            <div>
-              <Label>Email ID</Label>
-              <Input {...form.register('client_email')} />
+              <Label>Patient/Client name</Label>
+              <Input {...form.register('patient_client_name')} disabled={!!editing} />
             </div>
 
             <div>
               <Label>Age</Label>
-              <Input type="number" {...form.register('age')} />
+              <Input type="number" {...form.register('age')} disabled={!!editing} />
             </div>
 
             <div>
               <Label>Gender</Label>
-              <Select value={form.watch('sex') || ''} onValueChange={(v) => form.setValue('sex', v)}>
+              <Select value={form.watch('gender') || ''} onValueChange={(v) => form.setValue('gender', v)} disabled={!!editing}>
                 <SelectTrigger className="w-[160px]"><SelectValue placeholder="Gender" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Male">Male</SelectItem>
@@ -778,6 +841,29 @@ export default function GeneticCounselling() {
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Patient/Client email</Label>
+              <Input {...form.register('patient_client_email')} />
+            </div>
+
+            <div>
+              <Label>Patient/Client phone</Label>
+              <PhoneInput
+                international
+                countryCallingCodeEditable={false}
+                defaultCountry="IN"
+                value={form.watch('patient_client_phone') || ''}
+                onChange={(value) => form.setValue('patient_client_phone', value || '')}
+                placeholder="Enter phone number"
+                disabled={!!editing}
+              />
+            </div>
+
+            <div>
+              <Label>Patient/Client address</Label>
+              <Input {...form.register('patient_client_address')} disabled={!!editing} />
             </div>
 
             <div>
@@ -793,40 +879,37 @@ export default function GeneticCounselling() {
             </div>
 
             <div>
-              <Label>Mode of Payment</Label>
+              <Label>Mode of payment</Label>
               <Input {...form.register('mode_of_payment')} placeholder="Card / UPI / Cash" />
             </div>
 
-            <div>
-              <Label>Approval</Label>
-              <Select value={String(form.getValues('approval_status') || '')} onValueChange={(v) => form.setValue('approval_status', v)}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Approval" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center space-x-3">
+              <Checkbox 
+                id="approval_from_head" 
+                checked={!!form.watch('approval_from_head')}
+                onCheckedChange={(checked) => form.setValue('approval_from_head', checked as boolean)}
+              />
+              <Label htmlFor="approval_from_head">Approval from head</Label>
             </div>
 
             <div>
-              <Label>Referral Doctor</Label>
-              <Input {...form.register('referral_doctor')} />
+              <Label>Clinician/Researcher name</Label>
+              <Input {...form.register('clinician_researcher_name')} disabled={!!editing} />
             </div>
 
             <div>
-              <Label>Organisation</Label>
-              <Input {...form.register('organisation')} />
+              <Label>Organisation/Hospital</Label>
+              <Input {...form.register('organisation_hospital')} disabled={!!editing} />
             </div>
 
             <div>
               <Label>Speciality</Label>
-              <Input {...form.register('speciality')} />
+              <Input {...form.register('speciality')} disabled={!!editing} />
             </div>
 
             <div>
-              <Label>Suspection</Label>
-              <Textarea {...form.register('query')} />
+              <Label>Query/Suspection</Label>
+              <Textarea {...form.register('query_suspection')} />
             </div>
 
             <div>
@@ -835,24 +918,40 @@ export default function GeneticCounselling() {
             </div>
 
             <div>
-              <Label>Other GC names</Label>
+              <Label>GC other members</Label>
               <Input {...form.register('gc_other_members')} placeholder="Other members" />
             </div>
 
             <div>
               <Label>Service name</Label>
-              <Input {...form.register('service_name')} />
+              <Input {...form.register('service_name')} disabled={!!editing} />
             </div>
 
             <div>
               <Label>Counselling type</Label>
-              <Select value={String(form.getValues('counselling_type') || '')} onValueChange={(v) => form.setValue('counselling_type', v)}>
+              <Select value={String(form.getValues('counseling_type') || '')} onValueChange={(v) => form.setValue('counseling_type', v)}>
                 <SelectTrigger className="w-[220px]"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Online">Pre-test</SelectItem>
-                  <SelectItem value="Offline">Post-test</SelectItem>
+                  <SelectItem value="Pre-test">Pre-test</SelectItem>
+                  <SelectItem value="Post-test">Post-test</SelectItem>
+                  <SelectItem value="Follow-up">Follow-up</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Counselling start time</Label>
+              <Input type="datetime-local" {...form.register('counseling_start_time')} />
+            </div>
+
+            <div>
+              <Label>Counselling end time</Label>
+              <Input type="datetime-local" {...form.register('counseling_end_time')} />
+            </div>
+
+            <div>
+              <Label>Budget for Test opted</Label>
+              <Input {...form.register('budget_for_test_opted')} />
             </div>
 
             <div>
@@ -873,32 +972,80 @@ export default function GeneticCounselling() {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Checkbox id="potential_patient" {...form.register('potential_patient_future')} />
+              <Checkbox 
+                id="potential_patient" 
+                checked={!!form.watch('potential_patient_for_testing_in_future')}
+                onCheckedChange={(checked) => form.setValue('potential_patient_for_testing_in_future', checked as boolean)}
+              />
               <Label htmlFor="potential_patient">Potential Patient for testing in future</Label>
             </div>
 
             <div className="flex items-center space-x-3">
-              <Checkbox id="extended_family" {...form.register('extended_family_testing')} />
+              <Checkbox 
+                id="extended_family" 
+                checked={!!form.watch('extended_family_testing_requirement')}
+                onCheckedChange={(checked) => form.setValue('extended_family_testing_requirement', checked as boolean)}
+              />
               <Label htmlFor="extended_family">Extended family testing requirement</Label>
             </div>
 
             <div>
+              <Label>Budget</Label>
+              <Input {...form.register('budget')} disabled={!!editing} />
+            </div>
+
+            <div>
+              <Label>Sample Type</Label>
+              <Input {...form.register('sample_type')} disabled={!!editing} />
+            </div>
+
+            <div>
+              <Label>GC summary sheet</Label>
+              <Input {...form.register('gc_summary_sheet')} />
+            </div>
+
+            <div>
+              <Label>GC video link</Label>
+              <Textarea {...form.register('gc_video_link')} />
+            </div>
+
+            <div>
+              <Label>GC audio link</Label>
+              <Textarea {...form.register('gc_audio_link')} />
+            </div>
+
+            <div>
+              <Label>Sales/Responsible person</Label>
+              <Input {...form.register('sales_responsible_person')} disabled={!!editing} />
+            </div>
+
+            <div>
+              <Label>Created at</Label>
+              <Input {...form.register('created_at')} type="datetime-local" disabled />
+            </div>
+
+            <div>
               <Label>Created by</Label>
-              <Input {...form.register('created_by')} />
+              <Input {...form.register('created_by')} disabled />
             </div>
 
             <div>
-              <Label>GC Video links</Label>
-              <Textarea {...form.register('gcf_video_links')} />
+              <Label>Modified at</Label>
+              <Input {...form.register('modified_at')} type="datetime-local" disabled />
             </div>
 
             <div>
-              <Label>GC summary</Label>
-              <Textarea {...form.register('gc_summary')} placeholder="Short summary of counselling session" />
+              <Label>Modified by</Label>
+              <Input {...form.register('modified_by')} disabled />
+            </div>
+
+            <div>
+              <Label>Remark/Comment</Label>
+              <Textarea {...form.register('remark_comment')} placeholder="Any additional notes or remarks..." />
             </div>
 
             <div className="flex justify-end space-x-3 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setIsOpen(false); setEditing(null); form.reset({} as any); }}>
+              <Button type="button" variant="outline" onClick={() => { setIsOpen(false); setEditing(null); form.reset({ approval_from_head: false, potential_patient_for_testing_in_future: false, extended_family_testing_requirement: false } as any); }}>
                 Cancel
               </Button>
               <Button type="submit">{editing ? 'Save Changes' : 'Add GC'}</Button>

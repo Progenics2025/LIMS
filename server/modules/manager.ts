@@ -147,9 +147,9 @@ export class ModuleManager {
   private getModuleTables(moduleName: string): string[] {
     const tables: Record<string, string[]> = {
       'authentication': ['users'],
-      'lead-management': ['leads'],
-      'sample-tracking': ['samples'],
-      'finance': ['finance_records'],
+      'lead-management': ['lead_management'],
+      'sample-tracking': ['sample_tracking'],
+      'finance': ['finance_sheet'],
       'dashboard': [], // Aggregates from other tables
     };
     
