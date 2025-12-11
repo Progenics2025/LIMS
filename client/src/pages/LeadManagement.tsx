@@ -1579,6 +1579,7 @@ export default function LeadManagement() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="WES">WES</SelectItem>
+                          <SelectItem value="WES+ Mito">WES+Mito</SelectItem>
                           <SelectItem value="CMA">CMA</SelectItem>
                           <SelectItem value="MLPA">MLPA</SelectItem>
                           <SelectItem value="NBS">NBS</SelectItem>
@@ -2051,6 +2052,7 @@ export default function LeadManagement() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="WES">WES</SelectItem>
+                          <SelectItem value="WES+ Mito">WES+Mito</SelectItem>
                           <SelectItem value="CMA">CMA</SelectItem>
                           <SelectItem value="MLPA">MLPA</SelectItem>
                           <SelectItem value="NBS">NBS</SelectItem>
