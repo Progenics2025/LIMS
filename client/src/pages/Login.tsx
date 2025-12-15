@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { TestTube } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
@@ -29,7 +29,6 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       await login(email, password);
       toast({
@@ -48,47 +47,141 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto h-16 w-16 bg-primary-500 rounded-full flex items-center justify-center mb-4">
-            <TestTube className="h-8 w-8 text-white" />
+    <div className="min-h-screen w-full flex">
+      {/* Left Side - Branding (Visible on large screens) */}
+      <div className="hidden lg:flex w-1/2 bg-slate-900 relative items-center justify-center overflow-hidden">
+        {/* Abstract Background Pattern */}
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1579547945413-497e1b99dac0?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 via-slate-900/95 to-black/90"></div>
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center p-12 text-center max-w-2xl">
+          <div className="mb-8 p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl">
+            <img
+              src="/assets/logo_w.png"
+              alt="Progenics Logo"
+              className="w-80 h-auto object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl font-bold">LIMS Portal</CardTitle>
-          <CardDescription>
-            Laboratory Information Management System
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@lims.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="admin123"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          <h1 className="text-4xl font-bold text-white mb-6 tracking-tight">
+            Advanced LIMS Portal
+          </h1>
+          <p className="text-blue-100 text-lg leading-relaxed max-w-md">
+            Unmatched Genomics Expertise for Patient-Centric Care. Streamlining laboratory operations with precision and efficiency.
+          </p>
+        </div>
+
+        {/* Decorative Circles */}
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl"></div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
+        {/* Vibrant Background Mesh */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-[30%] -right-[10%] w-[70vh] h-[70vh] rounded-full bg-purple-400/20 blur-[100px] mix-blend-multiply dark:mix-blend-screen dark:bg-purple-900/30 animate-pulse"></div>
+          <div className="absolute -bottom-[30%] -left-[10%] w-[70vh] h-[70vh] rounded-full bg-blue-400/20 blur-[100px] mix-blend-multiply dark:mix-blend-screen dark:bg-blue-900/30 animate-pulse" style={{ animationDuration: '4s' }}></div>
+          <div className="absolute top-[20%] left-[20%] w-[50vh] h-[50vh] rounded-full bg-indigo-400/20 blur-[100px] mix-blend-multiply dark:mix-blend-screen dark:bg-indigo-900/30 animate-pulse" style={{ animationDuration: '5s' }}></div>
+        </div>
+
+        {/* Grid Pattern Overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+
+        <div className="w-full max-w-md space-y-8 relative z-10">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex justify-center mb-8">
+            <img
+              src="/assets/logo_b.png"
+              alt="Progenics Logo"
+              className="w-64 h-auto object-contain drop-shadow-lg"
+            />
+          </div>
+
+          <Card className="border-white/40 shadow-2xl bg-white/60 backdrop-blur-xl dark:bg-gray-900/60 ring-1 ring-white/60 dark:ring-gray-800">
+            <CardHeader className="space-y-1 pb-6">
+              <CardTitle className="text-3xl font-bold text-center tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Welcome Back
+              </CardTitle>
+              <CardDescription className="text-center text-gray-600 dark:text-gray-300 text-base">
+                Sign in to your LIMS account
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-semibold text-gray-700 dark:text-gray-200">Email address</Label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    </div>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="name@progenics.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="pl-10 h-12 bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all rounded-xl"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-sm font-semibold text-gray-700 dark:text-gray-200">Password</Label>
+                    <a href="#" className="text-sm text-blue-600 hover:text-blue-500 font-medium transition-colors hover:underline">
+                      Forgot password?
+                    </a>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    </div>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="pl-10 h-12 bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all rounded-xl"
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold text-lg transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 rounded-xl transform hover:-translate-y-0.5"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Signing in...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2">
+                      <span>Sign In</span>
+                      <ArrowRight className="h-5 w-5" />
+                    </div>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+            Don't have an account?{" "}
+            <a href="#" className="text-blue-600 hover:text-blue-500 font-bold transition-colors hover:underline">
+              Contact Administrator
+            </a>
+          </p>
+        </div>
+
+        {/* Copyright Footer */}
+        <div className="absolute bottom-6 text-center text-xs text-gray-400 dark:text-gray-500 z-10">
+          &copy; 2025 Progenics Lab. All rights reserved.
+        </div>
+      </div>
     </div>
   );
 }
