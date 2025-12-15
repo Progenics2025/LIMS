@@ -14,6 +14,9 @@ export type ColumnDef<T> = {
     accessorKey?: keyof T;
     cell?: (row: T) => React.ReactNode;
     className?: string;
+    // Support rowspan for grouping related records (e.g., multiple samples from same batch)
+    // Function returns the number of rows this cell should span, or 0 if it should be hidden
+    rowSpan?: (row: T, rowIndex: number, data: T[], getRowSpan?: (r: T, i: number) => number) => number;
 };
 
 interface DataTableProps<T> {
@@ -35,6 +38,36 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
     if (isLoading) {
         return <div className="text-center py-8">Loading data...</div>;
+    }
+
+    // Track which rows should be skipped due to rowspan
+    const rowSpanMap: { [key: number]: { [key: number]: number } } = {};
+
+    // Calculate rowspan for each cell
+    for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+        const col = columns[colIndex];
+        if (!col.rowSpan) continue;
+
+        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+            // Skip if this row is already covered by previous rowspan
+            if (rowSpanMap[rowIndex]?.[colIndex]) continue;
+
+            const span = col.rowSpan(data[rowIndex], rowIndex, data, (r, i) => {
+                return col.rowSpan ? col.rowSpan(r, i, data, col.rowSpan) : 1;
+            });
+
+            if (span > 0) {
+                // Mark all affected rows
+                if (!rowSpanMap[rowIndex]) rowSpanMap[rowIndex] = {};
+                rowSpanMap[rowIndex][colIndex] = span;
+
+                // Mark subsequent rows to skip this cell
+                for (let i = 1; i < span; i++) {
+                    if (!rowSpanMap[rowIndex + i]) rowSpanMap[rowIndex + i] = {};
+                    rowSpanMap[rowIndex + i][colIndex] = -1; // Mark as "skip this cell"
+                }
+            }
+        }
     }
 
     return (
@@ -70,15 +103,27 @@ export function DataTable<T>({
                                     )}
                                     onClick={() => onRowClick && onRowClick(row)}
                                 >
-                                    {columns.map((col, colIndex) => (
-                                        <TableCell key={colIndex} className={col.className}>
-                                            {col.cell
-                                                ? col.cell(row)
-                                                : col.accessorKey
-                                                    ? String((row as any)[col.accessorKey] ?? '-')
-                                                    : '-'}
-                                        </TableCell>
-                                    ))}
+                                    {columns.map((col, colIndex) => {
+                                        // Skip cell if covered by rowspan from previous row
+                                        if (rowSpanMap[rowIndex]?.[colIndex] === -1) {
+                                            return null;
+                                        }
+
+                                        const span = rowSpanMap[rowIndex]?.[colIndex] ?? 1;
+                                        return (
+                                            <TableCell 
+                                                key={colIndex} 
+                                                className={col.className}
+                                                rowSpan={span > 0 ? span : undefined}
+                                            >
+                                                {col.cell
+                                                    ? col.cell(row)
+                                                    : col.accessorKey
+                                                        ? String((row as any)[col.accessorKey] ?? '-')
+                                                        : '-'}
+                                            </TableCell>
+                                        );
+                                    })}
                                 </TableRow>
                             ))
                         )}

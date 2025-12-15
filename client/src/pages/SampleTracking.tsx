@@ -223,7 +223,7 @@ export default function SampleTracking() {
       // Then call the alert lab process endpoint which handles routing based on project ID
       // Send sample delivery date to populate sample_received_date in lab processing
       const response = await apiRequest('POST', '/api/alert-lab-process', {
-        sampleId: sample.id,
+        sampleId: sample.sampleId,
         projectId: sample.projectId,
         uniqueId: sample.uniqueId,
         sampleDeliveryDate: sample.sampleDeliveryDate,

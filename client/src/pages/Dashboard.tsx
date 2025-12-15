@@ -132,46 +132,13 @@ interface PerformanceMetrics {
     refetchInterval: 60000, // Refresh every minute
   });
 
-  // Sample revenue data - In a real application, this would come from your API
-  const weeklyRevenueData = [
-    { week: 'Week 1', actual: 180000, target: 200000 },
-    { week: 'Week 2', actual: 210000, target: 220000 },
-    { week: 'Week 3', actual: 195000, target: 220000 },
-    { week: 'Week 4', actual: 240000, target: 230000 },
-  ];
+  const weeklyRevenueData: any[] = [];
 
-  const monthlyRevenueData = [
-    { month: 'Jan 2025', actual: 750000, target: 850000 },
-    { month: 'Feb 2025', actual: 820000, target: 900000 },
-    { month: 'Mar 2025', actual: 890000, target: 950000 },
-    { month: 'Apr 2025', actual: 950000, target: 1000000 },
-    { month: 'May 2025', actual: 1020000, target: 1100000 },
-    { month: 'Jun 2025', actual: 1150000, target: 1200000 },
-    { month: 'Jul 2025', actual: 1080000, target: 1150000 },
-    { month: 'Aug 2025', actual: 1200000, target: 1300000 },
-    { month: 'Sep 2025', actual: 1180000, target: 1250000 },
-    { month: 'Oct 2025', actual: 1350000, target: 1400000 },
-    { month: 'Nov 2025', actual: null, target: 1450000 },
-    { month: 'Dec 2025', actual: null, target: 1600000 },
-  ];
+  const monthlyRevenueData: any[] = [];
 
-  const yearlyRevenueData = [
-    { year: 'FY 2020-21', actual: 8500000, target: 9000000 },
-    { year: 'FY 2021-22', actual: 10200000, target: 11000000 },
-    { year: 'FY 2022-23', actual: 12800000, target: 13500000 },
-    { year: 'FY 2023-24', actual: 15600000, target: 16000000 },
-    { year: 'FY 2024-25', actual: 12450000, target: 19000000 },
-    { year: 'FY 2025-26', actual: null, target: 23000000 },
-    { year: 'FY 2026-27', actual: null, target: 28000000 },
-  ];
+  const yearlyRevenueData: any[] = [];
 
-  const revenueBreakdownData = [
-    { category: 'WGS', revenue: 4200000, percentage: 35 },
-    { category: 'WES', revenue: 3600000, percentage: 30 },
-    { category: 'Pharmacogenomics', revenue: 2400000, percentage: 20 },
-    { category: 'Counselling', revenue: 1200000, percentage: 10 },
-    { category: 'Others', revenue: 600000, percentage: 5 },
-  ];
+  const revenueBreakdownData: any[] = [];
 
   const statsCards = [
     {
@@ -254,55 +221,18 @@ interface PerformanceMetrics {
   };
 
   // Default activities if API is not available
-  const defaultActivities: Activity[] = [
-    { 
-      id: '1',
-      action: "New lead created", 
-      entity: "Apollo Hospitals - WGS", 
-      timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(), 
-      type: "lead",
-      userId: "system",
-      details: "New lead from Apollo Hospitals for WGS analysis"
-    },
-    { 
-      id: '2',
-      action: "Sample processed", 
-      entity: "PG202508071702", 
-      timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(), 
-      type: "sample",
-      userId: "lab_tech_1",
-      details: "Sample processing completed successfully"
-    },
-    { 
-      id: '3',
-      action: "Report approved", 
-      entity: "DG202508061445", 
-      timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), 
-      type: "report",
-      userId: "supervisor_1",
-      details: "Genetic report reviewed and approved"
-    },
-    { 
-      id: '4',
-      action: "Payment received", 
-      entity: "₹45,000", 
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), 
-      type: "payment",
-      userId: "finance_1",
-      details: "Payment processed for completed analysis"
-    },
-  ];
+  const defaultActivities: Activity[] = [];
 
   // Default performance metrics if API is not available
   const defaultMetrics: PerformanceMetrics = {
-    leadConversionRate: 78.5,
-    exceedingTAT: 12,
-    customerSatisfaction: 94.2,
-    monthlyRevenue: 1350000,
-    activeSamples: 45,
-    completedReports: 128,
-    pendingApprovals: 8,
-    revenueGrowth: 15.3
+    leadConversionRate: 0,
+    exceedingTAT: 0,
+    customerSatisfaction: 0,
+    monthlyRevenue: 0,
+    activeSamples: 0,
+    completedReports: 0,
+    pendingApprovals: 0,
+    revenueGrowth: 0
   };
 
   const activities = (recentActivities as Activity[]) || defaultActivities;
@@ -454,7 +384,7 @@ interface PerformanceMetrics {
           <div className="mt-8 pt-6 border-t border-white/10 relative z-10">
             <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">Lab Efficiency</p>
             <div className="flex items-end gap-2 mt-2">
-              <span className="text-3xl font-bold">94%</span>
+              <span className="text-3xl font-bold">0%</span>
               <span className="text-sm text-blue-200 mb-1">On Time</span>
             </div>
           </div>
@@ -536,7 +466,7 @@ interface PerformanceMetrics {
                       YTD Revenue
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹1.25Cr
+                      ₹0
                     </dd>
                   </dl>
                 </div>
@@ -556,7 +486,7 @@ interface PerformanceMetrics {
                       Annual Target
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹1.9Cr
+                      ₹0
                     </dd>
                   </dl>
                 </div>
@@ -576,7 +506,7 @@ interface PerformanceMetrics {
                       Projected YE
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹1.85Cr
+                      ₹0
                     </dd>
                   </dl>
                 </div>
@@ -596,7 +526,7 @@ interface PerformanceMetrics {
                       This Month
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹13.5L
+                      ₹0
                     </dd>
                   </dl>
                 </div>

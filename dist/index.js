@@ -2769,7 +2769,9 @@ var CATEGORY_FOLDER_MAP = {
   "Progenics_TRF": "Progenics_TRF",
   "Thirdparty_TRF": "Thirdparty_TRF",
   "Progenics_Report": "Progenics_Report",
-  "Thirdparty_Report": "Thirdparty_Report"
+  "Thirdparty_Report": "Thirdparty_Report",
+  // Finance attachments (screenshots, payment receipts, documents)
+  "Finance_Screenshot_Document": "Finance_Screenshot_Document"
 };
 function ensureUploadDirectories() {
   const uploadsDir2 = path.join(process.cwd(), "uploads");
@@ -4915,26 +4917,26 @@ async function registerRoutes(app2) {
       const cols = keys.map((k) => `\`${k}\``).join(",");
       const placeholders = keys.map(() => "?").join(",");
       const values = keys.map((k) => data[k]);
-      const updateCols = keys.filter((k) => k !== "id").map((k) => `\`${k}\` = VALUES(\`${k}\`)`).join(",");
-      const upsertQuery = `
-        INSERT INTO bioinformatics_sheet_discovery (${cols}) 
+      const insertQuery = `
+        INSERT IGNORE INTO bioinformatics_sheet_discovery (${cols}) 
         VALUES (${placeholders})
-        ON DUPLICATE KEY UPDATE
-          ${updateCols},
-          modified_at = NOW()
       `;
-      console.log("Upserting bioinformatics_sheet_discovery record with columns:", keys);
-      const [result] = await pool.execute(upsertQuery, values);
+      console.log("Inserting bioinformatics_sheet_discovery record with columns:", keys);
+      const [result] = await pool.execute(insertQuery, values);
       const recordId = result.insertId || data.id;
-      console.log("Upserted bioinformatics_sheet_discovery with ID:", recordId);
+      console.log("Inserted bioinformatics_sheet_discovery with ID:", recordId);
+      if (data.sample_id) {
+        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE sample_id = ? ORDER BY id DESC LIMIT 1", [data.sample_id]);
+        return res.json(rows[0] ?? { id: recordId });
+      }
       if (data.unique_id) {
-        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ?", [data.unique_id]);
+        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ? ORDER BY id DESC LIMIT 1", [data.unique_id]);
         return res.json(rows[0] ?? { id: recordId });
       }
       res.json({ id: recordId });
     } catch (error) {
-      console.error("Failed to create/update bioinformatics discovery record", error.message);
-      res.status(500).json({ message: "Failed to create/update bioinformatics discovery record", error: error.message });
+      console.error("Failed to create bioinformatics discovery record", error.message);
+      res.status(500).json({ message: "Failed to create bioinformatics discovery record", error: error.message });
     }
   });
   app2.put("/api/bioinfo-discovery-sheet/:id", async (req, res) => {
@@ -4985,26 +4987,26 @@ async function registerRoutes(app2) {
       const cols = keys.map((k) => `\`${k}\``).join(",");
       const placeholders = keys.map(() => "?").join(",");
       const values = keys.map((k) => data[k]);
-      const updateCols = keys.filter((k) => k !== "id").map((k) => `\`${k}\` = VALUES(\`${k}\`)`).join(",");
-      const upsertQuery = `
-        INSERT INTO bioinformatics_sheet_clinical (${cols}) 
+      const insertQuery = `
+        INSERT IGNORE INTO bioinformatics_sheet_clinical (${cols}) 
         VALUES (${placeholders})
-        ON DUPLICATE KEY UPDATE
-          ${updateCols},
-          modified_at = NOW()
       `;
-      console.log("Upserting bioinformatics_sheet_clinical record with columns:", keys);
-      const [result] = await pool.execute(upsertQuery, values);
+      console.log("Inserting bioinformatics_sheet_clinical record with columns:", keys);
+      const [result] = await pool.execute(insertQuery, values);
       const recordId = result.insertId || data.id;
-      console.log("Upserted bioinformatics_sheet_clinical with ID:", recordId);
+      console.log("Inserted bioinformatics_sheet_clinical with ID:", recordId);
+      if (data.sample_id) {
+        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE sample_id = ? ORDER BY id DESC LIMIT 1", [data.sample_id]);
+        return res.json(rows[0] ?? { id: recordId });
+      }
       if (data.unique_id) {
-        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ?", [data.unique_id]);
+        const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ? ORDER BY id DESC LIMIT 1", [data.unique_id]);
         return res.json(rows[0] ?? { id: recordId });
       }
       res.json({ id: recordId });
     } catch (error) {
-      console.error("Failed to create/update bioinformatics clinical record", error.message);
-      res.status(500).json({ message: "Failed to create/update bioinformatics clinical record", error: error.message });
+      console.error("Failed to create bioinformatics clinical record", error.message);
+      res.status(500).json({ message: "Failed to create bioinformatics clinical record", error: error.message });
     }
   });
   app2.put("/api/bioinfo-clinical-sheet/:id", async (req, res) => {
@@ -5068,49 +5070,66 @@ async function registerRoutes(app2) {
       } catch (leadError) {
         console.log("Note: Could not fetch lead data -", leadError.message);
       }
-      const labProcessData = {
+      const numberOfSamples = leadData.no_of_samples ? parseInt(String(leadData.no_of_samples), 10) : 1;
+      console.log(`Creating ${numberOfSamples} sample record(s) in lab process sheet...`);
+      const baseLabProcessData = {
         unique_id: uniqueId || "",
-        project_id: projectId,
-        sample_id: sampleId || null
+        project_id: projectId
       };
-      if (clientId) labProcessData.client_id = clientId;
-      if (leadData.service_name) labProcessData.service_name = leadData.service_name;
-      if (leadData.sample_type) labProcessData.sample_type = leadData.sample_type;
-      if (leadData.no_of_samples) labProcessData.no_of_samples = leadData.no_of_samples;
+      if (clientId) baseLabProcessData.client_id = clientId;
+      if (leadData.service_name) baseLabProcessData.service_name = leadData.service_name;
+      if (leadData.sample_type) baseLabProcessData.sample_type = leadData.sample_type;
+      if (leadData.no_of_samples) baseLabProcessData.no_of_samples = leadData.no_of_samples;
       if (sampleDeliveryDate) {
         const dateObj = new Date(sampleDeliveryDate);
         const year = dateObj.getUTCFullYear();
         const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
         const day = String(dateObj.getUTCDate()).padStart(2, "0");
-        labProcessData.sample_received_date = `${year}-${month}-${day}`;
+        baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
       }
-      labProcessData.created_by = createdBy || "system";
-      labProcessData.created_at = /* @__PURE__ */ new Date();
-      const keys = Object.keys(labProcessData);
-      const cols = keys.map((k) => `\`${k}\``).join(",");
-      const placeholders = keys.map(() => "?").join(",");
-      const values = keys.map((k) => labProcessData[k]);
-      let insertResult;
-      let tableName;
-      if (isDiscovery) {
-        tableName = "labprocess_discovery_sheet";
-        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
-        const result = await pool.execute(
-          `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
-      } else {
-        tableName = "labprocess_clinical_sheet";
-        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
-        const result = await pool.execute(
-          `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
+      baseLabProcessData.created_by = createdBy || "system";
+      baseLabProcessData.created_at = /* @__PURE__ */ new Date();
+      let tableName = isDiscovery ? "labprocess_discovery_sheet" : "labprocess_clinical_sheet";
+      const insertedIds = [];
+      for (let sampleNum = 1; sampleNum <= numberOfSamples; sampleNum++) {
+        const baseSampleId = sampleId || uniqueId || "";
+        let recordSampleId = baseSampleId;
+        if (numberOfSamples > 1) {
+          recordSampleId = `${baseSampleId}_${sampleNum}`;
+        }
+        const labProcessData = {
+          ...baseLabProcessData,
+          sample_id: recordSampleId
+        };
+        const keys = Object.keys(labProcessData);
+        const cols = keys.map((k) => `\`${k}\``).join(",");
+        const placeholders = keys.map(() => "?").join(",");
+        const values = keys.map((k) => labProcessData[k]);
+        try {
+          let insertResult;
+          if (isDiscovery) {
+            console.log(`Inserting sample ${sampleNum}/${numberOfSamples} into ${tableName} for discovery project:`, projectId);
+            const result = await pool.execute(
+              `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            insertResult = result[0];
+          } else {
+            console.log(`Inserting sample ${sampleNum}/${numberOfSamples} into ${tableName} for clinical project:`, projectId);
+            const result = await pool.execute(
+              `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            insertResult = result[0];
+          }
+          const insertId = insertResult.insertId || null;
+          insertedIds.push(insertId);
+          console.log(`Inserted sample ${sampleNum}/${numberOfSamples} into ${tableName} with ID:`, insertId);
+        } catch (insertError) {
+          console.error(`Failed to insert sample ${sampleNum}/${numberOfSamples}:`, insertError.message);
+          throw insertError;
+        }
       }
-      const insertId = insertResult.insertId || null;
-      console.log(`Inserted into ${tableName} with ID:`, insertId);
       try {
         await pool.execute(
           "UPDATE sample_tracking SET alert_to_labprocess_team = ?, updated_at = ? WHERE id = ?",
@@ -5122,9 +5141,10 @@ async function registerRoutes(app2) {
       }
       res.json({
         success: true,
-        recordId: insertId,
+        recordIds: insertedIds,
+        numberOfRecordsCreated: insertedIds.length,
         table: tableName,
-        message: `Lab process record created in ${tableName}`
+        message: `${insertedIds.length} lab process record(s) created in ${tableName}`
       });
     } catch (error) {
       console.error("Failed to alert lab process", error.message);
@@ -6197,6 +6217,69 @@ async function registerRoutes(app2) {
       res.json({ ok: true, fileName, sheetName: selectedSheetName, created, errorsCount: errors.length, errors: errors.slice(0, 10) });
     } catch (error) {
       res.status(500).json({ message: "Failed to import clients" });
+    }
+  });
+  app2.get("/api/report_management", async (req, res) => {
+    try {
+      const [rows] = await pool.execute("SELECT * FROM report_management ORDER BY created_at DESC LIMIT 500");
+      res.json(rows);
+    } catch (error) {
+      console.error("GET /api/report_management failed:", error.message);
+      res.status(500).json({ message: "Failed to fetch report_management records" });
+    }
+  });
+  app2.get("/api/report_management/:unique_id", async (req, res) => {
+    try {
+      const { unique_id } = req.params;
+      const [rows] = await pool.execute("SELECT * FROM report_management WHERE unique_id = ? LIMIT 1", [unique_id]);
+      if (!rows || rows.length === 0) return res.status(404).json({ message: "Not found" });
+      res.json(rows[0]);
+    } catch (error) {
+      console.error("GET /api/report_management/:unique_id failed:", error.message);
+      res.status(500).json({ message: "Failed to fetch record" });
+    }
+  });
+  app2.post("/api/report_management", async (req, res) => {
+    try {
+      const body = req.body || {};
+      const keys = Object.keys(body);
+      if (keys.length === 0) return res.status(400).json({ message: "No data provided" });
+      const cols = keys.map((k) => `\`${k}\``).join(",");
+      const placeholders = keys.map(() => "?").join(",");
+      const values = keys.map((k) => body[k]);
+      const sql3 = `INSERT INTO report_management (${cols}, created_at) VALUES (${placeholders}, NOW())`;
+      const [result] = await pool.execute(sql3, values);
+      res.json({ ok: true, insertId: result.insertId });
+    } catch (error) {
+      console.error("POST /api/report_management failed:", error.message);
+      res.status(500).json({ message: "Failed to create record", error: error.message });
+    }
+  });
+  app2.put("/api/report_management/:unique_id", async (req, res) => {
+    try {
+      const { unique_id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
+      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
+      const values = keys.map((k) => updates[k]);
+      values.push(unique_id);
+      const sql3 = `UPDATE report_management SET ${set}, lead_modified = NOW() WHERE unique_id = ?`;
+      const [result] = await pool.execute(sql3, values);
+      res.json({ ok: true, affectedRows: result.affectedRows });
+    } catch (error) {
+      console.error("PUT /api/report_management/:unique_id failed:", error.message);
+      res.status(500).json({ message: "Failed to update record" });
+    }
+  });
+  app2.delete("/api/report_management/:unique_id", async (req, res) => {
+    try {
+      const { unique_id } = req.params;
+      const [result] = await pool.execute("DELETE FROM report_management WHERE unique_id = ?", [unique_id]);
+      res.json({ ok: true, affectedRows: result.affectedRows });
+    } catch (error) {
+      console.error("DELETE /api/report_management/:unique_id failed:", error.message);
+      res.status(500).json({ message: "Failed to delete record" });
     }
   });
   const httpServer = createServer(app2);

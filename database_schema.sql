@@ -626,6 +626,42 @@ CREATE TABLE IF NOT EXISTS process_master_sheet (
   KEY idx_sample_id (sample_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+CREATE TABLE IF NOT EXISTS report_management (
+    unique_id VARCHAR(255) PRIMARY KEY,
+    project_id VARCHAR(255),
+    report_url TEXT,
+    report_release_date DATE,
+    organisation_hospital VARCHAR(255),
+    clinician_researcher_name VARCHAR(255),
+    clinician_researcher_email VARCHAR(255),
+    clinician_researcher_phone VARCHAR(50),
+    clinician_researcher_address TEXT,
+    patient_client_name VARCHAR(255),
+    age INTEGER,
+    gender VARCHAR(50),
+    patient_client_email VARCHAR(255),
+    patient_client_phone VARCHAR(50),
+    patient_client_address TEXT,
+    genetic_counselor_required BOOLEAN DEFAULT FALSE,
+    nutritional_counselling_required BOOLEAN DEFAULT FALSE,
+    service_name VARCHAR(255),
+    tat INTEGER,
+    sample_type VARCHAR(100),
+    no_of_samples INTEGER,
+    sample_received_date DATE,
+    progenics_trf VARCHAR(255),
+    approval_from_finance BOOLEAN DEFAULT FALSE,
+    sales_responsible_person VARCHAR(255),
+    lead_created_by VARCHAR(255),
+    lead_modified TIMESTAMP,
+    remark_comment TEXT,
+    gc_case_summary TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
 -- ============================================================================  
 -- USER & ADMIN SETUP  
 -- ============================================================================  

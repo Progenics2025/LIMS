@@ -515,28 +515,25 @@ export default function LabProcessing() {
         throw new Error('Invalid project ID format. Must start with DG (Discovery) or PG (Clinical)');
       }
 
-      // First, update the lab process sheet to mark alert as sent
-      const labSheetEndpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${labId}` : `/api/labprocess-clinical-sheet/${labId}`;
-      await apiRequest('PUT', labSheetEndpoint, {
-        alert_to_bioinformatics_team: true,
-      });
-
-      // Then, create a record in the appropriate bioinformatics sheet
+      // 🔑 IMPORTANT: Send THIS RECORD only (not all records with same unique_id)
+      // 🔑 CRITICAL: Create bioinformatics record FIRST, then mark lab process as sent
+      // This ensures the bio record is created before updating the lab status
       const bioinfoEndpoint = isDiscovery ? '/api/bioinfo-discovery-sheet' : '/api/bioinfo-clinical-sheet';
 
       // Get lead data from sample tracking data which includes the full lead object
-      const uniqueId = labRecord.titleUniqueId || labRecord.unique_id;
+      const uniqueId = labRecord.titleUniqueId || labRecord.uniqueId || labRecord.unique_id;
       const sampleRecord = sampleTrackingData.find(s =>
         s.uniqueId === uniqueId || s.unique_id === uniqueId
       );
       const lead = sampleRecord?.lead || {};
       const sample = sampleRecord || {};
 
-      // Prepare bioinformatics record data with complete lead information
+      // 🎯 KEY FIX: Use labRecord.sampleId directly (which includes the suffix from lab process)
+      // AND use labRecord's uniqueId/titleUniqueId for unique_id (NOT projectId fallback)
       const bioinfoData = {
-        unique_id: uniqueId || labRecord.projectId || '',
+        unique_id: labRecord.titleUniqueId || labRecord.uniqueId || labRecord.unique_id || '',
         project_id: labRecord.projectId || null,
-        sample_id: labRecord.sampleId || sample.sampleId || sample.sample_id || null,
+        sample_id: labRecord.sampleId || labRecord.sample_id || sample.sampleId || sample.sample_id || null,  // 🔑 Use exact sample_id with suffix
         client_id: labRecord.clientId || lead.clientId || null,
         organisation_hospital: lead.organisationHospital || sample.organisationHospital || null,
         clinician_researcher_name: lead.clinicianResearcherName || sample.clinicianResearcherName || null,
@@ -551,8 +548,17 @@ export default function LabProcessing() {
         created_by: user?.email || 'system',
       };
 
+      // Step 1: Create bioinformatics record FIRST
       const response = await apiRequest('POST', bioinfoEndpoint, bioinfoData);
-      return response.json();
+      const bioResponse = await response.json();
+
+      // Step 2: Only if bioinformatics record created successfully, mark lab process as sent
+      const labSheetEndpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${labId}` : `/api/labprocess-clinical-sheet/${labId}`;
+      await apiRequest('PUT', labSheetEndpoint, {
+        alert_to_bioinformatics_team: true,
+      });
+
+      return bioResponse;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
@@ -596,8 +602,49 @@ export default function LabProcessing() {
   };
 
   const columns: ColumnDef<any>[] = [
-    { header: "Unique ID", accessorKey: "uniqueId" },
-    { header: "Project ID", accessorKey: "projectId" },
+    { 
+      header: "Unique ID", 
+      accessorKey: "uniqueId",
+      // Rowspan: Group rows with same unique_id and project_id
+      rowSpan: (row, rowIndex, allData) => {
+        const rowKey = `${row.titleUniqueId || row.uniqueId || row.unique_id}|${row.projectId || row._raw?.project_id}`;
+        let count = 1;
+        
+        // Count consecutive rows with same unique_id + project_id
+        for (let i = rowIndex + 1; i < allData.length; i++) {
+          const nextRow = allData[i];
+          const nextKey = `${nextRow.titleUniqueId || nextRow.uniqueId || nextRow.unique_id}|${nextRow.projectId || nextRow._raw?.project_id}`;
+          if (rowKey === nextKey) {
+            count++;
+          } else {
+            break;
+          }
+        }
+        
+        return count;
+      }
+    },
+    { 
+      header: "Project ID", 
+      accessorKey: "projectId",
+      // Rowspan: Same logic as unique_id
+      rowSpan: (row, rowIndex, allData) => {
+        const rowKey = `${row.titleUniqueId || row.uniqueId || row.unique_id}|${row.projectId || row._raw?.project_id}`;
+        let count = 1;
+        
+        for (let i = rowIndex + 1; i < allData.length; i++) {
+          const nextRow = allData[i];
+          const nextKey = `${nextRow.titleUniqueId || nextRow.uniqueId || nextRow.unique_id}|${nextRow.projectId || nextRow._raw?.project_id}`;
+          if (rowKey === nextKey) {
+            count++;
+          } else {
+            break;
+          }
+        }
+        
+        return count;
+      }
+    },
     {
       header: "Sample ID",
       cell: (lab) => lab.projectId
@@ -607,7 +654,28 @@ export default function LabProcessing() {
     { header: "Client ID", accessorKey: "clientId" },
     { header: "Service name", accessorKey: "serviceName" },
     { header: "Sample Type", accessorKey: "sampleType" },
-    { header: "No of Samples", accessorKey: "numberOfSamples" },
+    {
+      header: "No of Samples",
+      accessorKey: "numberOfSamples",
+      rowSpan: (row, rowIndex, allData) => {
+        const explicit = Number(row.numberOfSamples ?? row.no_of_samples ?? 0);
+        if (!isNaN(explicit) && explicit > 1) return explicit;
+
+        // Fallback: count consecutive rows with same unique_id + project_id
+        const rowKey = `${row.titleUniqueId || row.uniqueId || row.unique_id}|${row.projectId || row._raw?.project_id}`;
+        let count = 1;
+        for (let i = rowIndex + 1; i < allData.length; i++) {
+          const nextRow = allData[i];
+          const nextKey = `${nextRow.titleUniqueId || nextRow.uniqueId || nextRow.unique_id}|${nextRow.projectId || nextRow._raw?.project_id}`;
+          if (rowKey === nextKey) {
+            count++;
+          } else {
+            break;
+          }
+        }
+        return count;
+      }
+    },
     {
       header: "Sample received date",
       cell: (lab) => lab.sampleDeliveryDate ? new Date(lab.sampleDeliveryDate).toLocaleDateString() : '-'

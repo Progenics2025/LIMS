@@ -28,6 +28,7 @@ import { ensureUploadDirectories, handleFileUpload } from './lib/uploadHandler';
 import xlsx from "xlsx";
 import { ZodError } from 'zod';
 import multer from 'multer';
+import nodemailer from 'nodemailer';
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -325,6 +326,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OTP Store (In-Memory)
+  const otpStore = new Map<string, { code: string; expires: number }>();
+
+  // Configure Nodemailer Transporter
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: true, // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  // Verify connection configuration
+  transporter.verify(function (error, success) {
+    if (error) {
+      console.log('SMTP Connection Error:', error);
+    } else {
+      console.log('SMTP Server is ready to take our messages');
+    }
+  });
+
+  // Route: Send OTP
+  app.post('/api/auth/send-otp', async (req, res) => {
+    try {
+      const { email, type } = req.body; // type can be 'login', 'register', 'forgot-password'
+
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Store OTP (expires in 5 minutes)
+      otpStore.set(email, {
+        code: otp,
+        expires: Date.now() + 5 * 60 * 1000 // 5 minutes
+      });
+
+      // Email Template
+      const mailOptions = {
+        from: process.env.SMTP_USER, // Use the authenticated user as sender
+        to: email,
+        subject: 'Your Verification Code - Progenics LIMS',
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #0891b2;">Verification Required</h2>
+            <p>Your verification code is:</p>
+            <h1 style="font-size: 32px; letter-spacing: 5px; color: #7c3aed;">${otp}</h1>
+            <p>This code will expire in 5 minutes.</p>
+            <p>If you did not request this code, please ignore this email.</p>
+          </div>
+        `
+      };
+
+      // Send Email
+      await transporter.sendMail(mailOptions);
+      console.log(`OTP sent to ${email}`);
+      res.json({ message: 'OTP sent successfully' });
+    } catch (error) {
+      console.error('Send OTP Error:', error);
+      res.status(500).json({ message: 'Failed to send OTP' });
+    }
+  });
+
+  // Route: Verify OTP
+  app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+      const { email, otp } = req.body;
+      const storedData = otpStore.get(email);
+
+      if (!storedData) {
+        return res.status(400).json({ message: 'OTP not requested or expired' });
+      }
+
+      if (Date.now() > storedData.expires) {
+        otpStore.delete(email);
+        return res.status(400).json({ message: 'OTP expired' });
+      }
+
+      if (storedData.code !== otp) {
+        return res.status(400).json({ message: 'Invalid OTP' });
+      }
+
+      // OTP Verified Successfully
+      // Keep the OTP in store for a short while or mark as verified if you want to enforce strict flow
+      // For this implementation, we'll verify it again during password reset or just trust the client flow 
+      // (Ideally, issue a temporary token here, but we'll keep it simple as per guide)
+
+      res.json({ message: 'OTP verified successfully' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  // Route: Reset Password
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { email, newPassword, otp } = req.body;
+
+      // Verify OTP again to ensure security
+      const storedData = otpStore.get(email);
+      if (!storedData || storedData.code !== otp) {
+        return res.status(400).json({ message: 'Invalid or expired OTP session' });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      // Clear OTP
+      otpStore.delete(email);
+
+      res.json({ message: 'Password reset successfully' });
+    } catch (error) {
+      console.error('Reset Password Error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+
   // User management routes
   app.get("/api/users", async (req, res) => {
     try {
@@ -606,7 +736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================================
   // FILE UPLOAD RETRIEVAL ENDPOINTS
   // ============================================================================
-  
+
   /**
    * GET /api/uploads/category/:category
    * Get all uploads for a specific category
@@ -2256,7 +2386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/labprocess-discovery-sheet', async (req, res) => {
     try {
       const data = req.body || {};
-      
+
       // Field mapping: camelCase to snake_case
       const fieldMapping: Record<string, string> = {
         titleUniqueId: 'unique_id',
@@ -2285,14 +2415,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: 'created_by',
         remarksComment: 'remark_comment',
       };
-      
+
       // Map camelCase keys to snake_case
       const mappedData: any = {};
       Object.keys(data).forEach(k => {
         const dbKey = fieldMapping[k] || k;
         mappedData[dbKey] = data[k];
       });
-      
+
       const keys = Object.keys(mappedData);
       const cols = keys.map(k => `\`${k}\``).join(',');
       const placeholders = keys.map(() => '?').join(',');
@@ -2323,9 +2453,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       console.log('[Lab Process Discovery PUT] Request body:', JSON.stringify(req.body, null, 2));
-      
+
       const updates = normalizeDateFields(req.body);
-      
+
       // Convert numeric booleans (0/1) to actual booleans for Zod validation
       if (updates.alertToBioinformaticsTeam !== undefined) {
         updates.alertToBioinformaticsTeam = updates.alertToBioinformaticsTeam === 1 || updates.alertToBioinformaticsTeam === true;
@@ -2333,9 +2463,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updates.alertToTechnicalLead !== undefined) {
         updates.alertToTechnicalLead = updates.alertToTechnicalLead === 1 || updates.alertToTechnicalLead === true;
       }
-      
+
       console.log('[Lab Process Discovery PUT] Normalized updates:', JSON.stringify(updates, null, 2));
-      
+
       const result = insertLabProcessDiscoverySheetSchema.partial().safeParse(updates);
       if (!result.success) {
         console.error('[Lab Process Discovery PUT] Validation failed:', result.error.errors);
@@ -2404,7 +2534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE labprocess_discovery_sheet SET ${set} WHERE id = ?`,
         values
       );
-      
+
       console.log('[Lab Process Discovery PUT] Update succeeded, fetching updated record');
 
       const [rows] = await pool.execute('SELECT * FROM labprocess_discovery_sheet WHERE id = ?', [id]);
@@ -2443,7 +2573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/labprocess-clinical-sheet', async (req, res) => {
     try {
       const data = req.body || {};
-      
+
       // Field mapping: camelCase to snake_case
       const fieldMapping: Record<string, string> = {
         titleUniqueId: 'unique_id',
@@ -2472,14 +2602,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: 'created_by',
         remarksComment: 'remark_comment',
       };
-      
+
       // Map camelCase keys to snake_case
       const mappedData: any = {};
       Object.keys(data).forEach(k => {
         const dbKey = fieldMapping[k] || k;
         mappedData[dbKey] = data[k];
       });
-      
+
       const keys = Object.keys(mappedData);
       const cols = keys.map(k => `\`${k}\``).join(',');
       const placeholders = keys.map(() => '?').join(',');
@@ -2510,9 +2640,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       console.log('[Lab Process Clinical PUT] Request body:', JSON.stringify(req.body, null, 2));
-      
+
       const updates = normalizeDateFields(req.body);
-      
+
       // Convert numeric booleans (0/1) to actual booleans for Zod validation
       if (updates.alertToBioinformaticsTeam !== undefined) {
         updates.alertToBioinformaticsTeam = updates.alertToBioinformaticsTeam === 1 || updates.alertToBioinformaticsTeam === true;
@@ -2520,9 +2650,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updates.alertToTechnicalLead !== undefined) {
         updates.alertToTechnicalLead = updates.alertToTechnicalLead === 1 || updates.alertToTechnicalLead === true;
       }
-      
+
       console.log('[Lab Process Clinical PUT] Normalized updates:', JSON.stringify(updates, null, 2));
-      
+
       const result = insertLabProcessClinicalSheetSchema.partial().safeParse(updates);
       if (!result.success) {
         console.error('[Lab Process Clinical PUT] Validation failed:', result.error.errors);
@@ -2638,33 +2768,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const placeholders = keys.map(() => '?').join(',');
       const values = keys.map(k => data[k]);
 
-      // Build ON DUPLICATE KEY UPDATE clause for all columns except id
-      const updateCols = keys.filter(k => k !== 'id').map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(',');
-      const upsertQuery = `
-        INSERT INTO bioinformatics_sheet_discovery (${cols}) 
+      // 🔑 FIX: Use INSERT IGNORE to create separate records per sample_id
+      // Each sample_id (with suffix _1, _2, _3, _4) must be a SEPARATE bioinformatics record
+      // NOT an upsert on unique_id (which is shared across all samples in a batch)
+      const insertQuery = `
+        INSERT IGNORE INTO bioinformatics_sheet_discovery (${cols}) 
         VALUES (${placeholders})
-        ON DUPLICATE KEY UPDATE
-          ${updateCols},
-          modified_at = NOW()
       `;
 
-      console.log('Upserting bioinformatics_sheet_discovery record with columns:', keys);
-      const [result]: any = await pool.execute(upsertQuery, values);
+      console.log('Inserting bioinformatics_sheet_discovery record with columns:', keys);
+      const [result]: any = await pool.execute(insertQuery, values);
 
-      // Get the affected row ID (insertId for new records, 0 for updates in our case)
+      // Get the inserted row ID
       const recordId = result.insertId || data.id;
-      console.log('Upserted bioinformatics_sheet_discovery with ID:', recordId);
+      console.log('Inserted bioinformatics_sheet_discovery with ID:', recordId);
 
-      // Fetch and return the record
+      // Fetch and return the record by sample_id (most specific identifier)
+      if (data.sample_id) {
+        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE sample_id = ? ORDER BY id DESC LIMIT 1', [data.sample_id]);
+        return res.json((rows as any)[0] ?? { id: recordId });
+      }
+
+      // Fallback: fetch by unique_id (but this will only return ONE record due to UNIQUE constraint)
       if (data.unique_id) {
-        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ?', [data.unique_id]);
+        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ? ORDER BY id DESC LIMIT 1', [data.unique_id]);
         return res.json((rows as any)[0] ?? { id: recordId });
       }
 
       res.json({ id: recordId });
     } catch (error) {
-      console.error('Failed to create/update bioinformatics discovery record', (error as Error).message);
-      res.status(500).json({ message: 'Failed to create/update bioinformatics discovery record', error: (error as Error).message });
+      console.error('Failed to create bioinformatics discovery record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create bioinformatics discovery record', error: (error as Error).message });
     }
   });
 
@@ -2725,33 +2859,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const placeholders = keys.map(() => '?').join(',');
       const values = keys.map(k => data[k]);
 
-      // Build ON DUPLICATE KEY UPDATE clause for all columns except id
-      const updateCols = keys.filter(k => k !== 'id').map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(',');
-      const upsertQuery = `
-        INSERT INTO bioinformatics_sheet_clinical (${cols}) 
+      // 🔑 FIX: Use INSERT IGNORE to create separate records per sample_id
+      // Each sample_id (with suffix _1, _2, _3, _4) must be a SEPARATE bioinformatics record
+      // NOT an upsert on unique_id (which is shared across all samples in a batch)
+      const insertQuery = `
+        INSERT IGNORE INTO bioinformatics_sheet_clinical (${cols}) 
         VALUES (${placeholders})
-        ON DUPLICATE KEY UPDATE
-          ${updateCols},
-          modified_at = NOW()
       `;
 
-      console.log('Upserting bioinformatics_sheet_clinical record with columns:', keys);
-      const [result]: any = await pool.execute(upsertQuery, values);
+      console.log('Inserting bioinformatics_sheet_clinical record with columns:', keys);
+      const [result]: any = await pool.execute(insertQuery, values);
 
-      // Get the affected row ID (insertId for new records, 0 for updates in our case)
+      // Get the inserted row ID
       const recordId = result.insertId || data.id;
-      console.log('Upserted bioinformatics_sheet_clinical with ID:', recordId);
+      console.log('Inserted bioinformatics_sheet_clinical with ID:', recordId);
 
-      // Fetch and return the record
+      // Fetch and return the record by sample_id (most specific identifier)
+      if (data.sample_id) {
+        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE sample_id = ? ORDER BY id DESC LIMIT 1', [data.sample_id]);
+        return res.json((rows as any)[0] ?? { id: recordId });
+      }
+
+      // Fallback: fetch by unique_id (but this will only return ONE record due to UNIQUE constraint)
       if (data.unique_id) {
-        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ?', [data.unique_id]);
+        const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ? ORDER BY id DESC LIMIT 1', [data.unique_id]);
         return res.json((rows as any)[0] ?? { id: recordId });
       }
 
       res.json({ id: recordId });
     } catch (error) {
-      console.error('Failed to create/update bioinformatics clinical record', (error as Error).message);
-      res.status(500).json({ message: 'Failed to create/update bioinformatics clinical record', error: (error as Error).message });
+      console.error('Failed to create bioinformatics clinical record', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create bioinformatics clinical record', error: (error as Error).message });
     }
   });
 
@@ -2832,58 +2970,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Note: Could not fetch lead data -', (leadError as Error).message);
       }
 
-      // Prepare lab process data with only valid database columns that exist in both tables
-      const labProcessData: Record<string, any> = {
+      // Determine number of samples to create
+      const numberOfSamples = leadData.no_of_samples ? parseInt(String(leadData.no_of_samples), 10) : 1;
+      console.log(`Creating ${numberOfSamples} sample record(s) in lab process sheet...`);
+
+      // Create a base lab process data object
+      const baseLabProcessData: Record<string, any> = {
         unique_id: uniqueId || '',
         project_id: projectId,
-        sample_id: sampleId || null,
       };
 
       // Add optional fields if provided
-      if (clientId) labProcessData.client_id = clientId;
-      if (leadData.service_name) labProcessData.service_name = leadData.service_name;
-      if (leadData.sample_type) labProcessData.sample_type = leadData.sample_type;
-      if (leadData.no_of_samples) labProcessData.no_of_samples = leadData.no_of_samples;
+      if (clientId) baseLabProcessData.client_id = clientId;
+      if (leadData.service_name) baseLabProcessData.service_name = leadData.service_name;
+      if (leadData.sample_type) baseLabProcessData.sample_type = leadData.sample_type;
+      if (leadData.no_of_samples) baseLabProcessData.no_of_samples = leadData.no_of_samples;
       if (sampleDeliveryDate) {
         // Convert ISO date string to DATE format (YYYY-MM-DD)
         const dateObj = new Date(sampleDeliveryDate);
         const year = dateObj.getUTCFullYear();
         const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
         const day = String(dateObj.getUTCDate()).padStart(2, '0');
-        labProcessData.sample_received_date = `${year}-${month}-${day}`;
+        baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
       }
 
-      labProcessData.created_by = createdBy || 'system';
-      labProcessData.created_at = new Date();
+      baseLabProcessData.created_by = createdBy || 'system';
+      baseLabProcessData.created_at = new Date();
 
-      const keys = Object.keys(labProcessData);
-      const cols = keys.map(k => `\`${k}\``).join(',');
-      const placeholders = keys.map(() => '?').join(',');
-      const values = keys.map(k => labProcessData[k]);
+      let tableName = isDiscovery ? 'labprocess_discovery_sheet' : 'labprocess_clinical_sheet';
+      const insertedIds: any[] = [];
 
-      let insertResult;
-      let tableName;
+      // Loop through numberOfSamples and create a record for each
+      for (let sampleNum = 1; sampleNum <= numberOfSamples; sampleNum++) {
+        // Create sample_id with suffix for each sample record
+        // Use sampleId if provided, otherwise fall back to uniqueId
+        // If only 1 sample, use the base ID
+        // If multiple samples, append the sample number (e.g., TEST-ID_1, _2, _3, _4)
+        const baseSampleId = sampleId || uniqueId || '';
+        let recordSampleId = baseSampleId;
+        if (numberOfSamples > 1) {
+          recordSampleId = `${baseSampleId}_${sampleNum}`;
+        }
 
-      if (isDiscovery) {
-        tableName = 'labprocess_discovery_sheet';
-        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
-        const result: any = await pool.execute(
-          `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
-      } else {
-        tableName = 'labprocess_clinical_sheet';
-        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
-        const result: any = await pool.execute(
-          `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
+        // Prepare lab process data for this sample
+        // unique_id remains the same, only sample_id changes
+        const labProcessData: Record<string, any> = {
+          ...baseLabProcessData,
+          sample_id: recordSampleId
+        };
+
+        const keys = Object.keys(labProcessData);
+        const cols = keys.map(k => `\`${k}\``).join(',');
+        const placeholders = keys.map(() => '?').join(',');
+        const values = keys.map(k => labProcessData[k]);
+
+        try {
+          let insertResult;
+
+          if (isDiscovery) {
+            console.log(`Inserting sample ${sampleNum}/${numberOfSamples} into ${tableName} for discovery project:`, projectId);
+            const result: any = await pool.execute(
+              `INSERT INTO labprocess_discovery_sheet (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            insertResult = result[0];
+          } else {
+            console.log(`Inserting sample ${sampleNum}/${numberOfSamples} into ${tableName} for clinical project:`, projectId);
+            const result: any = await pool.execute(
+              `INSERT INTO labprocess_clinical_sheet (${cols}) VALUES (${placeholders})`,
+              values
+            );
+            insertResult = result[0];
+          }
+
+          const insertId = (insertResult as any).insertId || null;
+          insertedIds.push(insertId);
+          console.log(`Inserted sample ${sampleNum}/${numberOfSamples} into ${tableName} with ID:`, insertId);
+        } catch (insertError) {
+          console.error(`Failed to insert sample ${sampleNum}/${numberOfSamples}:`, (insertError as Error).message);
+          throw insertError;
+        }
       }
-
-      const insertId = (insertResult as any).insertId || null;
-      console.log(`Inserted into ${tableName} with ID:`, insertId);
 
       // Update sample tracking to set alertToLabprocessTeam flag
       try {
@@ -2899,9 +3066,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        recordId: insertId,
+        recordIds: insertedIds,
+        numberOfRecordsCreated: insertedIds.length,
         table: tableName,
-        message: `Lab process record created in ${tableName}`
+        message: `${insertedIds.length} lab process record(s) created in ${tableName}`
       });
     } catch (error) {
       console.error('Failed to alert lab process', (error as Error).message);
@@ -3262,7 +3430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const normalizedInput = normalizeDateStrings(updates);
-      
+
       if (Object.keys(normalizedInput).length === 0) {
         return res.status(400).json({ message: 'No updates provided' });
       }
@@ -4174,6 +4342,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ ok: true, fileName, sheetName: selectedSheetName, created, errorsCount: errors.length, errors: errors.slice(0, 10) });
     } catch (error) {
       res.status(500).json({ message: "Failed to import clients" });
+    }
+  });
+
+  // -----------------------------
+  // Report Management API
+  // CRUD endpoints for `report_management` table
+  // -----------------------------
+  app.get('/api/report_management', async (req, res) => {
+    try {
+      const [rows] = await pool.execute('SELECT * FROM report_management ORDER BY created_at DESC LIMIT 500');
+      res.json(rows);
+    } catch (error) {
+      console.error('GET /api/report_management failed:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch report_management records' });
+    }
+  });
+
+  app.get('/api/report_management/:unique_id', async (req, res) => {
+    try {
+      const { unique_id } = req.params;
+      const [rows]: any = await pool.execute('SELECT * FROM report_management WHERE unique_id = ? LIMIT 1', [unique_id]);
+      if (!rows || rows.length === 0) return res.status(404).json({ message: 'Not found' });
+      res.json(rows[0]);
+    } catch (error) {
+      console.error('GET /api/report_management/:unique_id failed:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to fetch record' });
+    }
+  });
+
+  app.post('/api/report_management', async (req, res) => {
+    try {
+      const body = req.body || {};
+      // Build dynamic insert based on provided keys
+      const keys = Object.keys(body);
+      if (keys.length === 0) return res.status(400).json({ message: 'No data provided' });
+      const cols = keys.map(k => `\`${k}\``).join(',');
+      const placeholders = keys.map(() => '?').join(',');
+      const values = keys.map(k => body[k]);
+      const sql = `INSERT INTO report_management (${cols}, created_at) VALUES (${placeholders}, NOW())`;
+      const [result]: any = await pool.execute(sql, values);
+      res.json({ ok: true, insertId: result.insertId });
+    } catch (error) {
+      console.error('POST /api/report_management failed:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create record', error: (error as Error).message });
+    }
+  });
+
+  app.put('/api/report_management/:unique_id', async (req, res) => {
+    try {
+      const { unique_id } = req.params;
+      const updates = req.body || {};
+      const keys = Object.keys(updates);
+      if (keys.length === 0) return res.status(400).json({ message: 'No updates provided' });
+      const set = keys.map(k => `\`${k}\` = ?`).join(',');
+      const values = keys.map(k => updates[k]);
+      values.push(unique_id);
+      const sql = `UPDATE report_management SET ${set}, lead_modified = NOW() WHERE unique_id = ?`;
+      const [result]: any = await pool.execute(sql, values);
+      res.json({ ok: true, affectedRows: result.affectedRows });
+    } catch (error) {
+      console.error('PUT /api/report_management/:unique_id failed:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to update record' });
+    }
+  });
+
+  app.delete('/api/report_management/:unique_id', async (req, res) => {
+    try {
+      const { unique_id } = req.params;
+      const [result]: any = await pool.execute('DELETE FROM report_management WHERE unique_id = ?', [unique_id]);
+      res.json({ ok: true, affectedRows: result.affectedRows });
+    } catch (error) {
+      console.error('DELETE /api/report_management/:unique_id failed:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to delete record' });
     }
   });
 

@@ -4,9 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Clock, CheckCircle, FilePlus, Eye, X, AlertTriangle, Timer } from "lucide-react";
+import { FileText, Clock, CheckCircle, FilePlus, Eye, X, AlertTriangle, Timer, Edit, Trash2 } from "lucide-react";
 import type { ReportWithSample } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ReportManagement() {
@@ -27,22 +30,157 @@ export default function ReportManagement() {
     return () => clearInterval(timer);
   }, []);
 
-  const { data: reports = [], isLoading } = useQuery<ReportWithSample[]>({
-    queryKey: ['/api/reports'],
+  const { data: reports = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/report_management'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/report_management');
+      return res.json();
+    },
   });
 
-  // TAT Logic
+  // Quick connectivity check for the new report_management API
+  const checkReportManagementConnection = async () => {
+    try {
+      const res = await apiRequest('GET', '/api/report_management');
+      const json = await res.json();
+      toast({ title: 'report_management API', description: `Connected — ${Array.isArray(json) ? json.length : 1} records` });
+      console.debug('report_management sample rows:', json?.slice?.(0,3) || json);
+    } catch (e: any) {
+      toast({ title: 'report_management API', description: `Connection failed: ${e?.message || String(e)}` });
+    }
+  };
+
+  // Edit modal state
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<any>(null);
+  const [editForm, setEditForm] = useState<any>({
+    unique_id: '',
+    project_id: '',
+    report_url: '',
+    report_release_date: '',
+    organisation_hospital: '',
+    clinician_researcher_name: '',
+    clinician_researcher_email: '',
+    clinician_researcher_phone: '',
+    clinician_researcher_address: '',
+    patient_client_name: '',
+    age: '',
+    gender: '',
+    patient_client_email: '',
+    patient_client_phone: '',
+    patient_client_address: '',
+    genetic_counselor_required: false,
+    nutritional_counselling_required: false,
+    service_name: '',
+    tat: '',
+    sample_type: '',
+    no_of_samples: '',
+    sample_received_date: '',
+    progenics_trf: '',
+    approval_from_finance: false,
+    sales_responsible_person: '',
+    lead_created_by: '',
+    lead_modified: '',
+    remark_comment: '',
+    gc_case_summary: '',
+  });
+
+  const openEdit = (record: any) => {
+    setEditRecord(record);
+    setEditForm({
+      unique_id: record.unique_id ?? record.uniqueId ?? '',
+      project_id: record.project_id ?? record.projectId ?? '',
+      report_url: record.report_url ?? record.reportUrl ?? '',
+      report_release_date: record.report_release_date ? String(record.report_release_date).split('T')[0] : '',
+      organisation_hospital: record.organisation_hospital ?? '',
+      clinician_researcher_name: record.clinician_researcher_name ?? '',
+      clinician_researcher_email: record.clinician_researcher_email ?? '',
+      clinician_researcher_phone: record.clinician_researcher_phone ?? '',
+      clinician_researcher_address: record.clinician_researcher_address ?? '',
+      patient_client_name: record.patient_client_name ?? '',
+      age: record.age ?? '',
+      gender: record.gender ?? '',
+      patient_client_email: record.patient_client_email ?? '',
+      patient_client_phone: record.patient_client_phone ?? '',
+      patient_client_address: record.patient_client_address ?? '',
+      genetic_counselor_required: !!record.genetic_counselor_required,
+      nutritional_counselling_required: !!record.nutritional_counselling_required,
+      service_name: record.service_name ?? '',
+      tat: record.tat ?? '',
+      sample_type: record.sample_type ?? '',
+      no_of_samples: record.no_of_samples ?? '',
+      sample_received_date: record.sample_received_date ? String(record.sample_received_date).split('T')[0] : '',
+      progenics_trf: record.progenics_trf ?? '',
+      approval_from_finance: !!record.approval_from_finance,
+      sales_responsible_person: record.sales_responsible_person ?? '',
+      lead_created_by: record.lead_created_by ?? '',
+      lead_modified: record.lead_modified ?? record.created_at ?? '',
+      remark_comment: record.remark_comment ?? record.remarkComment ?? '',
+      gc_case_summary: record.gc_case_summary ?? record.gcCaseSummary ?? '',
+    });
+    setIsEditOpen(true);
+  };
+
+  const getUniqueId = (r: any) => r.unique_id || r.uniqueId || r.id;
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ uniqueId, updates }: { uniqueId: string; updates: any }) => {
+      const res = await apiRequest('PUT', `/api/report_management/${uniqueId}`, updates);
+      return res.json();
+    },
+    onSuccess: () => {
+      setIsEditOpen(false);
+      toast({ title: 'Updated', description: 'Record updated successfully' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Update failed', description: err?.message || 'Failed to update' });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (uniqueId: string) => {
+      const res = await apiRequest('DELETE', `/api/report_management/${uniqueId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Deleted', description: 'Record deleted' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Delete failed', description: err?.message || 'Failed to delete' });
+    }
+  });
+
+  const handleSave = async () => {
+    if (!editRecord) return;
+    const uniqueId = getUniqueId(editRecord) || editForm.unique_id;
+    if (!uniqueId) {
+      toast({ title: 'Missing ID', description: 'Cannot determine unique id for record' });
+      return;
+    }
+    // send the whole form as updates; backend will apply provided keys
+    await updateMutation.mutateAsync({ uniqueId, updates: { ...editForm } });
+  };
+
+  const handleDelete = async (record: any) => {
+    const uniqueId = getUniqueId(record);
+    if (!uniqueId) return toast({ title: 'Missing ID', description: 'Cannot determine unique id for record' });
+    const ok = window.confirm('Delete this report_management record?');
+    if (!ok) return;
+    await deleteMutation.mutateAsync(uniqueId);
+  };
+
+  // TAT Logic (simplified for report_management table data structure)
   const processedReports = useMemo(() => {
     return reports.map(report => {
-      const regDate = new Date(report.sample?.lead?.sampleReceivedDate || report.sample?.lead?.leadCreated || new Date());
-      const tatHours = (parseInt(report.sample?.lead?.tat || '0', 10) || 0) * 24;
+      const regDate = new Date(report.sample_received_date || report.created_at || new Date());
+      const tatHours = (parseInt(report.tat || '0', 10) || 0) * 24;
       const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
       const diffMs = deadline.getTime() - currentTime.getTime();
       const diffHrs = diffMs / (1000 * 60 * 60);
       
       let urgency = 'normal';
-      if (report.status === 'delivered' || report.status === 'approved') {
-        urgency = 'completed';
+      if (tatHours === 0) {
+        urgency = 'normal';
       } else if (diffHrs < 0) {
         urgency = 'overdue';
       } else if (diffHrs < 2) { 
@@ -206,6 +344,164 @@ export default function ReportManagement() {
         })}
       </div>
 
+      {/* Edit Dialog (single instance) */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit report_management</DialogTitle>
+            <DialogDescription>Update remark and finance approval</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Unique ID</label>
+              <Input value={editForm.unique_id} readOnly />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Project ID</label>
+              <Input value={editForm.project_id} onChange={(e:any)=>setEditForm((s:any)=>({...s, project_id: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Report URL</label>
+              <Input value={editForm.report_url} onChange={(e:any)=>setEditForm((s:any)=>({...s, report_url: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Report Release Date</label>
+              <Input type="date" value={editForm.report_release_date} onChange={(e:any)=>setEditForm((s:any)=>({...s, report_release_date: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Organisation / Hospital</label>
+              <Input value={editForm.organisation_hospital} onChange={(e:any)=>setEditForm((s:any)=>({...s, organisation_hospital: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Clinician / Researcher Name</label>
+              <Input value={editForm.clinician_researcher_name} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_name: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Clinician Email</label>
+              <Input value={editForm.clinician_researcher_email} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_email: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Clinician Phone</label>
+              <Input value={editForm.clinician_researcher_phone} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_phone: e.target.value}))} />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Clinician Address</label>
+              <Textarea value={editForm.clinician_researcher_address} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_address: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Patient / Client Name</label>
+              <Input value={editForm.patient_client_name} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_name: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Age</label>
+              <Input type="number" value={editForm.age} onChange={(e:any)=>setEditForm((s:any)=>({...s, age: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Gender</label>
+              <Input value={editForm.gender} onChange={(e:any)=>setEditForm((s:any)=>({...s, gender: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Patient Email</label>
+              <Input value={editForm.patient_client_email} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_email: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Patient Phone</label>
+              <Input value={editForm.patient_client_phone} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_phone: e.target.value}))} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Patient Address</label>
+              <Textarea value={editForm.patient_client_address} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_address: e.target.value}))} />
+            </div>
+
+            <div className="flex items-center">
+              <label className="inline-flex items-center">
+                <input type="checkbox" checked={!!editForm.genetic_counselor_required} onChange={(e:any)=>setEditForm((s:any)=>({...s, genetic_counselor_required: e.target.checked}))} className="mr-2" />
+                Genetic Counselling Required
+              </label>
+            </div>
+            <div className="flex items-center">
+              <label className="inline-flex items-center">
+                <input type="checkbox" checked={!!editForm.nutritional_counselling_required} onChange={(e:any)=>setEditForm((s:any)=>({...s, nutritional_counselling_required: e.target.checked}))} className="mr-2" />
+                Nutritional Counselling Required
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Service Name</label>
+              <Input value={editForm.service_name} onChange={(e:any)=>setEditForm((s:any)=>({...s, service_name: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">TAT (Days)</label>
+              <Input type="number" value={editForm.tat} onChange={(e:any)=>setEditForm((s:any)=>({...s, tat: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Sample Type</label>
+              <Input value={editForm.sample_type} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_type: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">No of Samples</label>
+              <Input type="number" value={editForm.no_of_samples} onChange={(e:any)=>setEditForm((s:any)=>({...s, no_of_samples: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Sample Received Date</label>
+              <Input type="date" value={editForm.sample_received_date} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_received_date: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Progenics TRF</label>
+              <Input value={editForm.progenics_trf} onChange={(e:any)=>setEditForm((s:any)=>({...s, progenics_trf: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Approval from Finance</label>
+              <div className="flex items-center">
+                <input type="checkbox" checked={!!editForm.approval_from_finance} onChange={(e:any)=>setEditForm((s:any)=>({...s, approval_from_finance: e.target.checked}))} className="mr-2" />
+                <span>{editForm.approval_from_finance ? 'Approved' : 'Not approved'}</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Sales / Responsible Person</label>
+              <Input value={editForm.sales_responsible_person} onChange={(e:any)=>setEditForm((s:any)=>({...s, sales_responsible_person: e.target.value}))} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Lead Created By</label>
+              <Input value={editForm.lead_created_by} onChange={(e:any)=>setEditForm((s:any)=>({...s, lead_created_by: e.target.value}))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Lead Modified</label>
+              <Input value={editForm.lead_modified ? String(editForm.lead_modified) : ''} readOnly />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Remark / Comment</label>
+              <Textarea value={editForm.remark_comment} onChange={(e:any) => setEditForm((s:any)=>({...s, remark_comment: e.target.value}))} />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">GC Case Summary</label>
+              <Textarea value={editForm.gc_case_summary} onChange={(e:any) => setEditForm((s:any)=>({...s, gc_case_summary: e.target.value}))} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={updateMutation.isLoading}>{updateMutation.isLoading ? 'Saving...' : 'Save'}</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Reports Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -236,8 +532,13 @@ export default function ReportManagement() {
               <FilePlus className="mr-2 h-4 w-4" />
               Generate Report
             </Button>
+            <Button variant="ghost" onClick={checkReportManagementConnection}>
+              Check DB
+            </Button>
           </div>
         </CardHeader>
+        <CardContent className="pt-0">
+        </CardContent>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8">Loading reports...</div>
@@ -250,100 +551,76 @@ export default function ReportManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[150px]">Urgency</TableHead>
-                    <TableHead className="min-w-[150px]">Sample ID</TableHead>
-                    <TableHead className="min-w-[200px]">Client</TableHead>
-                    <TableHead className="min-w-[180px]">Location</TableHead>
-                    <TableHead className="min-w-[200px]">Test Type</TableHead>
-                    <TableHead className="min-w-[120px]">Sample Type</TableHead>
-                    <TableHead className="min-w-[100px]">Category</TableHead>
-                    <TableHead className="min-w-[120px]">Status</TableHead>
-                    <TableHead className="min-w-[80px]">TAT</TableHead>
-                    <TableHead className="min-w-[200px]">Contact Info</TableHead>
-                    <TableHead className="min-w-[120px]">Generated Date</TableHead>
-                    <TableHead className="min-w-[120px]">Delivered Date</TableHead>
-                    <TableHead className="min-w-[200px]">Actions</TableHead>
+                    <TableHead>Project ID</TableHead>
+                    <TableHead>Report URL</TableHead>
+                    <TableHead>Report release Date</TableHead>
+                    <TableHead>Organisation / Hospital</TableHead>
+                    <TableHead>Clinician / Researcher Name</TableHead>
+                    <TableHead>Clinician / Researcher Email</TableHead>
+                    <TableHead>Clinician / Researcher Phone</TableHead>
+                    <TableHead>Clinician / Researcher Address</TableHead>
+                    <TableHead>Patient / Client Name</TableHead>
+                    <TableHead>Age</TableHead>
+                    <TableHead>Gender</TableHead>
+                    <TableHead>Patient / Client Email</TableHead>
+                    <TableHead>Patient / Client Phone</TableHead>
+                    <TableHead>Patient / Client Address</TableHead>
+                    <TableHead>Genetic Counselling Required</TableHead>
+                    <TableHead>Nutritional Counselling Required</TableHead>
+                    <TableHead>Service Name</TableHead>
+                    <TableHead>TAT (Days)</TableHead>
+                    <TableHead>Sample Type</TableHead>
+                    <TableHead>No of Samples</TableHead>
+                    <TableHead>Sample Received Date</TableHead>
+                    <TableHead>Progenics TRF</TableHead>
+                    <TableHead>Approveal from Finance</TableHead>
+                    <TableHead>Sales / Responsible Person</TableHead>
+                    <TableHead>Lead Created</TableHead>
+                    <TableHead>Lead Modified</TableHead>
+                    <TableHead>Remark / Comment</TableHead>
+                    <TableHead>GC case Summary</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="min-w-[150px]">
-                        <UrgencyBadge urgency={report.urgency} diffHrs={report.diffHrs} />
-                      </TableCell>
-                      <TableCell className="min-w-[150px] font-medium text-gray-900 dark:text-white">
-                        {report.sampleId}
-                      </TableCell>
-                      <TableCell className="min-w-[200px] text-gray-900 dark:text-white">
-                        {report.sample.lead.organisationHospital}
-                      </TableCell>
-                      <TableCell className="min-w-[180px] text-gray-900 dark:text-white">
-                        {report.sample.lead.organisationHospital}
-                      </TableCell>
-                      <TableCell className="min-w-[200px] text-gray-900 dark:text-white">
-                        {report.sample.lead.serviceName}
-                      </TableCell>
-                      <TableCell className="min-w-[120px] text-gray-900 dark:text-white">
-                        {report.sample.lead.sampleType}
-                      </TableCell>
-                      <TableCell className="min-w-[100px]">
-                        <Badge className={report.sample.lead.leadType === 'clinical_trial' || report.sample.lead.leadType === 'r_and_d' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}>
-                          {report.sample.lead.leadType ? report.sample.lead.leadType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Individual'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="min-w-[120px]">
-                        <Badge className={getStatusBadge(report.status || 'in_progress')}>
-                          {getStatusText(report.status || 'in_progress')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="min-w-[80px] text-gray-900 dark:text-white">
-                        {report.sample.lead.tat} days
-                      </TableCell>
-                      <TableCell className="min-w-[200px]">
-                        <div className="text-sm">
-                          <div className="text-gray-900 dark:text-white font-medium">
-                            {stripHonorific(report.sample.lead.clinicianResearcherName || '')}
-                          </div>
-                          <div className="text-gray-500 dark:text-gray-400">
-                            📞 {report.sample.lead.clinicianResearcherPhone || '-'}
-                          </div>
-                          <div className="text-gray-500 dark:text-gray-400">
-                            ✉️ {report.sample.lead.clinicianResearcherEmail || '-'}
-                          </div>
-                          {report.sample.lead.patientClientEmail && (
-                            <div className="text-gray-500 dark:text-gray-400">
-                              👤 {report.sample.lead.patientClientEmail}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-[120px] text-gray-900 dark:text-white">
-                        {report.generatedAt ? new Date(report.generatedAt).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell className="min-w-[120px] text-gray-900 dark:text-white">
-                        {report.deliveredAt ? new Date(report.deliveredAt).toLocaleDateString() : '-'}
-                      </TableCell>
-                      <TableCell className="min-w-[200px]">
+                    <TableRow key={report.unique_id}>
+                      <TableCell>{report.project_id ?? '-'}</TableCell>
+                      <TableCell>{report.report_url ?? '-'}</TableCell>
+                      <TableCell>{report.report_release_date ? new Date(report.report_release_date).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>{report.organisation_hospital ?? '-'}</TableCell>
+                      <TableCell>{report.clinician_researcher_name ?? '-'}</TableCell>
+                      <TableCell>{report.clinician_researcher_email ?? '-'}</TableCell>
+                      <TableCell>{report.clinician_researcher_phone ?? '-'}</TableCell>
+                      <TableCell>{report.clinician_researcher_address ?? '-'}</TableCell>
+                      <TableCell>{report.patient_client_name ?? '-'}</TableCell>
+                      <TableCell>{report.age ?? '-'}</TableCell>
+                      <TableCell>{report.gender ?? '-'}</TableCell>
+                      <TableCell>{report.patient_client_email ?? '-'}</TableCell>
+                      <TableCell>{report.patient_client_phone ?? '-'}</TableCell>
+                      <TableCell>{report.patient_client_address ?? '-'}</TableCell>
+                      <TableCell>{report.genetic_counselor_required ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>{report.nutritional_counselling_required ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>{report.service_name ?? '-'}</TableCell>
+                      <TableCell>{report.tat ?? '-'}</TableCell>
+                      <TableCell>{report.sample_type ?? '-'}</TableCell>
+                      <TableCell>{report.no_of_samples ?? '-'}</TableCell>
+                      <TableCell>{report.sample_received_date ? new Date(report.sample_received_date).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>{report.progenics_trf ?? '-'}</TableCell>
+                      <TableCell>{report.approval_from_finance ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>{report.sales_responsible_person ?? '-'}</TableCell>
+                      <TableCell>{report.lead_created_by ?? '-'}</TableCell>
+                      <TableCell>{report.lead_modified ? new Date(report.lead_modified).toLocaleString() : '-'}</TableCell>
+                      <TableCell>{report.remark_comment ?? '-'}</TableCell>
+                      <TableCell>{report.gc_case_summary ?? '-'}</TableCell>
+                      <TableCell>
                         <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
+                          <Button size="sm" variant="outline" onClick={() => openEdit(report)}>
+                            <Edit className="h-4 w-4" />
                           </Button>
-                          {report.status === 'awaiting_approval' && (
-                            <>
-                              <Button
-                                size="sm"
-                                onClick={() => approveReportMutation.mutate(report.id)}
-                                disabled={approveReportMutation.isPending}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button variant="destructive" size="sm">
-                                <X className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
+                          <Button size="sm" variant="destructive" onClick={() => handleDelete(report)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
