@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useRecycle } from '@/contexts/RecycleContext';
 import { Activity, Cpu, CheckCircle, Search, Edit as EditIcon, Trash2, Clock, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +27,7 @@ type BIRecord = {
   age?: string;
   gender?: string;
   serviceName?: string;
-  noOfSamples?: string;
+  // noOfSamples removed from UI
   sequencingStatus?: string;
   sequencingDataStorageDate?: string;
   basecalling?: string;
@@ -63,6 +64,7 @@ export default function Bioinformatics() {
   const [isOpen, setIsOpen] = useState(false);
   const [editing, setEditing] = useState<BIRecord | null>(null);
   const { add } = useRecycle();
+  const [, setLocation] = useLocation();
 
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -85,19 +87,35 @@ export default function Bioinformatics() {
   const sendToReportsMutation = useMutation({
     mutationFn: async (record: BIRecord) => {
       // Send to reports endpoint which handles routing based on project ID
+      // Sending all fields needed for auto-population in ReportManagement
       const response = await apiRequest('POST', '/api/send-to-reports', {
+        // IDs
         bioinformaticsId: record.id,
-        sampleId: record.sampleId,
-        projectId: record.projectId,
         uniqueId: record.uniqueId,
-        serviceName: record.serviceName,
-        analysisDate: record.analysisDate,
-        createdBy: record.createdBy,
+        projectId: record.projectId,
+        // Patient info
         patientClientName: record.patientClientName,
+        age: record.age,
+        gender: record.gender,
+        // Clinician info
+        clinicianResearcherName: record.clinicianResearcherName,
+        organisationHospital: record.organisationHospital,
+        // Service info
+        serviceName: record.serviceName,
+        // TAT and comments
+        tat: record.tat,
+        remarkComment: record.remarkComment,
+        // Optional: lead fields
+        createdBy: record.createdBy,
+        modifiedBy: record.modifiedBy,
+        // Additional useful fields
+        sampleId: record.sampleId,
+        analysisDate: record.analysisDate,
+        clientId: record.clientId,
       });
       return response.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, recordData: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/report'] });
@@ -112,10 +130,44 @@ export default function Bioinformatics() {
         )
       );
 
+      // Store bioinformatics data in sessionStorage for auto-population in ReportManagement
+      const bioinformationData = {
+        // IDs
+        uniqueId: recordData.uniqueId,
+        projectId: recordData.projectId,
+        // Patient info
+        patientClientName: recordData.patientClientName,
+        age: recordData.age,
+        gender: recordData.gender,
+        // Clinician info
+        clinicianResearcherName: recordData.clinicianResearcherName,
+        organisationHospital: recordData.organisationHospital,
+        // Service info
+        serviceName: recordData.serviceName,
+        // TAT and comments
+        tat: recordData.tat,
+        remarkComment: recordData.remarkComment,
+        // Optional: lead fields
+        createdBy: recordData.createdBy,
+        modifiedBy: recordData.modifiedBy,
+        // Additional useful fields
+        sampleId: recordData.sampleId,
+        analysisDate: recordData.analysisDate,
+        sampleReceivedDate: recordData.sampleReceivedDate,
+        clientId: recordData.clientId,
+      };
+      
+      sessionStorage.setItem('bioinformatics_send_to_reports', JSON.stringify(bioinformationData));
+
       toast({
         title: "Sent to Reports",
-        description: `Report record created in ${data.table}. Bioinformatics record has been sent to the Reports team.`,
+        description: `Report record created in ${data.table}. Redirecting to Reports module...`,
       });
+
+      // Navigate to ReportManagement after a short delay
+      setTimeout(() => {
+        setLocation('/report-management');
+      }, 1000);
     },
     onError: (error: any) => {
       toast({
@@ -844,7 +896,6 @@ export default function Bioinformatics() {
                             <TableCell>{(r as any).age ?? '-'}</TableCell>
                             <TableCell>{(r as any).gender ?? '-'}</TableCell>
                             <TableCell>{(r as any).serviceName ?? '-'}</TableCell>
-                            <TableCell>{(r as any).noOfSamples ?? '-'}</TableCell>
                             <TableCell>{(r as any).sequencingStatus ?? '-'}</TableCell>
                             <TableCell>{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>
                             <TableCell>{(r as any).basecalling ?? '-'}</TableCell>
@@ -958,7 +1009,7 @@ export default function Bioinformatics() {
             <div><Label>Age</Label><Input {...form.register('age')} disabled /></div>
             <div><Label>Gender</Label><Input {...form.register('gender')} disabled /></div>
             <div><Label>Service name</Label><Input {...form.register('serviceName')} disabled /></div>
-            <div><Label>No of Samples</Label><Input {...form.register('noOfSamples')} disabled /></div>
+            {/* No of Samples removed from UI */}
             <div><Label>Sequencing status</Label><Input {...form.register('sequencingStatus')} /></div>
             <div><Label>Sequencing data storage date</Label><Input type="date" {...form.register('sequencingDataStorageDate')} /></div>
             <div><Label>Basecalling</Label><Input {...form.register('basecalling')} /></div>

@@ -1744,109 +1744,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Send bioinformatics record to Reports module
+  // Send bioinformatics record to Reports module (report_management table)
   app.post("/api/send-to-reports", async (req, res) => {
     try {
       const {
+        // IDs
+        uniqueId,
+        projectId,
         bioinformaticsId,
         sampleId,
-        projectId,
-        uniqueId,
+        clientId,
+        // Patient info
+        patientClientName,
+        age,
+        gender,
+        // Clinician info
+        clinicianResearcherName,
+        organisationHospital,
+        // Service info
         serviceName,
-        analysisDate,
+        noOfSamples,
+        // TAT and comments
+        tat,
+        remarkComment,
+        // Optional lead fields
         createdBy,
+        modifiedBy,
+        // Additional fields
+        analysisDate,
+        sampleReceivedDate,
       } = req.body;
 
       console.log('Send to Reports triggered for bioinformatics:', bioinformaticsId, 'Project ID:', projectId);
+
+      if (!uniqueId) {
+        return res.status(400).json({ message: 'Unique ID is required' });
+      }
 
       if (!projectId) {
         return res.status(400).json({ message: 'Project ID is required' });
       }
 
-      // Determine destination table based on project ID prefix
-      const isDiscovery = projectId.startsWith('DG');
-      const isClinical = projectId.startsWith('PG');
-
-      console.log('Project ID analysis - Discovery:', isDiscovery, 'Clinical:', isClinical);
-
-      if (!isDiscovery && !isClinical) {
-        return res.status(400).json({ message: 'Project ID must start with DG (Discovery) or PG (Clinical)' });
-      }
-
-      // Fetch lead data to get additional info if needed
-      let leadData: any = { service_name: serviceName };
-      try {
-        const [leadRows]: any = await pool.execute(
-          'SELECT service_name FROM lead_management WHERE unique_id = ? LIMIT 1',
-          [uniqueId]
-        );
-        if (leadRows && leadRows.length > 0) {
-          const lead = leadRows[0];
-          leadData.service_name = serviceName || lead.service_name || null;
-          console.log('Fetched lead data from lead_management table:', leadData);
-        }
-      } catch (leadError) {
-        console.log('Note: Could not fetch lead data -', (leadError as Error).message);
-      }
-
-      // Prepare report data with required database columns
+      // Prepare report data to insert into report_management table
       const reportData: Record<string, any> = {
-        unique_id: uniqueId || '',
+        unique_id: uniqueId,
         project_id: projectId,
-        bioinformatics_id: bioinformaticsId || null,
-        sample_id: sampleId || null,
       };
 
-      // Add optional fields if provided
-      if (leadData.service_name) reportData.service_name = leadData.service_name;
-      if (analysisDate) {
-        // Convert ISO date string to DATE format (YYYY-MM-DD)
-        const dateObj = new Date(analysisDate);
-        const year = dateObj.getUTCFullYear();
-        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(dateObj.getUTCDate()).padStart(2, '0');
-        reportData.report_date = `${year}-${month}-${day}`;
+      // Add patient info if provided
+      if (patientClientName) reportData.patient_client_name = patientClientName;
+      if (age) reportData.age = parseInt(age) || null;
+      if (gender) reportData.gender = gender;
+
+      // Add clinician info if provided
+      if (clinicianResearcherName) reportData.clinician_researcher_name = clinicianResearcherName;
+      if (organisationHospital) reportData.organisation_hospital = organisationHospital;
+
+      // Add service info if provided
+      if (serviceName) reportData.service_name = serviceName;
+      if (noOfSamples) reportData.no_of_samples = parseInt(noOfSamples) || null;
+
+      // Add TAT and comments
+      if (tat) reportData.tat = parseInt(tat) || null;
+      if (remarkComment) reportData.remark_comment = remarkComment;
+
+      // Add lead/audit fields
+      if (createdBy) reportData.lead_created_by = createdBy;
+      if (modifiedBy) {
+        reportData.lead_modified = modifiedBy;
+      } else {
+        reportData.lead_modified = new Date();
       }
 
-      reportData.created_by = createdBy || 'system';
-      reportData.created_at = new Date();
-      reportData.status = 'pending_review';
+      // Handle sample received date if provided
+      if (sampleReceivedDate) {
+        try {
+          const dateObj = new Date(sampleReceivedDate);
+          const year = dateObj.getUTCFullYear();
+          const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getUTCDate()).padStart(2, '0');
+          reportData.sample_received_date = `${year}-${month}-${day}`;
+        } catch (e) {
+          console.log('Warning: Could not parse sample_received_date');
+        }
+      }
 
+      // Set created_at timestamp
+      reportData.created_at = new Date();
+
+      console.log('Prepared report data for report_management:', reportData);
+
+      // Build dynamic INSERT query
       const keys = Object.keys(reportData);
       const cols = keys.map(k => `\`${k}\``).join(',');
       const placeholders = keys.map(() => '?').join(',');
       const values = keys.map(k => reportData[k]);
 
-      let insertResult;
-      let tableName;
+      // Insert into report_management table
+      const result: any = await pool.execute(
+        `INSERT INTO report_management (${cols}) VALUES (${placeholders})`,
+        values
+      );
 
-      if (isDiscovery) {
-        tableName = 'report_discovery_sheet';
-        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
-        const result: any = await pool.execute(
-          `INSERT INTO report_discovery_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
-      } else {
-        tableName = 'report_clinical_sheet';
-        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
-        const result: any = await pool.execute(
-          `INSERT INTO report_clinical_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
-      }
-
-      const insertId = (insertResult as any).insertId || null;
-      console.log(`Inserted into ${tableName} with ID:`, insertId);
+      console.log('Inserted into report_management:', result);
 
       // Update bioinformatics table to set alert_to_report_team flag
       try {
+        const isDiscovery = projectId.startsWith('DG');
         const bioTableName = isDiscovery ? 'bioinfo_discovery_sheet' : 'bioinfo_clinical_sheet';
         await pool.execute(
-          `UPDATE ${bioTableName} SET alert_to_report_team = ?, updated_at = ? WHERE id = ?`,
-          [true, new Date(), bioinformaticsId]
+          `UPDATE ${bioTableName} SET alert_to_report_team = ?, modified_at = ? WHERE id = ?`,
+          [1, new Date(), bioinformaticsId]
         );
         console.log('Updated bioinformatics flag for:', bioinformaticsId);
       } catch (updateError) {
@@ -1857,9 +1865,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send notifications
       try {
         await notificationService.notifyReportGenerated(
-          insertId,
+          uniqueId,
           'Bioinformatics Analysis Report',
-          leadData.service_name || 'Analysis Report',
+          serviceName || 'Analysis Report',
           createdBy || 'system'
         );
       } catch (notificationError) {
@@ -1869,10 +1877,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        reportId: insertId,
+        recordId: uniqueId,
         bioinformaticsId: bioinformaticsId,
-        table: tableName,
-        message: 'Bioinformatics record sent to Reports module',
+        table: 'report_management',
+        message: 'Bioinformatics record sent to report_management table',
       });
     } catch (error) {
       console.error('Error in send-to-reports:', error);
@@ -4395,15 +4403,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body || {};
       const keys = Object.keys(updates);
       if (keys.length === 0) return res.status(400).json({ message: 'No updates provided' });
-      const set = keys.map(k => `\`${k}\` = ?`).join(',');
-      const values = keys.map(k => updates[k]);
+      
+      // Filter out undefined/null keys and build safe SQL
+      const safeKeys = keys.filter(k => updates[k] !== undefined);
+      if (safeKeys.length === 0) return res.status(400).json({ message: 'No valid updates provided' });
+      
+      const set = safeKeys.map(k => `\`${k}\` = ?`).join(', ');
+      const values = safeKeys.map(k => {
+        const v = updates[k];
+        // Convert booleans to 0/1 for MySQL TINYINT(1)
+        if (typeof v === 'boolean') return v ? 1 : 0;
+        return v;
+      });
       values.push(unique_id);
       const sql = `UPDATE report_management SET ${set}, lead_modified = NOW() WHERE unique_id = ?`;
+      console.log('PUT SQL:', sql, 'Values:', values);
       const [result]: any = await pool.execute(sql, values);
       res.json({ ok: true, affectedRows: result.affectedRows });
     } catch (error) {
       console.error('PUT /api/report_management/:unique_id failed:', (error as Error).message);
-      res.status(500).json({ message: 'Failed to update record' });
+      res.status(500).json({ message: 'Failed to update record', error: (error as Error).message });
     }
   });
 

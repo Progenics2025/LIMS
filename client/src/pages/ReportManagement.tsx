@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,10 @@ export default function ReportManagement() {
   };
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, location] = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [filter, setFilter] = useState('all');
+  const [autoPopulatedData, setAutoPopulatedData] = useState<any>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -29,6 +32,28 @@ export default function ReportManagement() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Auto-populate fields from bioinformatics data passed via location state
+  useEffect(() => {
+    // Check for bioinformatics data in sessionStorage (passed from Bioinformatics component)
+    const bioinformationData = sessionStorage.getItem('bioinformatics_send_to_reports');
+    if (bioinformationData) {
+      try {
+        const data = JSON.parse(bioinformationData);
+        setAutoPopulatedData(data);
+        // Clear after reading
+        sessionStorage.removeItem('bioinformatics_send_to_reports');
+        // Auto-open the new record form with populated data
+        if (data) {
+          setTimeout(() => {
+            openNewRecordWithBioData(data);
+          }, 300);
+        }
+      } catch (e) {
+        console.error('Failed to parse bioinformatics data:', e);
+      }
+    }
+  }, [location]);
 
   const { data: reports = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/report_management'],
@@ -85,6 +110,48 @@ export default function ReportManagement() {
     gc_case_summary: '',
   });
 
+  // Helper function to open new record form with bioinformatics data pre-populated
+  const openNewRecordWithBioData = (bioData: any) => {
+    const newForm = {
+      unique_id: bioData.uniqueId ?? '',
+      project_id: bioData.projectId ?? '',
+      report_url: '',
+      report_release_date: '',
+      organisation_hospital: bioData.organisationHospital ?? '',
+      clinician_researcher_name: bioData.clinicianResearcherName ?? '',
+      clinician_researcher_email: '',
+      clinician_researcher_phone: '',
+      clinician_researcher_address: '',
+      patient_client_name: bioData.patientClientName ?? '',
+      age: bioData.age ?? '',
+      gender: bioData.gender ?? '',
+      patient_client_email: '',
+      patient_client_phone: '',
+      patient_client_address: '',
+      genetic_counselor_required: false,
+      nutritional_counselling_required: false,
+      service_name: bioData.serviceName ?? '',
+      tat: bioData.tat ?? '',
+      sample_type: '',
+      no_of_samples: bioData.noOfSamples ?? '',
+      sample_received_date: bioData.sampleReceivedDate ? String(bioData.sampleReceivedDate).split('T')[0] : '',
+      progenics_trf: '',
+      approval_from_finance: false,
+      sales_responsible_person: '',
+      lead_created_by: bioData.createdBy ?? '',
+      lead_modified: bioData.modifiedBy ?? '',
+      remark_comment: bioData.remarkComment ?? '',
+      gc_case_summary: '',
+    };
+    setEditRecord(null);
+    setEditForm(newForm);
+    setIsEditOpen(true);
+    toast({
+      title: 'New Report',
+      description: 'Form pre-populated with bioinformatics data. Please complete and save.',
+    });
+  };
+
   const openEdit = (record: any) => {
     setEditRecord(record);
     setEditForm({
@@ -125,14 +192,61 @@ export default function ReportManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ uniqueId, updates }: { uniqueId: string; updates: any }) => {
+      console.log('PUT request:', uniqueId, updates);
       const res = await apiRequest('PUT', `/api/report_management/${uniqueId}`, updates);
-      return res.json();
+      const json = await res.json();
+      console.log('PUT response:', json);
+      return json;
     },
-    onSuccess: () => {
-      setIsEditOpen(false);
-      toast({ title: 'Updated', description: 'Record updated successfully' });
+    onSuccess: async (_data, variables) => {
+      console.log('Update onSuccess called');
+      try {
+        // Refresh the list
+        await queryClient.invalidateQueries({ queryKey: ['/api/report_management'] });
+        // Fetch the updated record so the modal shows the latest data
+        const uniqueId = variables.uniqueId;
+        const res = await apiRequest('GET', `/api/report_management/${uniqueId}`);
+        const json = await res.json();
+        console.log('Fetched updated record:', json);
+        setEditForm({
+          unique_id: json.unique_id ?? json.uniqueId ?? '',
+          project_id: json.project_id ?? json.projectId ?? '',
+          report_url: json.report_url ?? json.reportUrl ?? '',
+          report_release_date: json.report_release_date ? String(json.report_release_date).split('T')[0] : '',
+          organisation_hospital: json.organisation_hospital ?? '',
+          clinician_researcher_name: json.clinician_researcher_name ?? '',
+          clinician_researcher_email: json.clinician_researcher_email ?? '',
+          clinician_researcher_phone: json.clinician_researcher_phone ?? '',
+          clinician_researcher_address: json.clinician_researcher_address ?? '',
+          patient_client_name: json.patient_client_name ?? '',
+          age: json.age ?? '',
+          gender: json.gender ?? '',
+          patient_client_email: json.patient_client_email ?? '',
+          patient_client_phone: json.patient_client_phone ?? '',
+          patient_client_address: json.patient_client_address ?? '',
+          genetic_counselor_required: !!json.genetic_counselor_required,
+          nutritional_counselling_required: !!json.nutritional_counselling_required,
+          service_name: json.service_name ?? '',
+          tat: json.tat ?? '',
+          sample_type: json.sample_type ?? '',
+          no_of_samples: json.no_of_samples ?? '',
+          sample_received_date: json.sample_received_date ? String(json.sample_received_date).split('T')[0] : '',
+          progenics_trf: json.progenics_trf ?? '',
+          approval_from_finance: !!json.approval_from_finance,
+          sales_responsible_person: json.sales_responsible_person ?? '',
+          lead_created_by: json.lead_created_by ?? '',
+          lead_modified: json.lead_modified ?? json.created_at ?? '',
+          remark_comment: json.remark_comment ?? json.remarkComment ?? '',
+          gc_case_summary: json.gc_case_summary ?? json.gcCaseSummary ?? '',
+        });
+        toast({ title: 'Updated', description: 'Record updated successfully' });
+      } catch (e: any) {
+        console.error('onSuccess refresh failed:', e);
+        toast({ title: 'Update', description: 'Record updated but failed to refresh: ' + (e?.message || String(e)) });
+      }
     },
     onError: (err: any) => {
+      console.error('Update onError:', err);
       toast({ title: 'Update failed', description: err?.message || 'Failed to update' });
     }
   });
@@ -142,7 +256,8 @@ export default function ReportManagement() {
       const res = await apiRequest('DELETE', `/api/report_management/${uniqueId}`);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/report_management'] });
       toast({ title: 'Deleted', description: 'Record deleted' });
     },
     onError: (err: any) => {
@@ -157,8 +272,58 @@ export default function ReportManagement() {
       toast({ title: 'Missing ID', description: 'Cannot determine unique id for record' });
       return;
     }
-    // send the whole form as updates; backend will apply provided keys
-    await updateMutation.mutateAsync({ uniqueId, updates: { ...editForm } });
+    // Exclude read-only fields from the update payload
+    // Normalize types: booleans -> 0/1, empty numeric strings -> null, numeric strings -> numbers
+    const { unique_id, lead_modified, ...base } = editForm;
+    const updatePayload: any = {
+      ...base,
+      genetic_counselor_required: base.genetic_counselor_required ? 1 : 0,
+      nutritional_counselling_required: base.nutritional_counselling_required ? 1 : 0,
+      approval_from_finance: base.approval_from_finance ? 1 : 0,
+    };
+
+    // Coerce numeric-like fields to numbers or null to avoid MySQL "Incorrect integer value" errors
+    const numericFields = ['age', 'no_of_samples', 'tat'];
+    for (const k of numericFields) {
+      if (updatePayload[k] === '' || updatePayload[k] === undefined) {
+        updatePayload[k] = null;
+        continue;
+      }
+      if (typeof updatePayload[k] === 'string') {
+        const n = Number(updatePayload[k]);
+        updatePayload[k] = Number.isNaN(n) ? null : n;
+      }
+    }
+    // Coerce empty date strings to null to avoid MySQL "Incorrect date value" errors
+    const dateFields = ['report_release_date', 'sample_received_date'];
+    for (const k of dateFields) {
+      if (updatePayload[k] === '' || updatePayload[k] === undefined) {
+        updatePayload[k] = null;
+        continue;
+      }
+      // If it's a non-empty string, attempt to normalize to YYYY-MM-DD
+      if (typeof updatePayload[k] === 'string') {
+        const s = updatePayload[k].trim();
+        if (s === '') {
+          updatePayload[k] = null;
+        } else {
+          // if already in ISO date or YYYY-MM-DD, keep; otherwise try to parse
+          const maybeDate = new Date(s);
+          if (!isNaN(maybeDate.getTime())) {
+            // send only the date part
+            updatePayload[k] = maybeDate.toISOString().split('T')[0];
+          }
+        }
+      }
+    }
+    console.log('Saving record:', uniqueId, 'with payload:', updatePayload);
+    try {
+      await updateMutation.mutateAsync({ uniqueId, updates: updatePayload });
+      setIsEditOpen(false);
+    } catch (err: any) {
+      console.error('Save error:', err);
+      toast({ title: 'Save error', description: err?.message || 'Failed to save' });
+    }
   };
 
   const handleDelete = async (record: any) => {
@@ -346,7 +511,7 @@ export default function ReportManagement() {
 
       {/* Edit Dialog (single instance) */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="w-full max-w-4xl md:max-w-5xl lg:max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit report_management</DialogTitle>
             <DialogDescription>Update remark and finance approval</DialogDescription>

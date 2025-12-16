@@ -24,7 +24,7 @@ import { useRecycle } from '@/contexts/RecycleContext';
 const labFormSchema = insertLabProcessingSchema.extend({
   projectId: z.string().optional(),
   clientId: z.string().optional(),
-  numberOfSamples: z.string().optional(),
+  // numberOfSamples removed from front-end per request
   extractionProtocol: z.string().optional(),
   extractionQualityCheck: z.string().optional(),
   extractionQCStatus: z.string().optional(),
@@ -119,8 +119,7 @@ export default function LabProcessing() {
     'serviceName': 'service_name',
     // Sample Type => sample_type
     'sampleType': 'sample_type',
-    // No of Samples => no_of_samples
-    'numberOfSamples': 'no_of_samples',
+    // No of Samples removed from UI / mapping
     // Sample Received Date => sample_received_date
     'sampleDeliveryDate': 'sample_received_date',
     // Extraction Protocol => extraction_protocol
@@ -188,12 +187,12 @@ export default function LabProcessing() {
       titleUniqueId: get('unique_id', 'titleUniqueId') ?? sample.titleUniqueId ?? sample.unique_id ?? lead.id ?? undefined,
       uniqueId: get('unique_id', 'uniqueId') ?? sample.uniqueId ?? sample.unique_id ?? lead.uniqueId ?? lead.unique_id ?? undefined,
       projectId: get('project_id', 'projectId') ?? l.projectId ?? undefined,
-      sampleId: get('sample_id', 'sampleId') ?? sample.sampleId ?? sample.sample_id ?? undefined,
+      sampleId: get('sample_id', 'sampleId') ?? sample.sampleId ?? sample.sample_id ?? (l as any).sample_id ?? undefined,
       clientId: get('client_id', 'clientId') ?? l.clientId ?? undefined,
       sampleDeliveryDate: get('sample_received_date', 'sampleDeliveryDate') ?? sample.sampleDeliveryDate ?? sample.sample_received_date ?? sample.sampleCollectedDate ?? sample.sample_collected_date ?? null,
       sampleType: get('sample_type', 'sampleType') ?? sample.sampleType ?? sample.sample_type ?? lead.sampleType ?? lead.sample_type ?? undefined,
       serviceName: get('service_name', 'serviceName') ?? sample.serviceName ?? sample.service_name ?? lead.serviceName ?? lead.service_name ?? undefined,
-      numberOfSamples: get('no_of_samples', 'numberOfSamples') ?? l.numberOfSamples ?? undefined,
+      // numberOfSamples removed from UI
       extractionProtocol: get('extraction_protocol', 'extractionProtocol') ?? (l as any).extractionProtocol ?? (l as any).protocol1 ?? undefined,
       extractionQualityCheck: get('extraction_quality_check', 'extractionQualityCheck') ?? (l as any).extractionQualityCheck ?? (l as any).qualityCheckDNA ?? undefined,
       extractionQCStatus: get('extraction_qc_status', 'extractionQCStatus') ?? (l as any).extractionQCStatus ?? undefined,
@@ -206,8 +205,8 @@ export default function LabProcessing() {
       purificationQualityCheck: get('purification_quality_check', 'purificationQualityCheck') ?? (l as any).purificationQualityCheck ?? (l as any).productQualityCheck ?? undefined,
       purificationQCStatus: get('purification_qc_status', 'purificationQCStatus') ?? (l as any).purificationQCStatus ?? undefined,
       purificationProcess: get('purification_process', 'purificationProcess') ?? (l as any).purificationProcess ?? undefined,
-      alertToBioinformaticsTeam: get('alert_to_bioinformatics_team', 'alertToBioinformaticsTeam') ?? (l as any).alertToBioinformaticsTeam ?? (l as any).approvedToBioinformatics ?? false,
-      alertToTechnicalLead: get('alert_to_technical_lead', 'alertToTechnicalLead') ?? get('alert_to_technical_leadd', 'alertToTechnicalLead') ?? (l as any).alertToTechnicalLead ?? (l as any).alertToTechnical ?? false,
+      alertToBioinformaticsTeam: Boolean(get('alert_to_bioinformatics_team', 'alertToBioinformaticsTeam') ?? (l as any).alertToBioinformaticsTeam ?? (l as any).approvedToBioinformatics ?? false),
+      alertToTechnicalLead: Boolean(get('alert_to_technical_lead', 'alertToTechnicalLead') ?? get('alert_to_technical_leadd', 'alertToTechnicalLead') ?? (l as any).alertToTechnicalLead ?? (l as any).alertToTechnical ?? false),
       progenicsTrf: get('progenics_trf', 'progenicsTrf') ?? (l as any).progenicsTrf ?? lead.progenicsTRF ?? lead.progenics_trf ?? undefined,
       createdAt: get('created_at', 'createdAt') ?? (l as any).createdAt ?? (l as any).created_at ?? undefined,
       createdBy: get('created_by', 'createdBy') ?? (l as any).createdBy ?? undefined,
@@ -404,7 +403,7 @@ export default function LabProcessing() {
   const form = useForm<LabFormData>({
     resolver: zodResolver(labFormSchema),
     defaultValues: {
-      sampleId: '', titleUniqueId: '', projectId: '', clientId: '', serviceName: '', sampleType: '', numberOfSamples: '',
+      sampleId: '', titleUniqueId: '', projectId: '', clientId: '', serviceName: '', sampleType: '',
       sampleDeliveryDate: undefined, extractionProtocol: '', extractionQualityCheck: '', extractionQCStatus: '', extractionProcess: '',
       libraryPreparationProtocol: '', libraryPreparationQualityCheck: '', libraryQCStatus: '', libraryProcess: '',
       purificationProtocol: '', purificationQualityCheck: '', purificationQCStatus: '', purificationProcess: '',
@@ -422,7 +421,6 @@ export default function LabProcessing() {
       clientId: '',
       serviceName: '',
       sampleType: '',
-      numberOfSamples: '',
       sampleDeliveryDate: undefined,
       extractionProtocol: '',
       extractionQualityCheck: '',
@@ -449,9 +447,10 @@ export default function LabProcessing() {
 
   const updateLabMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
-      // Determine if this is discovery or clinical based on selected lab's project ID
-      const projectId = selectedLab?.sample?.lead?.id || '';
-      const isDiscovery = projectId.startsWith('DG');
+      // Determine if this is discovery or clinical by looking up the record by id
+      const labRecord = normalizedLabs.find(l => String(l.id) === String(id)) || selectedLab || null;
+      const projectId = labRecord?.projectId || labRecord?._raw?.project_id || '';
+      const isDiscovery = String(projectId).startsWith('DG');
       const endpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${id}` : `/api/labprocess-clinical-sheet/${id}`;
       const response = await apiRequest('PUT', endpoint, updates);
       return response.json();
@@ -474,9 +473,10 @@ export default function LabProcessing() {
 
   const deleteLabMutation = useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      // Determine if this is discovery or clinical based on selected lab
-      const projectId = selectedLab?.sample?.lead?.id || '';
-      const isDiscovery = projectId.startsWith('DG');
+      // Determine if this is discovery or clinical by looking up the record by id
+      const labRecord = normalizedLabs.find(l => String(l.id) === String(id)) || selectedLab || null;
+      const projectId = labRecord?.projectId || labRecord?._raw?.project_id || '';
+      const isDiscovery = String(projectId).startsWith('DG');
       const endpoint = isDiscovery ? `/api/labprocess-discovery-sheet/${id}` : `/api/labprocess-clinical-sheet/${id}`;
       const response = await apiRequest('DELETE', endpoint);
       return response.json();
@@ -507,12 +507,12 @@ export default function LabProcessing() {
       }
 
       // Determine if this is discovery or clinical based on project ID
-      const projectId = labRecord.projectId || '';
-      const isDiscovery = projectId.startsWith('DG');
-      const isClinical = projectId.startsWith('PG');
+      const projectId = labRecord.projectId || labRecord._raw?.project_id || '';
+      const isDiscovery = String(projectId).startsWith('DG');
+      const isClinical = String(projectId).startsWith('PG');
 
       if (!isDiscovery && !isClinical) {
-        throw new Error('Invalid project ID format. Must start with DG (Discovery) or PG (Clinical)');
+        throw new Error(`Invalid project ID format. Must start with DG (Discovery) or PG (Clinical). Got: "${projectId}"`);
       }
 
       // 🔑 IMPORTANT: Send THIS RECORD only (not all records with same unique_id)
@@ -532,16 +532,16 @@ export default function LabProcessing() {
       // AND use labRecord's uniqueId/titleUniqueId for unique_id (NOT projectId fallback)
       const bioinfoData = {
         unique_id: labRecord.titleUniqueId || labRecord.uniqueId || labRecord.unique_id || '',
-        project_id: labRecord.projectId || null,
-        sample_id: labRecord.sampleId || labRecord.sample_id || sample.sampleId || sample.sample_id || null,  // 🔑 Use exact sample_id with suffix
-        client_id: labRecord.clientId || lead.clientId || null,
+        project_id: labRecord.projectId || labRecord._raw?.project_id || '',
+        sample_id: labRecord.sampleId || labRecord.sample_id || labRecord._raw?.sample_id || sample.sampleId || sample.sample_id || '',  // 🔑 Use exact sample_id with suffix
+        client_id: labRecord.clientId || labRecord._raw?.client_id || sample.clientId || sample.client_id || lead.clientId || '',
         organisation_hospital: lead.organisationHospital || sample.organisationHospital || null,
         clinician_researcher_name: lead.clinicianResearcherName || sample.clinicianResearcherName || null,
         patient_client_name: lead.patientClientName || sample.patientClientName || null,
         age: lead.age || null,
         gender: lead.gender || null,
         service_name: lead.serviceName || labRecord.serviceName || null,
-        no_of_samples: lead.noOfSamples || labRecord.numberOfSamples || null,
+        // no_of_samples removed from front-end payload
         sequencing_status: 'pending',
         analysis_status: 'pending',
         tat: lead.tat || null,
@@ -565,6 +565,7 @@ export default function LabProcessing() {
       queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'] });
       toast({
         title: "Sent for Processing",
         description: "Sample has been sent to Bioinformatics for processing.",
@@ -602,49 +603,8 @@ export default function LabProcessing() {
   };
 
   const columns: ColumnDef<any>[] = [
-    { 
-      header: "Unique ID", 
-      accessorKey: "uniqueId",
-      // Rowspan: Group rows with same unique_id and project_id
-      rowSpan: (row, rowIndex, allData) => {
-        const rowKey = `${row.titleUniqueId || row.uniqueId || row.unique_id}|${row.projectId || row._raw?.project_id}`;
-        let count = 1;
-        
-        // Count consecutive rows with same unique_id + project_id
-        for (let i = rowIndex + 1; i < allData.length; i++) {
-          const nextRow = allData[i];
-          const nextKey = `${nextRow.titleUniqueId || nextRow.uniqueId || nextRow.unique_id}|${nextRow.projectId || nextRow._raw?.project_id}`;
-          if (rowKey === nextKey) {
-            count++;
-          } else {
-            break;
-          }
-        }
-        
-        return count;
-      }
-    },
-    { 
-      header: "Project ID", 
-      accessorKey: "projectId",
-      // Rowspan: Same logic as unique_id
-      rowSpan: (row, rowIndex, allData) => {
-        const rowKey = `${row.titleUniqueId || row.uniqueId || row.unique_id}|${row.projectId || row._raw?.project_id}`;
-        let count = 1;
-        
-        for (let i = rowIndex + 1; i < allData.length; i++) {
-          const nextRow = allData[i];
-          const nextKey = `${nextRow.titleUniqueId || nextRow.uniqueId || nextRow.unique_id}|${nextRow.projectId || nextRow._raw?.project_id}`;
-          if (rowKey === nextKey) {
-            count++;
-          } else {
-            break;
-          }
-        }
-        
-        return count;
-      }
-    },
+    { header: "Unique ID", accessorKey: "uniqueId" },
+    { header: "Project ID", accessorKey: "projectId" },
     {
       header: "Sample ID",
       cell: (lab) => lab.projectId
@@ -654,28 +614,6 @@ export default function LabProcessing() {
     { header: "Client ID", accessorKey: "clientId" },
     { header: "Service name", accessorKey: "serviceName" },
     { header: "Sample Type", accessorKey: "sampleType" },
-    {
-      header: "No of Samples",
-      accessorKey: "numberOfSamples",
-      rowSpan: (row, rowIndex, allData) => {
-        const explicit = Number(row.numberOfSamples ?? row.no_of_samples ?? 0);
-        if (!isNaN(explicit) && explicit > 1) return explicit;
-
-        // Fallback: count consecutive rows with same unique_id + project_id
-        const rowKey = `${row.titleUniqueId || row.uniqueId || row.unique_id}|${row.projectId || row._raw?.project_id}`;
-        let count = 1;
-        for (let i = rowIndex + 1; i < allData.length; i++) {
-          const nextRow = allData[i];
-          const nextKey = `${nextRow.titleUniqueId || nextRow.uniqueId || nextRow.unique_id}|${nextRow.projectId || nextRow._raw?.project_id}`;
-          if (rowKey === nextKey) {
-            count++;
-          } else {
-            break;
-          }
-        }
-        return count;
-      }
-    },
     {
       header: "Sample received date",
       cell: (lab) => lab.sampleDeliveryDate ? new Date(lab.sampleDeliveryDate).toLocaleDateString() : '-'
@@ -726,7 +664,7 @@ export default function LabProcessing() {
               clientId: lab.clientId ?? '',
               serviceName: lab.serviceName ?? '',
               sampleType: lab.sampleType ?? '',
-              numberOfSamples: lab.numberOfSamples ?? '',
+              // numberOfSamples removed
               sampleDeliveryDate: lab.sampleDeliveryDate ? (new Date(lab.sampleDeliveryDate).toISOString().slice(0, 10) as any) : undefined,
               extractionProtocol: lab.extractionProtocol ?? '',
               extractionQualityCheck: lab.extractionQualityCheck ?? '',
@@ -952,7 +890,7 @@ export default function LabProcessing() {
               <div><Label>Client ID</Label><Input {...editForm.register('clientId')} disabled={!labEditable.has('clientId')} /></div>
               <div><Label>Service Name</Label><Input {...editForm.register('serviceName')} disabled={!labEditable.has('serviceName')} /></div>
               <div><Label>Sample Type</Label><Input {...editForm.register('sampleType')} disabled={!labEditable.has('sampleType')} /></div>
-              <div><Label>No of Samples</Label><Input {...editForm.register('numberOfSamples')} disabled={!labEditable.has('numberOfSamples')} /></div>
+              {/* No of Samples removed from edit form */}
               <div><Label>Sample Received Date</Label><Input type="date" {...editForm.register('sampleDeliveryDate')} disabled={!labEditable.has('sampleDeliveryDate')} /></div>
 
               <div><Label>Extraction Protocol</Label><Input {...editForm.register('extractionProtocol')} disabled={!labEditable.has('extractionProtocol')} /></div>
