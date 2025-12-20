@@ -10,6 +10,13 @@ import type { ReportWithSample } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +32,8 @@ export default function ReportManagement() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [filter, setFilter] = useState('all');
   const [autoPopulatedData, setAutoPopulatedData] = useState<any>(null);
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -35,24 +44,8 @@ export default function ReportManagement() {
 
   // Auto-populate fields from bioinformatics data passed via location state
   useEffect(() => {
-    // Check for bioinformatics data in sessionStorage (passed from Bioinformatics component)
-    const bioinformationData = sessionStorage.getItem('bioinformatics_send_to_reports');
-    if (bioinformationData) {
-      try {
-        const data = JSON.parse(bioinformationData);
-        setAutoPopulatedData(data);
-        // Clear after reading
-        sessionStorage.removeItem('bioinformatics_send_to_reports');
-        // Auto-open the new record form with populated data
-        if (data) {
-          setTimeout(() => {
-            openNewRecordWithBioData(data);
-          }, 300);
-        }
-      } catch (e) {
-        console.error('Failed to parse bioinformatics data:', e);
-      }
-    }
+    // Removed: Auto-open modal when bioinformatics data detected
+    // User should manually create report if needed
   }, [location]);
 
   const { data: reports = [], isLoading } = useQuery<any[]>({
@@ -100,6 +93,7 @@ export default function ReportManagement() {
     tat: '',
     sample_type: '',
     no_of_samples: '',
+    sample_id: '',
     sample_received_date: '',
     progenics_trf: '',
     approval_from_finance: false,
@@ -134,6 +128,7 @@ export default function ReportManagement() {
       tat: bioData.tat ?? '',
       sample_type: '',
       no_of_samples: bioData.noOfSamples ?? '',
+      sample_id: bioData.sampleId ?? '',
       sample_received_date: bioData.sampleReceivedDate ? String(bioData.sampleReceivedDate).split('T')[0] : '',
       progenics_trf: '',
       approval_from_finance: false,
@@ -176,6 +171,7 @@ export default function ReportManagement() {
       tat: record.tat ?? '',
       sample_type: record.sample_type ?? '',
       no_of_samples: record.no_of_samples ?? '',
+      sample_id: record.sample_id ?? '',
       sample_received_date: record.sample_received_date ? String(record.sample_received_date).split('T')[0] : '',
       progenics_trf: record.progenics_trf ?? '',
       approval_from_finance: !!record.approval_from_finance,
@@ -230,6 +226,7 @@ export default function ReportManagement() {
           tat: json.tat ?? '',
           sample_type: json.sample_type ?? '',
           no_of_samples: json.no_of_samples ?? '',
+          sample_id: json.sample_id ?? '',
           sample_received_date: json.sample_received_date ? String(json.sample_received_date).split('T')[0] : '',
           progenics_trf: json.progenics_trf ?? '',
           approval_from_finance: !!json.approval_from_finance,
@@ -370,6 +367,18 @@ export default function ReportManagement() {
     if (filter === 'warning') return r.urgency === 'warning';
     return true;
   });
+
+  // Pagination calculations
+  const totalRecords = filteredReports.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, totalRecords);
+  const paginatedReports = filteredReports.slice(startIdx, endIdx);
+
+  // Keep currentPage within bounds when filters/pageSize change
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   const approveReportMutation = useMutation({
     mutationFn: async (reportId: string) => {
@@ -618,6 +627,11 @@ export default function ReportManagement() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium mb-1">Sample ID</label>
+              <Input value={editForm.sample_id} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_id: e.target.value}))} />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium mb-1">Sample Received Date</label>
               <Input type="date" value={editForm.sample_received_date} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_received_date: e.target.value}))} />
             </div>
@@ -661,7 +675,7 @@ export default function ReportManagement() {
           <DialogFooter>
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave} disabled={updateMutation.isLoading}>{updateMutation.isLoading ? 'Saving...' : 'Save'}</Button>
+              <Button onClick={handleSave} disabled={updateMutation.isPending}>{updateMutation.isPending ? 'Saving...' : 'Save'}</Button>
             </div>
           </DialogFooter>
         </DialogContent>
@@ -689,6 +703,20 @@ export default function ReportManagement() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">Page size</label>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(parseInt(v, 10)); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[70px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={() => window.open('/wes-report.html', '_blank')}>
               <FileText className="mr-2 h-4 w-4" />
               WES Report
@@ -696,9 +724,6 @@ export default function ReportManagement() {
             <Button>
               <FilePlus className="mr-2 h-4 w-4" />
               Generate Report
-            </Button>
-            <Button variant="ghost" onClick={checkReportManagementConnection}>
-              Check DB
             </Button>
           </div>
         </CardHeader>
@@ -712,8 +737,8 @@ export default function ReportManagement() {
               <p className="text-gray-500 dark:text-gray-400">No reports found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
+              <Table className="leads-table w-full text-sm">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Project ID</TableHead>
@@ -736,6 +761,7 @@ export default function ReportManagement() {
                     <TableHead>TAT (Days)</TableHead>
                     <TableHead>Sample Type</TableHead>
                     <TableHead>No of Samples</TableHead>
+                    <TableHead>Sample ID</TableHead>
                     <TableHead>Sample Received Date</TableHead>
                     <TableHead>Progenics TRF</TableHead>
                     <TableHead>Approveal from Finance</TableHead>
@@ -744,11 +770,11 @@ export default function ReportManagement() {
                     <TableHead>Lead Modified</TableHead>
                     <TableHead>Remark / Comment</TableHead>
                     <TableHead>GC case Summary</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="min-w-[120px] border-l-2 actions-column">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReports.map((report) => (
+                  {paginatedReports.map((report) => (
                     <TableRow key={report.unique_id}>
                       <TableCell>{report.project_id ?? '-'}</TableCell>
                       <TableCell>{report.report_url ?? '-'}</TableCell>
@@ -770,6 +796,7 @@ export default function ReportManagement() {
                       <TableCell>{report.tat ?? '-'}</TableCell>
                       <TableCell>{report.sample_type ?? '-'}</TableCell>
                       <TableCell>{report.no_of_samples ?? '-'}</TableCell>
+                      <TableCell>{report.sample_id ?? '-'}</TableCell>
                       <TableCell>{report.sample_received_date ? new Date(report.sample_received_date).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>{report.progenics_trf ?? '-'}</TableCell>
                       <TableCell>{report.approval_from_finance ? 'Yes' : 'No'}</TableCell>
@@ -778,8 +805,8 @@ export default function ReportManagement() {
                       <TableCell>{report.lead_modified ? new Date(report.lead_modified).toLocaleString() : '-'}</TableCell>
                       <TableCell>{report.remark_comment ?? '-'}</TableCell>
                       <TableCell>{report.gc_case_summary ?? '-'}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
+                      <TableCell className="min-w-[150px] border-l-2 px-4 py-3">
+                        <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
                           <Button size="sm" variant="outline" onClick={() => openEdit(report)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -792,6 +819,19 @@ export default function ReportManagement() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          {/* Pagination controls */}
+          {filteredReports.length > 0 && (
+            <div className="p-4">
+              <div className="pagination-controls flex items-center justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-400">Showing {startIdx + 1 <= totalRecords ? (startIdx + 1) : 0} - {Math.min(startIdx + pageSize, totalRecords)} of {totalRecords}</div>
+                <div className="flex items-center space-x-2">
+                  <Button className="min-w-[48px]" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <div className="px-2 text-sm">Page {currentPage} / {totalPages}</div>
+                  <Button className="min-w-[48px]" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>Next</Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>

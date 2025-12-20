@@ -649,6 +649,7 @@ CREATE TABLE IF NOT EXISTS report_management (
     tat INTEGER,
     sample_type VARCHAR(100),
     no_of_samples INTEGER,
+    sample_id VARCHAR(255),
     sample_received_date DATE,
     progenics_trf VARCHAR(255),
     approval_from_finance BOOLEAN DEFAULT FALSE,

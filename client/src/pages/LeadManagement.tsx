@@ -24,40 +24,43 @@ import { insertLeadSchema, type Lead, type LeadWithUser } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { generateRoleId } from "@/lib/generateRoleId";
+import { validatePhoneDigitCount, getNationalDigits, restrictPhoneInput, formatToE164, getDetectedCountryCode, getExpectedDigitCount, canAddMoreDigits } from "@/utils/phoneValidation";
 import { z } from "zod";
 
 const leadFormSchema = insertLeadSchema.extend({
-  // Required Organization fields
-  organisationHospital: z.string()
-    .min(1, "Organization name is required")
-    .min(2, "Organization name must be at least 2 characters")
-    .max(255, "Organization name must not exceed 255 characters")
-    .refine((val) => val.trim().length > 0, "Organization name cannot be just whitespace"),
+  // Organization & Clinician fields are optional for lead creation
+  organisationHospital: z.string().optional(),
 
-  // Required Clinician fields
-  clinicianResearcherName: z.string()
-    .min(1, "Clinician name is required")
-    .min(2, "Clinician name must be at least 2 characters")
-    .max(255, "Clinician name must not exceed 255 characters")
-    .refine((val) => val.trim().length > 0, "Clinician name cannot be just whitespace"),
+  // Clinician fields (optional) - allow blank values; when provided run basic validation
+  clinicianResearcherName: z.string().optional(),
 
   clinicianResearcherAddress: z.string().optional(),
 
-  // Clinician contact fields
-  clinicianResearcherEmail: z.string()
-    .min(1, "Clinician email is required")
-    .email("Please enter a valid email address")
-    .max(255, "Email must not exceed 255 characters"),
+  // Clinician contact fields (optional). If provided, validate format; otherwise allow empty.
+  clinicianResearcherEmail: z.string().optional().refine((val) => {
+    if (!val || (typeof val === 'string' && val.trim() === '')) return true;
+    try {
+      // rely on zod/email check by delegating to a temp zod schema
+      return z.string().email().max(255).safeParse(val).success;
+    } catch (e) {
+      return false;
+    }
+  }, { message: "Please enter a valid email address" }),
 
-  // Phone validation for international numbers (required)
-  clinicianResearcherPhone: z.string()
-    .min(1, "Clinician phone number is required")
-    .refine((phone) => {
-      if (!phone || phone.trim() === '') return false; // Make required
-      return isValidPhoneNumber(phone);
-    }, {
-      message: "Please enter a valid international phone number"
-    }),
+  clinicianResearcherPhone: z.string().optional().refine((phone) => {
+    if (!phone || phone.trim() === '') return true; // allow empty
+    return isValidPhoneNumber(phone as string);
+  }, { message: "Please enter a valid international phone number" })
+  .superRefine((phone, ctx) => {
+    if (!phone || (typeof phone === 'string' && phone.trim() === '')) return; // skip when empty
+    const validation = validatePhoneDigitCount(phone as string);
+    if (!validation.isValid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: validation.message || "Invalid phone number digit count for the country"
+      });
+    }
+  }),
 
   // Lead type validation
   leadType: z.string()
@@ -96,6 +99,16 @@ const leadFormSchema = insertLeadSchema.extend({
       return isValidPhoneNumber(phone);
     }, {
       message: "Please enter a valid international phone number"
+    })
+    .superRefine((phone, ctx) => {
+      if (!phone || phone.trim() === '') return; // Let the required check handle this
+      const validation = validatePhoneDigitCount(phone);
+      if (!validation.isValid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.message || "Invalid phone number digit count for the country"
+        });
+      }
     }),
   sampleId: z.string().optional(),
   patientClientAddress: z.string().optional(),
@@ -130,6 +143,46 @@ const leadFormSchema = insertLeadSchema.extend({
 });
 
 type LeadFormData = z.infer<typeof leadFormSchema>;
+
+/**
+ * Handle phone input change with dynamic country detection and digit limiting
+ * Automatically restricts digits based on the country code detected from the phone value
+ * E.g., India (+91) -> max 10 digits, USA (+1) -> max 10 digits, etc.
+ */
+function handlePhoneInputChange(
+  value: string | undefined,
+  onSetValue: (val: string) => void,
+  onSetError?: (error: string | undefined) => void
+) {
+  if (!value) {
+    onSetValue('');
+    onSetError?.(undefined);
+    return;
+  }
+
+  // Restrict to max digits for the detected country code
+  // This is the KEY change - restrictPhoneInput now auto-detects country from phone value
+  const restrictedValue = restrictPhoneInput(value);
+  
+  // Validate phone number
+  if (!isValidPhoneNumber(restrictedValue)) {
+    // Let it pass for now, validation will happen on form submission
+    onSetValue(restrictedValue);
+    onSetError?.("Please enter a valid international phone number");
+    return;
+  }
+
+  // Validate digit count for country
+  const digitValidation = validatePhoneDigitCount(restrictedValue);
+  if (!digitValidation.isValid) {
+    onSetValue(restrictedValue);
+    onSetError?.(digitValidation.message);
+    return;
+  }
+
+  onSetValue(restrictedValue);
+  onSetError?.(undefined);
+}
 
 // Schema for editing leads - all fields optional to allow partial updates
 const editLeadSchema = leadFormSchema.partial();
@@ -512,6 +565,47 @@ export default function LeadManagement() {
           const minutes = String(dt.getMinutes()).padStart(2, '0');
           return `${year}-${month}-${day}T${hours}:${minutes}`;
         }
+      }
+    } catch (e) {
+      return '';
+    }
+    return '';
+  };
+
+  // Helper: get minimum date for dependent date fields (YYYY-MM-DD format for HTML date input)
+  // Returns the Sample Collection Date, or empty string if not set
+  const getMinDateForDependentFields = (sampleCollectionDate: any): string => {
+    if (!sampleCollectionDate) return '';
+    try {
+      if (sampleCollectionDate instanceof Date) {
+        const year = sampleCollectionDate.getFullYear();
+        const month = String(sampleCollectionDate.getMonth() + 1).padStart(2, '0');
+        const day = String(sampleCollectionDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      if (typeof sampleCollectionDate === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sampleCollectionDate)) return sampleCollectionDate;
+        if (sampleCollectionDate.includes('T')) return sampleCollectionDate.split('T')[0];
+      }
+    } catch (e) {
+      return '';
+    }
+    return '';
+  };
+
+  // Helper: get minimum date for Delivery Up To field (datetime-local format YYYY-MM-DDTHH:mm)
+  const getMinDatetimeForDeliveryUpTo = (sampleCollectionDate: any): string => {
+    if (!sampleCollectionDate) return '';
+    try {
+      if (sampleCollectionDate instanceof Date) {
+        const year = sampleCollectionDate.getFullYear();
+        const month = String(sampleCollectionDate.getMonth() + 1).padStart(2, '0');
+        const day = String(sampleCollectionDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}T00:00`;
+      }
+      if (typeof sampleCollectionDate === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(sampleCollectionDate)) return `${sampleCollectionDate}T00:00`;
+        if (sampleCollectionDate.includes('T')) return sampleCollectionDate.substring(0, 16); // YYYY-MM-DDTHH:mm
       }
     } catch (e) {
       return '';
@@ -1166,7 +1260,7 @@ export default function LeadManagement() {
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Add New Lead</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto dialog-content">
               <DialogHeader>
                 <DialogTitle>Create New Lead</DialogTitle>
                 <DialogDescription>Create leads for individual tests or projects. Fields are organized to match the table structure.</DialogDescription>
@@ -1174,9 +1268,9 @@ export default function LeadManagement() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
                 {/* Section 1: Lead Info */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Lead Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Lead Type <span className="text-red-500">*</span></Label>
                       <Select onValueChange={(value) => {
@@ -1302,14 +1396,14 @@ export default function LeadManagement() {
                   <h3 className="text-lg font-medium mb-4">Organization & Clinician</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label>Organisation / Hospital <span className="text-red-500">*</span></Label>
+                      <Label>Organisation / Hospital</Label>
                       <Input {...form.register('organisationHospital')} placeholder="Hospital/Clinic Name" />
                       {form.formState.errors.organisationHospital && (
                         <p className="text-sm text-red-600 mt-1">{form.formState.errors.organisationHospital.message}</p>
                       )}
                     </div>
                     <div>
-                      <Label>Clinician / Researcher Name <span className="text-red-500">*</span></Label>
+                      <Label>Clinician / Researcher Name</Label>
                       <div className="flex gap-2">
                         <Select
                           value={selectedTitle}
@@ -1346,26 +1440,53 @@ export default function LeadManagement() {
                       <Input {...form.register('speciality')} placeholder="Genetics, Oncology, etc." />
                     </div>
                     <div>
-                      <Label>Clinician / Researcher Email <span className="text-red-500">*</span></Label>
+                      <Label>Clinician / Researcher Email</Label>
                       <Input {...form.register('clinicianResearcherEmail')} placeholder="doctor@hospital.com" />
                       {form.formState.errors.clinicianResearcherEmail && (
                         <p className="text-sm text-red-600 mt-1">{form.formState.errors.clinicianResearcherEmail.message}</p>
                       )}
                     </div>
                     <div>
-                      <Label>Clinician / Researcher Phone <span className="text-red-500">*</span></Label>
+                      <Label>Clinician / Researcher Phone</Label>
                       <div className="phone-input-wrapper">
                         <PhoneInput
                           international
                           countryCallingCodeEditable={false}
                           defaultCountry="IN"
                           value={form.watch('clinicianResearcherPhone') || ''}
-                          onChange={(value) => form.setValue('clinicianResearcherPhone', value || '')}
+                          onChange={(value) => {
+                            const phoneValue = value || '';
+                            
+                            // Get the national digits (without country code)
+                            const nationalDigits = getNationalDigits(phoneValue);
+                            const countryCode = getDetectedCountryCode(phoneValue) || 'IN';
+                            const maxDigits = getExpectedDigitCount(countryCode) || 10;
+                            
+                            // Restrict and format
+                            const restrictedValue = restrictPhoneInput(phoneValue, 'IN');
+                            form.setValue('clinicianResearcherPhone', restrictedValue);
+                            
+                            // Trigger validation
+                            if (restrictedValue) {
+                              form.trigger('clinicianResearcherPhone');
+                            }
+                          }}
                           placeholder="Enter phone number"
                         />
                       </div>
                       {form.formState.errors.clinicianResearcherPhone && (
-                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.clinicianResearcherPhone.message}</p>
+                        <p className="text-sm text-red-600 mt-1">{typeof form.formState.errors.clinicianResearcherPhone.message === 'string' ? form.formState.errors.clinicianResearcherPhone.message : 'Invalid phone number'}</p>
+                      )}
+                      {form.watch('clinicianResearcherPhone') && !form.formState.errors.clinicianResearcherPhone && (
+                        <div className="text-xs text-green-600 mt-1">
+                          ✓ Valid phone number
+                          {(() => {
+                            const country = getDetectedCountryCode(form.watch('clinicianResearcherPhone'));
+                            const expectedDigits = country ? getExpectedDigitCount(country) : null;
+                            const nationalDigits = getNationalDigits(form.watch('clinicianResearcherPhone'));
+                            return country && expectedDigits ? ` (${country}: ${nationalDigits.length}/${expectedDigits} digits)` : '';
+                          })()}
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1376,9 +1497,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 3: Patient Details */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Patient Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Patient / Client Name <span className="text-red-500">*</span></Label>
                       <Input {...form.register('patientClientName')} placeholder="Patient full name" />
@@ -1413,12 +1534,39 @@ export default function LeadManagement() {
                           countryCallingCodeEditable={false}
                           defaultCountry="IN"
                           value={form.watch('patientClientPhone') || ''}
-                          onChange={(value) => form.setValue('patientClientPhone', value || '')}
+                          onChange={(value) => {
+                            const phoneValue = value || '';
+                            
+                            // Get the national digits (without country code)
+                            const nationalDigits = getNationalDigits(phoneValue);
+                            const countryCode = getDetectedCountryCode(phoneValue) || 'IN';
+                            const maxDigits = getExpectedDigitCount(countryCode) || 10;
+                            
+                            // Restrict and format
+                            const restrictedValue = restrictPhoneInput(phoneValue, 'IN');
+                            form.setValue('patientClientPhone', restrictedValue);
+                            
+                            // Trigger validation
+                            if (restrictedValue) {
+                              form.trigger('patientClientPhone');
+                            }
+                          }}
                           placeholder="Enter phone number"
                         />
                       </div>
                       {form.formState.errors.patientClientPhone && (
-                        <p className="text-sm text-red-600 mt-1">{form.formState.errors.patientClientPhone.message}</p>
+                        <p className="text-sm text-red-600 mt-1">{typeof form.formState.errors.patientClientPhone.message === 'string' ? form.formState.errors.patientClientPhone.message : 'Invalid phone number'}</p>
+                      )}
+                      {form.watch('patientClientPhone') && !form.formState.errors.patientClientPhone && (
+                        <div className="text-xs text-green-600 mt-1">
+                          ✓ Valid phone number
+                          {(() => {
+                            const country = getDetectedCountryCode(form.watch('patientClientPhone'));
+                            const expectedDigits = country ? getExpectedDigitCount(country) : null;
+                            const nationalDigits = getNationalDigits(form.watch('patientClientPhone'));
+                            return country && expectedDigits ? ` (${country}: ${nationalDigits.length}/${expectedDigits} digits)` : '';
+                          })()}
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1429,9 +1577,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 4: Sample & Logistics */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Sample & Logistics</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>No of Samples</Label>
                       <Input {...form.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="e.g., 1" />
@@ -1453,34 +1601,40 @@ export default function LeadManagement() {
                       <Input
                         {...form.register('deliveryUpTo')}
                         type="datetime-local"
+                        disabled={!form.watch('sampleCollectionDate')}
+                        min={form.watch('sampleCollectionDate') ? `${formatDateForInput(form.watch('sampleCollectionDate'))}T00:00` : undefined}
                         value={formatDatetimeForInput(form.watch('deliveryUpTo'))}
                         onChange={(e) => {
                           if (e.target.value) {
-                            const sampleDate = form.watch('sampleCollectionDate');
-                            if (sampleDate) {
-                              const pickupDate = new Date(e.target.value);
-                              const collectionDate = sampleDate instanceof Date ? sampleDate : new Date(sampleDate);
-                              if (pickupDate < collectionDate) {
-                                const correctedDate = new Date(collectionDate);
-                                correctedDate.setHours(0, 0, 0, 0);
-                                form.setValue('deliveryUpTo', correctedDate);
-                                return;
-                              }
-                            }
                             form.setValue('deliveryUpTo', parseLocalDatetime(e.target.value));
                           } else {
                             form.setValue('deliveryUpTo', null);
                           }
                         }}
                       />
+                      {!form.watch('sampleCollectionDate') && (
+                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
+                      )}
                     </div>
                     <div>
                       <Label>Sample Shipped Date</Label>
                       <Input
                         type="date"
+                        disabled={!form.watch('sampleCollectionDate')}
+                        min={form.watch('sampleCollectionDate') ? formatDateForInput(form.watch('sampleCollectionDate')) : undefined}
                         {...form.register('sampleShippedDate')}
                         value={formatDateForInput(form.watch('sampleShippedDate'))}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            form.setValue('sampleShippedDate', e.target.value ? new Date(e.target.value) : null);
+                          } else {
+                            form.setValue('sampleShippedDate', null);
+                          }
+                        }}
                       />
+                      {!form.watch('sampleCollectionDate') && (
+                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
+                      )}
                     </div>
                     <div>
                       <Label>Sample Shipment Amount</Label>
@@ -1498,9 +1652,21 @@ export default function LeadManagement() {
                       <Label>Sample Received Date</Label>
                       <Input
                         type="date"
+                        disabled={!form.watch('sampleCollectionDate')}
+                        min={form.watch('sampleCollectionDate') ? formatDateForInput(form.watch('sampleCollectionDate')) : undefined}
                         {...form.register('sampleReceivedDate')}
                         value={formatDateForInput(form.watch('sampleReceivedDate'))}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            form.setValue('sampleReceivedDate', e.target.value ? new Date(e.target.value) : null);
+                          } else {
+                            form.setValue('sampleReceivedDate', null);
+                          }
+                        }}
                       />
+                      {!form.watch('sampleCollectionDate') && (
+                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
+                      )}
                     </div>
                     <div>
                       <Label>Tracking ID</Label>
@@ -1602,9 +1768,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 5: Requirements & Remarks */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Requirements & Remarks</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Genetic Counsellor Required</Label>
                       <Select onValueChange={(value) => form.setValue('geneticCounselorRequired', value === 'yes')} defaultValue={form.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
@@ -1625,7 +1791,7 @@ export default function LeadManagement() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="md:col-span-3">
+                    <div className="sm:col-span-2 lg:col-span-1">
                       <Label>Remarks</Label>
                       <Input {...form.register('remarkComment')} placeholder="Any additional remarks or comments" />
                     </div>
@@ -1654,7 +1820,7 @@ export default function LeadManagement() {
         {/* Edit Lead Dialog - Only visible to users who can edit this lead */}
         {isEditDialogOpen && selectedLead && canEdit(selectedLead) && (
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto dialog-content">
               <DialogHeader>
                 <DialogTitle>Edit Lead</DialogTitle>
                 <DialogDescription>Edit existing lead details. Changes will be saved to the server.</DialogDescription>
@@ -1662,9 +1828,9 @@ export default function LeadManagement() {
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
 
                 {/* Section 1: Lead Info */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Lead Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Lead Type <span className="text-red-500">*</span></Label>
                       <Select onValueChange={(value) => { editForm.setValue('leadType', value); setEditSelectedLeadType(value); }} defaultValue={editSelectedLeadType}>
@@ -1776,9 +1942,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 2: Organization / Clinician */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Organization & Clinician</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Organization / Hospital <span className="text-red-500">*</span></Label>
                       <Input {...editForm.register('organisationHospital')} placeholder="Hospital/Clinic Name" />
@@ -1837,13 +2003,28 @@ export default function LeadManagement() {
                           international
                           countryCallingCodeEditable={false}
                           defaultCountry="IN"
-                          value={editForm.watch('clinicianResearcherPhone') || ''}
-                          onChange={(value) => editForm.setValue('clinicianResearcherPhone', value || '')}
+                          value={formatToE164(editForm.watch('clinicianResearcherPhone')) || ''}
+                          onChange={(value) => {
+                            const phoneValue = value || '';
+                            // Restrict to max digits (India: 10) and format to E.164
+                            const restrictedValue = restrictPhoneInput(phoneValue, 'IN');
+                            const formattedValue = formatToE164(restrictedValue);
+                            editForm.setValue('clinicianResearcherPhone', formattedValue);
+                            // Trigger validation
+                            if (formattedValue) {
+                              editForm.trigger('clinicianResearcherPhone');
+                            }
+                          }}
                           placeholder="Enter phone number"
                         />
                       </div>
                       {editForm.formState.errors.clinicianResearcherPhone && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.clinicianResearcherPhone.message}</p>
+                        <p className="text-sm text-red-600 mt-1">{typeof editForm.formState.errors.clinicianResearcherPhone.message === 'string' ? editForm.formState.errors.clinicianResearcherPhone.message : 'Invalid phone number'}</p>
+                      )}
+                      {editForm.watch('clinicianResearcherPhone') && !editForm.formState.errors.clinicianResearcherPhone && (
+                        <div className="text-xs text-green-600 mt-1">
+                          ✓ Valid phone number
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1854,9 +2035,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 3: Patient Details */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Patient Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Patient / Client Name <span className="text-red-500">*</span></Label>
                       <Input {...editForm.register('patientClientName')} placeholder="Patient full name" />
@@ -1890,13 +2071,28 @@ export default function LeadManagement() {
                           international
                           countryCallingCodeEditable={false}
                           defaultCountry="IN"
-                          value={editForm.watch('patientClientPhone') || ''}
-                          onChange={(value) => editForm.setValue('patientClientPhone', value || '')}
+                          value={formatToE164(editForm.watch('patientClientPhone')) || ''}
+                          onChange={(value) => {
+                            const phoneValue = value || '';
+                            // Restrict to max digits (India: 10) and format to E.164
+                            const restrictedValue = restrictPhoneInput(phoneValue, 'IN');
+                            const formattedValue = formatToE164(restrictedValue);
+                            editForm.setValue('patientClientPhone', formattedValue);
+                            // Trigger validation
+                            if (formattedValue) {
+                              editForm.trigger('patientClientPhone');
+                            }
+                          }}
                           placeholder="Enter phone number"
                         />
                       </div>
                       {editForm.formState.errors.patientClientPhone && (
-                        <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.patientClientPhone.message}</p>
+                        <p className="text-sm text-red-600 mt-1">{typeof editForm.formState.errors.patientClientPhone.message === 'string' ? editForm.formState.errors.patientClientPhone.message : 'Invalid phone number'}</p>
+                      )}
+                      {editForm.watch('patientClientPhone') && !editForm.formState.errors.patientClientPhone && (
+                        <div className="text-xs text-green-600 mt-1">
+                          ✓ Valid phone number
+                        </div>
                       )}
                     </div>
                     <div>
@@ -1911,9 +2107,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 4: Sample & Logistics */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Sample & Logistics</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>No of Samples</Label>
                       <Input {...editForm.register('noOfSamples', { valueAsNumber: true })} type="number" placeholder="e.g., 1" />
@@ -1935,34 +2131,40 @@ export default function LeadManagement() {
                       <Input
                         {...editForm.register('deliveryUpTo')}
                         type="datetime-local"
+                        disabled={!editForm.watch('sampleCollectionDate')}
+                        min={editForm.watch('sampleCollectionDate') ? `${formatDateForInput(editForm.watch('sampleCollectionDate'))}T00:00` : undefined}
                         value={formatDatetimeForInput(editForm.watch('deliveryUpTo'))}
                         onChange={(e) => {
                           if (e.target.value) {
-                            const sampleDate = editForm.watch('sampleCollectionDate');
-                            if (sampleDate) {
-                              const pickupDate = new Date(e.target.value);
-                              const collectionDate = sampleDate instanceof Date ? sampleDate : new Date(sampleDate);
-                              if (pickupDate < collectionDate) {
-                                const correctedDate = new Date(collectionDate);
-                                correctedDate.setHours(0, 0, 0, 0);
-                                editForm.setValue('deliveryUpTo', correctedDate);
-                                return;
-                              }
-                            }
                             editForm.setValue('deliveryUpTo', parseLocalDatetime(e.target.value));
                           } else {
                             editForm.setValue('deliveryUpTo', null);
                           }
                         }}
                       />
+                      {!editForm.watch('sampleCollectionDate') && (
+                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
+                      )}
                     </div>
                     <div>
                       <Label>Sample Shipped Date</Label>
                       <Input
                         type="date"
+                        disabled={!editForm.watch('sampleCollectionDate')}
+                        min={editForm.watch('sampleCollectionDate') ? formatDateForInput(editForm.watch('sampleCollectionDate')) : undefined}
                         {...editForm.register('sampleShippedDate')}
                         value={formatDateForInput(editForm.watch('sampleShippedDate'))}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            editForm.setValue('sampleShippedDate', e.target.value ? new Date(e.target.value) : null);
+                          } else {
+                            editForm.setValue('sampleShippedDate', null);
+                          }
+                        }}
                       />
+                      {!editForm.watch('sampleCollectionDate') && (
+                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
+                      )}
                     </div>
                     <div>
                       <Label>Sample Shipment Amount</Label>
@@ -1980,9 +2182,21 @@ export default function LeadManagement() {
                       <Label>Sample Received Date</Label>
                       <Input
                         type="date"
+                        disabled={!editForm.watch('sampleCollectionDate')}
+                        min={editForm.watch('sampleCollectionDate') ? formatDateForInput(editForm.watch('sampleCollectionDate')) : undefined}
                         {...editForm.register('sampleReceivedDate')}
                         value={formatDateForInput(editForm.watch('sampleReceivedDate'))}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            editForm.setValue('sampleReceivedDate', e.target.value ? new Date(e.target.value) : null);
+                          } else {
+                            editForm.setValue('sampleReceivedDate', null);
+                          }
+                        }}
                       />
+                      {!editForm.watch('sampleCollectionDate') && (
+                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
+                      )}
                     </div>
                     <div>
                       <Label>Tracking ID</Label>
@@ -2075,9 +2289,9 @@ export default function LeadManagement() {
                 </div>
 
                 {/* Section 5: Requirements & Remarks */}
-                <div className="border-b pb-6">
+                <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Requirements & Remarks</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Genetic Counsellor Required</Label>
                       <Select onValueChange={(value) => editForm.setValue('geneticCounselorRequired', value === 'yes')} defaultValue={editForm.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
@@ -2098,7 +2312,7 @@ export default function LeadManagement() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="md:col-span-3">
+                    <div className="sm:col-span-2 lg:col-span-1">
                       <Label>Remarks</Label>
                       <Input {...editForm.register('remarkComment')} placeholder="Any additional remarks or comments" />
                     </div>
@@ -2403,9 +2617,9 @@ export default function LeadManagement() {
               {serviceData.length === 0 ? (
                 <div className="text-sm text-gray-500">No service data available</div>
               ) : (
-                <div style={{ width: '100%', height: 320 }} className="flex items-center">
-                  {/* left: fixed chart area to prevent overlap with table/content */}
-                  <div ref={chartRef} style={{ flex: '0 0 62%', minWidth: 420, height: 320, position: 'relative' }} className="pr-4">
+                <div className="chart-container w-full flex flex-col lg:flex-row items-start gap-4 lg:gap-8">
+                  {/* left: chart area - responsive mobile to desktop */}
+                  <div ref={chartRef} className="chart-area w-full lg:w-3/5 h-72 sm:h-80 lg:h-96 relative pr-0 lg:pr-4">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -2449,8 +2663,8 @@ export default function LeadManagement() {
                       </div>
                     ))}
                   </div>
-                  {/* right: legend with fixed width */}
-                  <div style={{ width: 280, flex: '0 0 280px', maxHeight: 320, overflowY: 'auto' }} className="pl-8">
+                  {/* right: legend - responsive mobile to desktop */}
+                  <div className="legend-container w-full lg:w-2/5 h-72 sm:h-80 lg:h-96 overflow-y-auto pl-0 lg:pl-8">
                     <h4 className="text-sm font-medium mb-3">Legend</h4>
                     <ul className="space-y-3 text-sm">
                       {serviceData.map((d, i) => (
@@ -2503,8 +2717,8 @@ export default function LeadManagement() {
             </div>
           </div>
 
-          <div className="border rounded-lg max-h-[60vh] overflow-auto">
-            <Table>
+          <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper">
+            <Table className="leads-table w-full">
               <TableHeader className="sticky top-0 bg-white dark:bg-gray-900 z-20 border-b-2">
                 <TableRow>
                   <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -2547,7 +2761,7 @@ export default function LeadManagement() {
                   <TableHead onClick={() => { setSortKey('leadCreated'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Created{sortKey === 'leadCreated' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('leadModified'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Modified{sortKey === 'leadModified' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Remark / Comment</TableHead>
-                  <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold min-w-[200px]">Actions</TableHead>
+                  <TableHead className="actions-column whitespace-nowrap font-semibold min-w-[200px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2612,26 +2826,25 @@ export default function LeadManagement() {
                       <TableCell className="whitespace-nowrap">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString() : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.leadModified ? new Date(lead.leadModified).toLocaleString() : '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{(lead as any).remarkComment ?? (lead as any).remarks ?? (lead as any).remark ?? (lead as any).comments ?? '-'}</TableCell>
-                      <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2">
-                        <div className="flex space-x-2 cursor-pointer">
-                          {canEdit(lead) && (
-                            <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)} className="cursor-pointer">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canDelete() && (
-                            <Button variant="ghost" size="sm" onClick={() => {
-                              if (!confirm('Delete this lead? This action cannot be undone.')) return;
-                              // Server will create the recycle snapshot; do not create a duplicate on the client
-                              deleteLeadMutation.mutate({ id: lead.id });
-                            }}>
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          )}
-                          {/* Quick status badge in Actions for faster visibility and context */}
-                          {/* Treat backend `completed` as visually `Converted` here. We show a badge
-                             labelled "Converted" but keep action buttons hidden for completed rows. */}
-                          <Badge className={`${getStatusBadgeColor(lead.status || 'quoted')} whitespace-nowrap px-2 py-1 text-xs`}>
+                      <TableCell className="actions-column">
+                        <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 cursor-pointer flex-wrap">
+                          <div className="flex gap-1 sm:gap-2">
+                            {canEdit(lead) && (
+                              <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)} className="cursor-pointer p-1 h-8 w-8">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete() && (
+                              <Button variant="ghost" size="sm" onClick={() => {
+                                if (!confirm('Delete this lead? This action cannot be undone.')) return;
+                                // Server will create the recycle snapshot; do not create a duplicate on the client
+                                deleteLeadMutation.mutate({ id: lead.id });
+                              }} className="p-1 h-8 w-8">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            )}
+                          </div>
+                          <Badge className={`${getStatusBadgeColor(lead.status || 'quoted')} whitespace-nowrap px-2 py-1 text-xs flex-shrink-0`}>
                             {(lead.status || 'quoted').toString() === 'converted' ? 'Converted' : (lead.status || 'quoted').toString()}
                           </Badge>
 
@@ -2643,10 +2856,11 @@ export default function LeadManagement() {
                                   variant="outline"
                                   onClick={() => handleStatusChange(lead.id, getNextStatus(lead.status || 'quoted')!)}
                                   disabled={updateLeadStatusMutation.isPending}
+                                  className="text-xs px-1 py-0 h-7 whitespace-nowrap"
                                 >
-                                  {getNextStatus(lead.status || 'quoted') === 'cold' && '🔥 Mark Cold'}
-                                  {getNextStatus(lead.status || 'quoted') === 'hot' && '🔥 Mark Hot'}
-                                  {getNextStatus(lead.status || 'quoted') === 'won' && '✅ Mark Won'}
+                                  {getNextStatus(lead.status || 'quoted') === 'cold' && '🔥 Cold'}
+                                  {getNextStatus(lead.status || 'quoted') === 'hot' && '🔥 Hot'}
+                                  {getNextStatus(lead.status || 'quoted') === 'won' && '✅ Won'}
                                 </Button>
                               )}
                               {lead.status === 'won' && (
@@ -2654,8 +2868,8 @@ export default function LeadManagement() {
                                   size="sm"
                                   onClick={() => handleConvertLead(lead.id)}
                                   disabled={convertLeadMutation.isPending}
+                                  className="text-xs px-1 py-0 h-7 whitespace-nowrap"
                                 >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
                                   Convert
                                 </Button>
                               )}
@@ -2671,12 +2885,12 @@ export default function LeadManagement() {
           </div>
         </CardContent>
         {/* Pagination controls */}
-        <div className="p-4 flex items-center justify-between">
-          <div>Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}</div>
-          <div className="flex items-center space-x-2">
-            <Button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Button>
-            <div>Page {page} / {totalPages}</div>
-            <Button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</Button>
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="text-sm">Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}</div>
+          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+            <Button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} size="sm">Prev</Button>
+            <div className="text-sm px-2 min-w-[60px] text-center">Page {page} / {totalPages}</div>
+            <Button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} size="sm">Next</Button>
           </div>
         </div>
       </Card>

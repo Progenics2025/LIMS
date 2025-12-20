@@ -414,6 +414,12 @@ export default function FinanceManagement() {
     );
   });
 
+  // Pagination calculations for finance records (client-side)
+  const totalFiltered = filteredFinanceRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const start = Math.max(0, (page - 1) * pageSize);
+  const visibleRows = filteredFinanceRows.slice(start, start + pageSize);
+
   // Upload helper for screenshot/document attachments
   const handleFileUpload = async (id: string | number, file: File | null) => {
     if (!file) {
@@ -507,10 +513,10 @@ export default function FinanceManagement() {
           {isLoading ? (
             <div className="text-center py-8">Loading pending approvals...</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
               {/* Make pending approvals table vertically scrollable with sticky header */}
               <div className="max-h-[50vh] overflow-y-auto">
-                <Table>
+                <Table className="leads-table">
                   <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                     <TableRow>
                       <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Unique ID</TableHead>
@@ -557,7 +563,7 @@ export default function FinanceManagement() {
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
                       <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31]">Actions</TableHead>
+                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -618,8 +624,8 @@ export default function FinanceManagement() {
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.modifiedAt ? new Date(s.modifiedAt).toLocaleString() : '-'}</TableCell>
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.modifiedBy ?? (lead as any).modifiedBy ?? '-'}</TableCell>
                             <TableCell className="min-w-[220px] text-gray-900 dark:text-white">{s.remark_comment ?? s.comments ?? s.notes ?? s.remarks ?? (lead as any).comments ?? (lead as any).remarks ?? '-'}</TableCell>
-                            <TableCell className="min-w-[150px] sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0">
-                              <div className="flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
+                            <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
+                              <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
                                 <Button variant="ghost" size="sm" onClick={() => {
                                   setSelectedRecord(s);
                                   setIsEditDialogOpen(true);
@@ -1005,10 +1011,10 @@ export default function FinanceManagement() {
             <div className="text-center py-8">Loading finance records...</div>
           ) : (
             <div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
                 {/* Make finance records table vertically scrollable with sticky header */}
                 <div className="max-h-[60vh] overflow-y-auto">
-                  <Table>
+                  <Table className="leads-table">
                     <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                     <TableRow>
                       <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Unique ID</TableHead>
@@ -1055,7 +1061,7 @@ export default function FinanceManagement() {
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
                       <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31]">Actions</TableHead>
+                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                 <TableBody>
@@ -1064,7 +1070,7 @@ export default function FinanceManagement() {
                       <TableCell colSpan={FINANCE_HEADER_COUNT} className="text-center py-8 text-gray-500 dark:text-gray-400">No finance records match your search</TableCell>
                     </TableRow>
                   ) : (
-                    filteredFinanceRows.map((record: any) => {
+                    visibleRows.map((record: any) => {
                       const projectIdDisplay = record.projectId ?? record.project_id ?? record.sample?.projectId ?? record.sample?.project_id ?? record.sample?.lead?.projectId ?? record.sample?.lead?.project_id ?? record.sample?.lead?.id ?? 'N/A';
                       const uniqueIdDisplay = record.uniqueId ?? (record as any).unique_id ?? record.sample?.lead?.id ?? '-';
                       return (
@@ -1114,8 +1120,8 @@ export default function FinanceManagement() {
                         <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>
                         <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>
                         <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>
-                        <TableCell className="min-w-[150px] sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0">
-                          <div className="flex space-x-1 items-center justify-center h-full bg-white dark:bg-gray-900 px-2 py-1">
+                        <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
+                          <div className="action-buttons flex space-x-1 items-center justify-center h-full bg-white dark:bg-gray-900 px-2 py-1">
                           <Button
                             variant="outline"
                             size="sm"
@@ -1190,7 +1196,26 @@ export default function FinanceManagement() {
                 </div>
               </div>
               
-              {/* Pagination controls removed - API returns flat array of all records */}
+              {/* Pagination Controls */}
+              {totalFiltered > 0 && (
+                <div className="p-4 border-t">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {totalFiltered === 0 ? 0 : (start + 1)} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
+                    </div>
+
+                    <div className="flex items-center space-x-2 justify-end pagination-controls">
+                      <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                        Prev
+                      </Button>
+                      <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
+                      <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

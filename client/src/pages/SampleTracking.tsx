@@ -458,8 +458,8 @@ export default function SampleTracking() {
           </div>
 
           <div>
-            <div className="border rounded-lg max-h-[60vh] overflow-auto">
-              <Table>
+            <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper process-table-wrapper">
+              <Table className="leads-table">
                 <TableHeader className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b-2">
                   <TableRow>
                     <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -487,7 +487,7 @@ export default function SampleTracking() {
                     <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created At{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                     <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                     <TableHead className="min-w-[200px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] whitespace-nowrap font-semibold min-w-[100px]">Actions</TableHead>
+                    <TableHead className="bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] whitespace-nowrap font-semibold min-w-[100px] actions-column">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -533,8 +533,8 @@ export default function SampleTracking() {
                           <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.createdAt ? new Date(sample.createdAt).toLocaleDateString() : '-'}</TableCell>
                           <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{typeof sample.createdBy === 'object' ? (sample.createdBy as any)?.name ?? '-' : sample.createdBy ?? '-'}</TableCell>
                           <TableCell className="min-w-[200px] text-gray-900 dark:text-white max-w-xs truncate">{sample.remarkComment || sample.lead?.remarkComment || sample._raw?.remark_comment || '-'}</TableCell>
-                          <TableCell className={`sticky right-0 min-w-[100px] border-l-2 border-gray-200 dark:border-gray-700 z-[4] ${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
-                            <div className="flex space-x-2">
+                          <TableCell className={`min-w-[100px] border-l-2 border-gray-200 dark:border-gray-700 z-[4] ${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
+                            <div className="action-buttons flex space-x-2">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -589,12 +589,21 @@ export default function SampleTracking() {
             </div>
             {/* Pagination controls */}
             {visibleSamples.length > 0 && (
-              <div className="p-4 flex items-center justify-between">
-                <div>Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}</div>
-                <div className="flex items-center space-x-2">
-                  <Button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Button>
-                  <div>Page {page} / {totalPages}</div>
-                  <Button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</Button>
+              <div className="p-4 border-t">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
+                  </div>
+
+                  <div className="flex items-center space-x-2 justify-end pagination-controls">
+                    <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                      Prev
+                    </Button>
+                    <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
+                    <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                      Next
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

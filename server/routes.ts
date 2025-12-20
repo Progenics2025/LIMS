@@ -1785,6 +1785,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Project ID is required' });
       }
 
+      // 🔍 CHECK: See if report already exists for this unique_id
+      try {
+        const [existingReport] = await pool.execute(
+          'SELECT id FROM report_management WHERE unique_id = ? LIMIT 1',
+          [uniqueId]
+        );
+        
+        if ((existingReport as any[]).length > 0) {
+          // Report already exists - return success with existing flag
+          console.log('Report already exists for unique_id:', uniqueId);
+          return res.status(409).json({
+            success: true,
+            alreadyExists: true,
+            recordId: uniqueId,
+            message: 'Report has already been released for this sample.',
+          });
+        }
+      } catch (checkError) {
+        console.error('Error checking for existing report:', (checkError as Error).message);
+        // Continue with insertion - let the duplicate key error handle it if needed
+      }
+
       // Prepare report data to insert into report_management table
       const reportData: Record<string, any> = {
         unique_id: uniqueId,
@@ -1803,6 +1825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add service info if provided
       if (serviceName) reportData.service_name = serviceName;
       if (noOfSamples) reportData.no_of_samples = parseInt(noOfSamples) || null;
+      if (sampleId) reportData.sample_id = sampleId;
 
       // Add TAT and comments
       if (tat) reportData.tat = parseInt(tat) || null;
@@ -1884,6 +1907,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error in send-to-reports:', error);
+      
+      // 🔍 Handle duplicate key error specifically
+      if ((error as any).code === 'ER_DUP_ENTRY' || (error as any).sqlState === '23000') {
+        console.log('Duplicate entry error - report already exists');
+        return res.status(409).json({
+          success: true,
+          alreadyExists: true,
+          message: 'Report has already been released for this sample.',
+          error: (error as Error).message,
+        });
+      }
+      
       res.status(500).json({
         message: 'Failed to send bioinformatics record to Reports',
         error: (error as Error).message,
@@ -2875,12 +2910,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         VALUES (${placeholders})
       `;
 
-      console.log('Inserting bioinformatics_sheet_clinical record with columns:', keys);
+      console.log('🔍 Inserting bioinformatics_sheet_clinical record with columns:', keys);
+      console.log('🔍 Request body data:', JSON.stringify(data, null, 2));
+      console.log('🔍 Parsed values for INSERT:', values.map((v, i) => ({ column: keys[i], value: v })));
+      
       const [result]: any = await pool.execute(insertQuery, values);
 
       // Get the inserted row ID
       const recordId = result.insertId || data.id;
-      console.log('Inserted bioinformatics_sheet_clinical with ID:', recordId);
+      console.log('✅ Inserted bioinformatics_sheet_clinical with ID:', recordId);
+      console.log('✅ Insert result affectedRows:', result.affectedRows);
 
       // Fetch and return the record by sample_id (most specific identifier)
       if (data.sample_id) {

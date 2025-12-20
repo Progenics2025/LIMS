@@ -341,3 +341,1141 @@
 .text-error-600 {
   color: var(--error-600);
 }
+
+/* ============================================================ */
+/* RESPONSIVE MEDIA QUERIES FOR ALL SCREEN SIZES */
+/* ============================================================ */
+
+/* Extra Small Screens (Mobile) - 320px to 480px */
+@media (max-width: 480px) {
+  :root {
+    --radius: 0.5rem;
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 18px; }
+  h4 { font-size: 16px; }
+
+  /* Override all grid layouts for mobile */
+  .grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  [class*="md:grid-cols"],
+  [class*="lg:grid-cols"],
+  [class*="xl:grid-cols"],
+  [class*="2xl:grid-cols"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Form spacing for mobile */
+  .dialog-content {
+    max-width: 100% !important;
+    padding: 16px !important;
+  }
+
+  .grid-cols-form {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Card and component sizing */
+  .card {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 10px 8px;
+  }
+
+  label {
+    font-size: 13px;
+  }
+
+  .form-section {
+    gap: 12px !important;
+  }
+
+  /* Button stacking */
+  button {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+  }
+
+  .button-group {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Keep table action and pagination buttons inline/compact */
+  .leads-table-wrapper .action-buttons,
+  .process-table-wrapper .action-buttons,
+  .leads-table .action-buttons,
+  .pagination-controls,
+  .process-table-wrapper .pagination-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.25rem !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .leads-table-wrapper .action-buttons button,
+  .process-table-wrapper .action-buttons button,
+  .leads-table .action-buttons button,
+  .pagination-controls button,
+  .process-table-wrapper .pagination-controls button {
+    width: auto !important;
+    min-width: 48px !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+  }
+
+  /* Actions inside the actions-column should align to the right edge
+     of the table so buttons sit under the Actions header (not centered). */
+  .leads-table .actions-column .action-buttons,
+  .process-table-wrapper .actions-column .action-buttons {
+    justify-content: flex-end !important;
+    padding-right: 0.5rem !important;
+  }
+}
+
+/* Small Screens (Mobile) - 481px to 640px */
+@media (min-width: 481px) and (max-width: 640px) {
+  :root {
+    --radius: 0.75rem;
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  h1 { font-size: 28px; }
+  h2 { font-size: 22px; }
+  h3 { font-size: 18px; }
+
+  /* Override all grid layouts for small mobile */
+  .grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  [class*="md:grid-cols"],
+  [class*="lg:grid-cols"],
+  [class*="xl:grid-cols"],
+  [class*="2xl:grid-cols"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dialog-content {
+    max-width: 90% !important;
+    padding: 20px !important;
+  }
+
+  .grid-cols-form {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  /* Card and component sizing */
+  .card {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 11px 9px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+
+  /* Button stacking */
+  button {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+  }
+
+  .button-group {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+}
+
+/* Medium Screens (Tablet) - 641px to 768px */
+@media (min-width: 641px) and (max-width: 768px) {
+  :root {
+    --radius: 0.875rem;
+  }
+
+  body {
+    font-size: 15px;
+  }
+
+  h1 { font-size: 32px; }
+  h2 { font-size: 24px; }
+  h3 { font-size: 20px; }
+
+  /* Override Tailwind md: and lg: breakpoints for tablet */
+  .grid {
+    display: grid !important;
+  }
+
+  [class*="md:grid-cols-2"],
+  [class*="md:grid-cols-3"],
+  [class*="md:grid-cols-4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .dialog-content {
+    max-width: 95% !important;
+    padding: 24px !important;
+  }
+
+  .grid-cols-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  /* Card and component sizing */
+  .card {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 15px;
+    padding: 12px 10px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+
+  /* Button responsive */
+  button {
+    width: auto;
+    margin-bottom: 0;
+  }
+
+  .button-group {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    justify-content: flex-end;
+  }
+}
+
+/* Large Screens (Tablet/Desktop) - 769px to 1024px */
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root {
+    --radius: 1rem;
+  }
+
+  body {
+    font-size: 15px;
+  }
+
+  h1 { font-size: 36px; }
+  h2 { font-size: 28px; }
+  h3 { font-size: 22px; }
+
+  /* Override Tailwind grid at large screens */
+  .grid {
+    display: grid !important;
+  }
+
+  [class*="md:grid-cols-2"],
+  [class*="md:grid-cols-3"],
+  [class*="md:grid-cols-4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols-3"],
+  [class*="lg:grid-cols-4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .dialog-content {
+    max-width: 85% !important;
+    padding: 28px !important;
+  }
+
+  .grid-cols-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 18px !important;
+  }
+
+  /* Card and component sizing */
+  .card {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 15px;
+    padding: 12px 10px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+
+  /* Button responsive */
+  button {
+    width: auto;
+    margin-bottom: 0;
+  }
+
+  .button-group {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    justify-content: flex-end;
+  }
+}
+
+/* Extra Large Screens (Desktop) - 1025px to 1440px */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  :root {
+    --radius: 1rem;
+  }
+
+  body {
+    font-size: 16px;
+  }
+
+  h1 { font-size: 40px; }
+  h2 { font-size: 32px; }
+  h3 { font-size: 24px; }
+
+  /* Allow Tailwind grid classes to work at desktop */
+  .grid {
+    display: grid !important;
+  }
+
+  [class*="md:grid-cols-2"],
+  [class*="md:grid-cols-3"],
+  [class*="md:grid-cols-4"] {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+  }
+
+  [class*="lg:grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols-3"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols-4"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .dialog-content {
+    max-width: 80% !important;
+    padding: 32px !important;
+  }
+
+  .grid-cols-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  /* Card and component sizing */
+  .card {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 12px 12px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+
+  /* Button responsive */
+  button {
+    width: auto;
+    margin-bottom: 0;
+  }
+
+  .button-group {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    justify-content: flex-end;
+  }
+}
+
+/* 2XL Screens (Large Desktop) - 1441px and above */
+@media (min-width: 1441px) {
+  :root {
+    --radius: 1.25rem;
+  }
+
+  body {
+    font-size: 16px;
+  }
+
+  h1 { font-size: 48px; }
+  h2 { font-size: 36px; }
+  h3 { font-size: 28px; }
+
+  /* Allow Tailwind grid classes to work at large desktop */
+  .grid {
+    display: grid !important;
+  }
+
+  [class*="md:grid-cols-2"],
+  [class*="md:grid-cols-3"],
+  [class*="md:grid-cols-4"] {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  }
+
+  [class*="lg:grid-cols-2"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols-3"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  [class*="lg:grid-cols-4"] {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .dialog-content {
+    max-width: 70% !important;
+    padding: 40px !important;
+  }
+
+  .grid-cols-form {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 24px !important;
+  }
+
+  /* Card and component sizing */
+  .card {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+    padding: 14px 14px;
+  }
+
+  label {
+    font-size: 15px;
+  }
+
+  /* Button responsive */
+  button {
+    width: auto;
+    margin-bottom: 0;
+  }
+
+  .button-group {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    justify-content: flex-end;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE DATE FIELD STYLES */
+/* ============================================================ */
+
+@media (max-width: 640px) {
+  .date-field-wrapper {
+    flex-direction: column;
+  }
+
+  input[type="date"],
+  input[type="datetime-local"] {
+    width: 100%;
+    font-size: 16px;
+  }
+}
+
+/* Table-specific overrides: keep action and pagination buttons inline on small screens
+   This counteracts the global mobile rule that forces all buttons to 100% width. */
+@media (max-width: 640px) {
+  .leads-table-wrapper .action-buttons,
+  .process-table-wrapper .action-buttons {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .leads-table-wrapper .action-buttons button,
+  .process-table-wrapper .action-buttons button,
+  .leads-table-wrapper .pagination-controls button,
+  .process-table-wrapper .pagination-controls button {
+    width: auto !important;
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
+    min-width: 56px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .leads-table-wrapper .pagination-controls,
+  .process-table-wrapper .pagination-controls {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+  /* pagination-controls may be rendered outside the table wrapper; ensure it is always protected */
+  .pagination-controls {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+  }
+
+  .pagination-controls button {
+    width: auto !important;
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
+    min-width: 56px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  input[type="date"],
+  input[type="datetime-local"] {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1025px) {
+  input[type="date"],
+  input[type="datetime-local"] {
+    font-size: 14px;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE DIALOG/MODAL STYLES */
+/* ============================================================ */
+
+@media (max-width: 480px) {
+  .dialog-content {
+    max-height: 90vh !important;
+    overflow-y: auto;
+  }
+
+  .form-section {
+    padding: 12px !important;
+    margin-bottom: 8px !important;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .dialog-content {
+    max-height: 95vh !important;
+  }
+
+  .form-section {
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .dialog-content {
+    max-height: 85vh !important;
+  }
+
+  .form-section {
+    padding: 20px !important;
+    margin-bottom: 16px !important;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE BUTTON STYLES */
+/* ============================================================ */
+
+@media (max-width: 640px) {
+  button {
+    font-size: 14px;
+    padding: 10px 16px;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (min-width: 641px) {
+  button {
+    font-size: 14px;
+    padding: 10px 20px;
+  }
+
+  .button-group {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE TABLE/LIST STYLES */
+/* ============================================================ */
+
+@media (max-width: 768px) {
+  table {
+    font-size: 12px;
+  }
+
+  th, td {
+    padding: 8px !important;
+  }
+
+  .hidden-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  table {
+    font-size: 14px;
+  }
+
+  th, td {
+    padding: 12px !important;
+  }
+
+  .hidden-desktop {
+    display: none !important;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE CHART & CONTAINER STYLES */
+/* ============================================================ */
+
+/* Mobile Charts (320px-640px) */
+@media (max-width: 640px) {
+  .chart-container {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .chart-area {
+    width: 100% !important;
+    height: 280px !important;
+  }
+
+  .legend-container {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 280px !important;
+    padding-left: 0 !important;
+  }
+
+  .recharts-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .recharts-surface {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Cards should be full width on mobile */
+  .card-container,
+  [class*="Card"] {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure tables scroll horizontally on mobile */
+  .table-container {
+    overflow-x: auto !important;
+  }
+
+  table {
+    min-width: 100%;
+    font-size: 11px !important;
+  }
+
+  th, td {
+    padding: 6px !important;
+    white-space: nowrap;
+  }
+}
+
+/* Tablet Charts (641px-1024px) */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .chart-container {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .chart-area {
+    width: 100% !important;
+    height: 320px !important;
+  }
+
+  .legend-container {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 320px !important;
+    padding-left: 0 !important;
+  }
+
+  .recharts-wrapper,
+  .recharts-surface {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Cards responsive on tablet */
+  .card-container,
+  [class*="Card"] {
+    width: 100% !important;
+  }
+
+  table {
+    font-size: 12px !important;
+  }
+
+  th, td {
+    padding: 8px !important;
+  }
+}
+
+/* Desktop Charts (1025px+) */
+@media (min-width: 1025px) {
+  .chart-container {
+    flex-direction: row !important;
+    gap: 32px !important;
+  }
+
+  .chart-area {
+    width: 60% !important;
+    min-width: 400px;
+    height: 400px !important;
+  }
+
+  .legend-container {
+    width: 40% !important;
+    min-width: 300px;
+    height: 400px !important;
+    padding-left: 32px !important;
+  }
+
+  .recharts-wrapper,
+  .recharts-surface {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Cards responsive on desktop */
+  .card-container,
+  [class*="Card"] {
+    width: 100% !important;
+  }
+
+  table {
+    font-size: 14px !important;
+  }
+
+  th, td {
+    padding: 12px !important;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE FLEX OVERRIDES */
+/* ============================================================ */
+
+@media (max-width: 768px) {
+  /* Force flex-col on all flex containers at mobile */
+  .flex.flex-row,
+  .flex.flex-row-reverse {
+    flex-direction: column !important;
+  }
+
+  /* Ensure flex items are full width on mobile */
+  .flex > * {
+    min-width: 0 !important;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE TAILWIND FLEX OVERRIDES */
+/* ============================================================ */
+
+/* Mobile (320-480px) */
+@media (max-width: 480px) {
+  /* Override lg:flex-row */
+  [class*="lg:flex-row"] {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  /* Override sm:flex-row */
+  [class*="sm:flex-row"] {
+    flex-direction: column !important;
+  }
+
+  /* Ensure full width containers */
+  [class*="w-1/2"],
+  [class*="w-1/3"],
+  [class*="w-2/3"] {
+    width: 100% !important;
+  }
+}
+
+/* Small Mobile (481-640px) */
+@media (min-width: 481px) and (max-width: 640px) {
+  /* Override lg:flex-row */
+  [class*="lg:flex-row"] {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  /* Allow sm:flex-row */
+  [class*="sm:flex-row"] {
+    flex-direction: row !important;
+  }
+
+  /* Partial widths */
+  [class*="w-1/2"] {
+    width: 50% !important;
+  }
+
+  [class*="w-1/3"] {
+    width: 33.33% !important;
+  }
+
+  [class*="w-2/3"] {
+    width: 66.66% !important;
+  }
+}
+
+/* Tablet (641-1024px) */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Allow md: and sm: flex-row */
+  [class*="md:flex-row"],
+  [class*="sm:flex-row"] {
+    flex-direction: row !important;
+  }
+
+  /* Override lg:flex-row to column on tablet */
+  [class*="lg:flex-row"] {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  /* Partial widths allowed */
+  [class*="w-1/2"] {
+    width: 50% !important;
+  }
+
+  [class*="w-1/3"] {
+    width: 33.33% !important;
+  }
+
+  [class*="w-2/3"] {
+    width: 66.66% !important;
+  }
+}
+
+/* Desktop (1025px+) */
+@media (min-width: 1025px) {
+  /* Allow all flex-row variants */
+  [class*="flex-row"] {
+    flex-direction: row !important;
+  }
+
+  /* Allow all width variants */
+  [class*="w-1/2"] {
+    width: 50% !important;
+  }
+
+  [class*="w-1/3"] {
+    width: 33.33% !important;
+  }
+
+  [class*="w-2/3"] {
+    width: 66.66% !important;
+  }
+
+  [class*="w-3/5"] {
+    width: 60% !important;
+  }
+
+  [class*="w-2/5"] {
+    width: 40% !important;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE OVERFLOW & SCROLLING */
+/* ============================================================ */
+
+@media (max-width: 640px) {
+  /* Enable horizontal scroll for tables on mobile */
+  .table-wrapper,
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure proper scrolling */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ============================================================ */
+/* RESPONSIVE PADDING & SPACING */
+/* ============================================================ */
+
+@media (max-width: 480px) {
+  /* Reduce padding on mobile */
+  .p-6 { padding: 12px !important; }
+  .p-8 { padding: 16px !important; }
+  .px-6 { padding-left: 12px !important; padding-right: 12px !important; }
+  .py-6 { padding-top: 12px !important; padding-bottom: 12px !important; }
+
+  /* Reduce gaps */
+  .gap-4 { gap: 8px !important; }
+  .gap-6 { gap: 12px !important; }
+  .gap-8 { gap: 16px !important; }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  /* Moderate padding on tablet */
+  .p-6 { padding: 16px !important; }
+  .p-8 { padding: 20px !important; }
+
+  /* Moderate gaps */
+  .gap-6 { gap: 16px !important; }
+  .gap-8 { gap: 20px !important; }
+}
+
+/* ============================================================ */
+/* RESPONSIVE TABLE - MOBILE FIRST APPROACH */
+/* ============================================================ */
+
+/* Mobile (320px-768px) - Show all columns with horizontal scroll */
+@media (max-width: 768px) {
+  .leads-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  .leads-table {
+    display: table;
+    /* Use natural table width so columns keep their min-width and horizontal scroll works */
+    width: auto !important;
+    min-width: max-content !important;
+    table-layout: auto;
+  }
+  
+    .leads-table-wrapper {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      width: 100% !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+
+  .leads-table thead,
+  .leads-table tbody {
+    display: table-row-group;
+  }
+
+  .leads-table tr {
+    display: table-row;
+  }
+
+  .leads-table th,
+  .leads-table td {
+    display: table-cell !important;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+
+  /* Actions column mobile optimization */
+  .leads-table .actions-column {
+    position: relative !important;
+    background: transparent !important;
+    border: none !important;
+    min-width: 200px !important;
+    padding: 8px !important;
+  }
+
+  .leads-table .actions-column > div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .leads-table .actions-column button {
+    font-size: 11px !important;
+    padding: 4px 6px !important;
+    height: auto !important;
+    min-height: 28px !important;
+  }
+
+  .leads-table .actions-column .inline-flex {
+    font-size: 11px !important;
+  }
+
+  /* Show all columns */
+  .leads-table th,
+  .leads-table td {
+    visibility: visible !important;
+    display: table-cell !important;
+  }
+}
+
+/* Tablet (769px-1024px) - Optimize for tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .leads-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .leads-table th,
+  .leads-table td {
+    padding: 8px !important;
+    font-size: 13px !important;
+  }
+
+  /* Actions column sticky on tablet */
+  .leads-table .actions-column {
+    position: sticky;
+    right: 0;
+    background: white;
+    border-left: 2px solid #e5e7eb;
+    z-index: 10;
+  }
+
+  .dark .leads-table .actions-column {
+    background-color: #111827;
+  }
+
+  .leads-table .actions-column > div {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+/* Desktop (1025px+) - Full sticky actions */
+@media (min-width: 1025px) {
+  .leads-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .leads-table th,
+  .leads-table td {
+    padding: 10px 12px !important;
+    font-size: 14px !important;
+  }
+
+  /* Sticky Actions column for desktop */
+  .leads-table .actions-column {
+    position: sticky;
+    right: 0;
+    background: white;
+    border-left: 2px solid #e5e7eb;
+    z-index: 10;
+  }
+
+  .dark .leads-table .actions-column {
+    background-color: #111827;
+  }
+
+  .leads-table .actions-column > div {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+/* ============================================================ */
+/* ProcessMaster - force actions row-aligned on all screen sizes */
+/* ============================================================ */
+.process-table-wrapper .actions-column > div {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+}
+
+.process-table-wrapper .actions-column button {
+  padding: 6px !important;
+}
+

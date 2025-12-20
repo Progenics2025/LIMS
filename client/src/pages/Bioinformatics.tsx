@@ -61,6 +61,7 @@ type BIRecord = {
 
 export default function Bioinformatics() {
   const [rows, setRows] = useState<BIRecord[]>([]);
+  const [sendingIds, setSendingIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [editing, setEditing] = useState<BIRecord | null>(null);
   const { add } = useRecycle();
@@ -84,95 +85,148 @@ export default function Bioinformatics() {
   const queryClient = useQueryClient();
 
   // Send to Reports mutation
+  // 🔍 Helper: Extract prefix from sample ID (e.g., "25AD12171225" from "25AD12171225_001")
+  const getSampleIdPrefix = (sampleId?: string): string | null => {
+    if (!sampleId) return null;
+    const parts = sampleId.split('_');
+    return parts.length > 1 ? parts[0] : sampleId;
+  };
+
+  // 🔍 Helper: Find all records with matching sample ID prefix
+  const getRecordsWithSamplePrefix = (record: BIRecord, allRecords: BIRecord[]): BIRecord[] => {
+    const prefix = getSampleIdPrefix(record.sampleId);
+    if (!prefix) return [record];
+    
+    return allRecords.filter((r) => {
+      const rPrefix = getSampleIdPrefix((r as any).sampleId);
+      return rPrefix === prefix;
+    });
+  };
+
   const sendToReportsMutation = useMutation({
     mutationFn: async (record: BIRecord) => {
-      // Send to reports endpoint which handles routing based on project ID
-      // Sending all fields needed for auto-population in ReportManagement
-      const response = await apiRequest('POST', '/api/send-to-reports', {
-        // IDs
-        bioinformaticsId: record.id,
-        uniqueId: record.uniqueId,
-        projectId: record.projectId,
-        // Patient info
-        patientClientName: record.patientClientName,
-        age: record.age,
-        gender: record.gender,
-        // Clinician info
-        clinicianResearcherName: record.clinicianResearcherName,
-        organisationHospital: record.organisationHospital,
-        // Service info
-        serviceName: record.serviceName,
-        // TAT and comments
-        tat: record.tat,
-        remarkComment: record.remarkComment,
-        // Optional: lead fields
-        createdBy: record.createdBy,
-        modifiedBy: record.modifiedBy,
-        // Additional useful fields
-        sampleId: record.sampleId,
-        analysisDate: record.analysisDate,
-        clientId: record.clientId,
-      });
-      return response.json();
+      // Send only the clicked record (no automatic batch)
+      const recordsToSend = [record];
+      console.log(`Sending single record ${record.id} (sample ${record.sampleId})`);
+      
+      // Send records sequentially so each turns green individually
+      const responses = [];
+      for (const rec of recordsToSend) {
+        setSendingIds((s) => [...s, rec.id]);
+        try {
+          const response = await apiRequest('POST', '/api/send-to-reports', {
+            // IDs
+            bioinformaticsId: rec.id,
+            uniqueId: rec.id,
+            projectId: rec.projectId,
+            // Patient info
+            patientClientName: rec.patientClientName,
+            age: rec.age,
+            gender: rec.gender,
+            // Clinician info
+            clinicianResearcherName: rec.clinicianResearcherName,
+            organisationHospital: rec.organisationHospital,
+            // Service info
+            serviceName: rec.serviceName,
+            // TAT and comments
+            tat: rec.tat,
+            remarkComment: rec.remarkComment,
+            // Optional: lead fields
+            createdBy: rec.createdBy,
+            modifiedBy: rec.modifiedBy,
+            // Additional useful fields
+            sampleId: rec.sampleId,
+            analysisDate: rec.analysisDate,
+            clientId: rec.clientId,
+          });
+          const result = await response.json();
+          responses.push(result);
+
+          // Try to persist the 'sent' flag on the bioinformatics record so it remains after refresh
+          try {
+            const projectId = (rec as any).projectId || '';
+            const isDiscovery = String(projectId).startsWith('DG');
+            const isClinical = String(projectId).startsWith('PG');
+            const bioEndpoint = isDiscovery
+              ? `/api/bioinfo-discovery-sheet/${encodeURIComponent(rec.id)}`
+              : isClinical
+                ? `/api/bioinfo-clinical-sheet/${encodeURIComponent(rec.id)}`
+                : `/api/bioinformatics/${encodeURIComponent(rec.id)}`;
+
+            await apiRequest('PUT', bioEndpoint, { alert_to_report_team: true });
+          } catch (err) {
+            // non-fatal: log and continue; UI will still update locally
+            console.warn('Failed to persist alert_to_report_team on bioinformatics record', err);
+          }
+
+          // 🟢 Mark this record as sent immediately (local UI)
+          setRows((prevRows) =>
+            prevRows.map((r) =>
+              r.id === rec.id ? { ...r, alertToReportTeam: true } : r
+            )
+          );
+
+          // 🔄 Refresh ReportManagement to show new record immediately
+          await queryClient.refetchQueries({ queryKey: ['/api/report_management'] });
+          
+        } catch (error: any) {
+          // 🔍 Handle 409 (duplicate/already exists) as a success response
+          if (error.status === 409) {
+            responses.push(error.body);
+            
+            // Mark as sent even if already exists
+            setRows((prevRows) =>
+              prevRows.map((r) =>
+                r.id === rec.id ? { ...r, alertToReportTeam: true } : r
+              )
+            );
+            
+            // Refresh ReportManagement
+            await queryClient.refetchQueries({ queryKey: ['/api/report_management'] });
+          } else {
+            throw error;
+          }
+        } finally {
+          setSendingIds((s) => s.filter((id) => id !== rec.id));
+        }
+      }
+      
+      return { responses, recordsToSend };
     },
     onSuccess: (data: any, recordData: any) => {
+      const { responses, recordsToSend } = data;
+      
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/report_management'] });
       queryClient.invalidateQueries({ queryKey: ['/api/report'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
 
-      // Update local state to mark as sent
-      setRows((prevRows) =>
-        prevRows.map((r) =>
-          r.id === data.bioinformaticsId ? { ...r, alertToReportTeam: true } : r
-        )
-      );
-
-      // Store bioinformatics data in sessionStorage for auto-population in ReportManagement
-      const bioinformationData = {
-        // IDs
-        uniqueId: recordData.uniqueId,
-        projectId: recordData.projectId,
-        // Patient info
-        patientClientName: recordData.patientClientName,
-        age: recordData.age,
-        gender: recordData.gender,
-        // Clinician info
-        clinicianResearcherName: recordData.clinicianResearcherName,
-        organisationHospital: recordData.organisationHospital,
-        // Service info
-        serviceName: recordData.serviceName,
-        // TAT and comments
-        tat: recordData.tat,
-        remarkComment: recordData.remarkComment,
-        // Optional: lead fields
-        createdBy: recordData.createdBy,
-        modifiedBy: recordData.modifiedBy,
-        // Additional useful fields
-        sampleId: recordData.sampleId,
-        analysisDate: recordData.analysisDate,
-        sampleReceivedDate: recordData.sampleReceivedDate,
-        clientId: recordData.clientId,
-      };
+      // Show summary toast
+      const successCount = responses.filter((r: any) => r.success && !r.alreadyExists).length;
+      const duplicateCount = responses.filter((r: any) => r.alreadyExists).length;
       
-      sessionStorage.setItem('bioinformatics_send_to_reports', JSON.stringify(bioinformationData));
-
-      toast({
-        title: "Sent to Reports",
-        description: `Report record created in ${data.table}. Redirecting to Reports module...`,
-      });
-
-      // Navigate to ReportManagement after a short delay
-      setTimeout(() => {
-        setLocation('/report-management');
-      }, 1000);
+      if (successCount > 0) {
+        toast({
+          title: `Batch Send Complete`,
+          description: `${successCount} record(s) sent to Reports${duplicateCount > 0 ? `, ${duplicateCount} already existed` : ''}`,
+        });
+      } else if (duplicateCount > 0) {
+        toast({
+          title: "Reports Already Sent",
+          description: `All ${duplicateCount} record(s) have already been released for this sample.`,
+        });
+      }
     },
     onError: (error: any) => {
+      // 🔍 Better error handling - don't navigate on error
+      const errorMessage = error?.body?.message || error?.message || "Failed to send bioinformatics records to Reports";
+      
       toast({
         title: "Failed to send to Reports",
-        description: error.message || "Failed to send bioinformatics record to Reports",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -538,8 +592,8 @@ export default function Bioinformatics() {
                 relativeAbundanceSheet: item.relative_abundance_sheet,
                 dataAnalysisSheet: item.data_analysis_sheet,
                 databaseToolsInformation: item.database_tools_information,
-                alertToTechnicalLeadd: item.alert_to_technical_leadd || item.alert_to_technical_lead,
-                alertToReportTeam: item.alert_to_report_team,
+                alertToTechnicalLeadd: Boolean(item.alert_to_technical_leadd || item.alert_to_technical_lead),
+                alertToReportTeam: Boolean(item.alert_to_report_team),
                 createdAt: item.created_at,
                 createdBy: item.created_by,
                 modifiedAt: item.modified_at,
@@ -592,8 +646,8 @@ export default function Bioinformatics() {
                 relativeAbundanceSheet: item.relative_abundance_sheet,
                 dataAnalysisSheet: item.data_analysis_sheet,
                 databaseToolsInformation: item.database_tools_information,
-                alertToTechnicalLeadd: item.alert_to_technical_leadd || item.alert_to_technical_lead,
-                alertToReportTeam: item.alert_to_report_team,
+                alertToTechnicalLeadd: Boolean(item.alert_to_technical_leadd || item.alert_to_technical_lead),
+                alertToReportTeam: Boolean(item.alert_to_report_team),
                 createdAt: item.created_at,
                 createdBy: item.created_by,
                 modifiedAt: item.modified_at,
@@ -814,9 +868,9 @@ export default function Bioinformatics() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <div className="max-h-[60vh] overflow-y-auto">
-              <Table>
+              <Table className="leads-table">
                 <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-10 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                   {biTypeFilter === 'clinical' || biTypeFilter === 'discovery' ? (
                     <TableRow>
@@ -860,7 +914,7 @@ export default function Bioinformatics() {
                       <TableHead className="whitespace-nowrap font-semibold">Modified at</TableHead>
                       <TableHead className="whitespace-nowrap font-semibold">Modified by</TableHead>
                       <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700">Actions</TableHead>
+                      <TableHead className="sticky right-0 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
                     </TableRow>
                   ) : (
                     <TableRow>
@@ -885,7 +939,7 @@ export default function Bioinformatics() {
                     visibleRows.map((r) => {
                       if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
                         return (
-                          <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
+                          <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                             <TableCell className="font-medium">{r.uniqueId ?? '-'}</TableCell>
                             <TableCell>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>
                             <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>
@@ -924,27 +978,26 @@ export default function Bioinformatics() {
                             <TableCell>{(r as any).createdBy ?? '-'}</TableCell>
                             <TableCell>{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>
                             <TableCell>{(r as any).modifiedBy ?? '-'}</TableCell>
-                            <TableCell>{(r as any).remarkComment ?? '-'}</TableCell>
-                            <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[300px] ${(r as any).alertToReportTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
-                              <div className="flex space-x-2 items-center justify-center flex-wrap">
+                            <TableCell className="max-w-[220px] truncate pr-4" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>
+                            <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right z-30 ${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'}`}>
+                              <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full bg-white dark:bg-gray-900 px-2 py-1">
                                 <Button size="sm" variant="ghost" aria-label="Edit record" onClick={() => openEdit(r)}>
                                   <EditIcon className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="default"
                                   size="sm"
-                                  className={`px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm ${(r as any).alertToReportTeam
+                                  className={`min-w-[48px] px-2 py-1 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-sm ${(r as any).alertToReportTeam
                                       ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
                                       : 'bg-green-500 hover:bg-green-600 text-white'
                                     } disabled:bg-gray-400 disabled:cursor-not-allowed`}
-                                  onClick={() => {
-                                    sendToReportsMutation.mutate(r);
-                                  }}
-                                  disabled={sendToReportsMutation.isPending || (r as any).alertToReportTeam}
+                                  onClick={() => { sendToReportsMutation.mutate(r); }}
+                                  disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}
                                   title={(r as any).alertToReportTeam ? 'Already sent to reports' : 'Send to Reports module'}
                                   aria-label="Send to Reports"
                                 >
-                                  {(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}
+                                  <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
+                                  <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
                                 </Button>
                                 <Button size="sm" variant="ghost" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
                                   <Trash2 className="h-4 w-4 text-red-600" />
@@ -966,26 +1019,21 @@ export default function Bioinformatics() {
 
           {/* Pagination Controls */}
           {visibleRows.length > 0 && (
-            <div className="p-4 flex items-center justify-between border-t">
-              <div>
-                Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered} records
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                >
-                  Prev
-                </Button>
-                <div>
-                  Page {page} / {totalPages}
+            <div className="p-4 border-t">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered} records
                 </div>
-                <Button
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </Button>
+
+                <div className="flex items-center space-x-2 justify-end pagination-controls">
+                  <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                    Prev
+                  </Button>
+                  <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
+                  <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                    Next
+                  </Button>
+                </div>
               </div>
             </div>
           )}

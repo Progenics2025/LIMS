@@ -455,8 +455,8 @@ export default function GeneticCounselling() {
             </div>
           </div>
 
-          <div className="border rounded-lg max-h-[60vh] overflow-auto">
-            <Table>
+          <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper process-table-wrapper">
+            <Table className="leads-table">
               <TableHeader className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b-2">
                 <TableRow>
                   <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -499,7 +499,7 @@ export default function GeneticCounselling() {
                   <TableHead onClick={() => { setSortKey('modified_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modified_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('modified_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modified_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('remark_comment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remark_comment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold">Actions</TableHead>
+                  <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold actions-column">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -655,8 +655,8 @@ export default function GeneticCounselling() {
                       </TableCell>
                       <TableCell>{r.modified_by ?? '-'}</TableCell>
                       <TableCell className="max-w-xs truncate">{r.remark_comment ?? '-'}</TableCell>
-                      <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2">
-                        <div className="flex space-x-2">
+                      <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 actions-column">
+                        <div className="action-buttons flex space-x-2">
                           <Button size="sm" variant="ghost" aria-label="Edit GC" onClick={() => openEdit(r)}>
                             <EditIcon className="h-4 w-4" />
                           </Button>
@@ -674,24 +674,21 @@ export default function GeneticCounselling() {
 
           {/* Pagination Controls */}
           {visibleRows.length > 0 && (
-            <div className="p-4 flex items-center justify-between border-t">
-              <div>
-                Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                >
-                  Prev
-                </Button>
-                <div>Page {page} / {totalPages}</div>
-                <Button
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </Button>
+            <div className="p-4 border-t">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
+                </div>
+
+                <div className="flex items-center space-x-2 justify-end pagination-controls">
+                  <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                    Prev
+                  </Button>
+                  <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
+                  <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                    Next
+                  </Button>
+                </div>
               </div>
             </div>
           )}

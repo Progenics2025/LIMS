@@ -21,6 +21,7 @@
 -- 19 TAT (Days)                         -> tat
 -- 20 Sample Type                        -> sample_type
 -- 21 No of Samples                      -> no_of_samples
+-- 21 Sample ID                           -> sample_id
 -- 22 Sample Received Date               -> sample_received_date
 -- 23 Progenics TRF                      -> progenics_trf
 -- 24 Approveal from Finance             -> approval_from_finance
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS report_management (
     tat INTEGER,
     sample_type VARCHAR(100),
     no_of_samples INTEGER,
+    sample_id VARCHAR(255),
     sample_received_date DATE,
     progenics_trf VARCHAR(255),
     approval_from_finance BOOLEAN DEFAULT FALSE,

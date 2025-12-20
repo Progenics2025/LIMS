@@ -182,11 +182,23 @@ export default function LabProcessing() {
     const sample = l.sample || {};
     const lead = sample.lead || {};
 
+    // 🔍 DEBUG: Log project_id extraction
+    const extractedProjectId = get('project_id', 'projectId');
+    if (l.id === 1) {
+      console.log('🔍 normalizeLab for ID 1:', {
+        l_project_id: l['project_id'],
+        l_projectId: l['projectId'],
+        extracted: extractedProjectId,
+        fallback1: l.projectId,
+        final: extractedProjectId ?? l.projectId ?? undefined
+      });
+    }
+
     return {
       id: get('id', 'id') ?? l.id,
       titleUniqueId: get('unique_id', 'titleUniqueId') ?? sample.titleUniqueId ?? sample.unique_id ?? lead.id ?? undefined,
       uniqueId: get('unique_id', 'uniqueId') ?? sample.uniqueId ?? sample.unique_id ?? lead.uniqueId ?? lead.unique_id ?? undefined,
-      projectId: get('project_id', 'projectId') ?? l.projectId ?? undefined,
+      projectId: extractedProjectId ?? l.projectId ?? undefined,
       sampleId: get('sample_id', 'sampleId') ?? sample.sampleId ?? sample.sample_id ?? (l as any).sample_id ?? undefined,
       clientId: get('client_id', 'clientId') ?? l.clientId ?? undefined,
       sampleDeliveryDate: get('sample_received_date', 'sampleDeliveryDate') ?? sample.sampleDeliveryDate ?? sample.sample_received_date ?? sample.sampleCollectedDate ?? sample.sample_collected_date ?? null,
@@ -499,17 +511,47 @@ export default function LabProcessing() {
 
   // Alert to Bioinformatics mutation
   const alertBioinformaticsMutation = useMutation({
-    mutationFn: async ({ labId }: { labId: string }) => {
-      // Find the lab record from the normalized list
-      const labRecord = normalizedLabs.find(l => String(l.id) === String(labId));
+    mutationFn: async ({ labId, projectIdHint }: { labId: string; projectIdHint?: string }) => {
+      // BUG FIX: Discovery and Clinical sheets have separate ID sequences (both start at 1)
+      // So we need to filter by type first before searching by ID
+      let labRecord: any = null;
+
+      // If we have a projectId hint, use it to search in the correct list
+      if (projectIdHint) {
+        const isDiscovery = String(projectIdHint).startsWith('DG');
+        const sourceList = isDiscovery ? discoveryRows : clinicalRows;
+        const rawRecord = sourceList.find((l: any) => String(l.id) === String(labId));
+        // 🔑 FIX: Normalize the raw record so projectId is accessible as camelCase
+        if (rawRecord) {
+          labRecord = normalizeLab(rawRecord);
+        }
+      }
+
+      // Fallback: search in all normalized labs (may match wrong type if both have same ID)
       if (!labRecord) {
+        labRecord = normalizedLabs.find(l => String(l.id) === String(labId));
+      }
+
+      if (!labRecord) {
+        console.error('🔴 Lab record not found for labId:', labId, 'projectIdHint:', projectIdHint);
+        console.log('Available discovery IDs:', discoveryRows.map((l: any) => l.id));
+        console.log('Available clinical IDs:', clinicalRows.map((l: any) => l.id));
         throw new Error('Lab record not found');
       }
 
       // Determine if this is discovery or clinical based on project ID
-      const projectId = labRecord.projectId || labRecord._raw?.project_id || '';
+      const projectId = labRecord.projectId || labRecord._raw?.project_id || projectIdHint || '';
       const isDiscovery = String(projectId).startsWith('DG');
       const isClinical = String(projectId).startsWith('PG');
+
+      console.log('🔍 DEBUG alertBioinformaticsMutation:', {
+        labId,
+        projectIdHint,
+        labRecordFound: !!labRecord,
+        projectId,
+        isDiscovery,
+        isClinical,
+      });
 
       if (!isDiscovery && !isClinical) {
         throw new Error(`Invalid project ID format. Must start with DG (Discovery) or PG (Clinical). Got: "${projectId}"`);
@@ -547,6 +589,18 @@ export default function LabProcessing() {
         tat: lead.tat || null,
         created_by: user?.email || 'system',
       };
+
+      console.log('✅ [FIXED] DEBUG bioinformatics send to reports - after normalizeLab fix:', {
+        isDiscovery,
+        isClinical,
+        projectId,
+        labRecordProjectId: labRecord.projectId,
+        labRecordRawProjectId: labRecord._raw?.project_id,
+        bioinfoDataProjectId: bioinfoData.project_id,
+        labId,
+        labRecordId: labRecord.id,
+        labRecordSampleId: labRecord.sampleId,
+      });
 
       // Step 1: Create bioinformatics record FIRST
       const response = await apiRequest('POST', bioinfoEndpoint, bioinfoData);
@@ -652,9 +706,9 @@ export default function LabProcessing() {
     { header: "Remark/Comment", accessorKey: "remarksComment" },
     {
       header: "Actions",
-      className: "sticky right-0 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 min-w-[180px]",
+      className: "min-w-[180px] actions-column",
       cell: (lab) => (
-        <div className="flex space-x-2 items-center justify-center">
+        <div className="action-buttons flex space-x-2 items-center justify-center">
           <Button variant="outline" size="sm" onClick={() => {
             setSelectedLab(lab);
             editForm.reset({
@@ -697,7 +751,10 @@ export default function LabProcessing() {
                 : 'bg-green-500 hover:bg-green-600 text-white'
               } disabled:bg-gray-400 disabled:cursor-not-allowed`}
             onClick={() => {
-              alertBioinformaticsMutation.mutate({ labId: lab.id });
+              alertBioinformaticsMutation.mutate({ 
+                labId: lab.id,
+                projectIdHint: lab.projectId || lab._raw?.project_id
+              });
             }}
             disabled={alertBioinformaticsMutation.isPending || lab.alertToBioinformaticsTeam}
             title={lab.alertToBioinformaticsTeam ? 'Already sent for Bioinformatics' : 'Send sample for Bioinformatics'}
@@ -825,42 +882,39 @@ export default function LabProcessing() {
           {isLoading ? (
             <div className="text-center py-8">Loading lab processing data...</div>
           ) : (
-            <DataTable
-              data={visibleLabs}
-              columns={columns}
-              emptyMessage={
-                labTypeFilter === 'all'
-                  ? 'Select "Clinical" or "Discovery" to view the corresponding table'
-                  : filteredLabs.length === 0
-                    ? 'No lab processing records found'
-                    : 'No records match your search criteria'
-              }
-              rowClassName={(lab) => lab.alertToBioinformaticsTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}
-            />
+            <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
+              <DataTable
+                data={visibleLabs}
+                columns={columns}
+                emptyMessage={
+                  labTypeFilter === 'all'
+                    ? 'Select "Clinical" or "Discovery" to view the corresponding table'
+                    : filteredLabs.length === 0
+                      ? 'No lab processing records found'
+                      : 'No records match your search criteria'
+                }
+                rowClassName={(lab) => lab.alertToBioinformaticsTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}
+              />
+            </div>
           )}
 
           {/* Pagination Controls */}
           {visibleLabs.length > 0 && (
-            <div className="p-4 flex items-center justify-between border-t">
-              <div>
-                Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                >
-                  Prev
-                </Button>
-                <div>
-                  Page {page} / {totalPages}
+            <div className="p-4 border-t">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}
                 </div>
-                <Button
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </Button>
+
+                <div className="flex items-center space-x-2 justify-end pagination-controls">
+                  <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                    Prev
+                  </Button>
+                  <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
+                  <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                    Next
+                  </Button>
+                </div>
               </div>
             </div>
           )}

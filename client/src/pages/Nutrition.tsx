@@ -247,6 +247,11 @@ export default function Nutrition() {
   const endIdx = Math.min(startIdx + pageSize, totalRecords);
   const paginatedRecords = filteredRecords.slice(startIdx, endIdx);
 
+  // Ensure currentPage stays within bounds when filters or pageSize change
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
   // Calculate summary statistics
   const stats = {
     total: records.length,
@@ -366,9 +371,9 @@ export default function Nutrition() {
             </div>
           </div>
 
-          <div>
-            <div className="border rounded-lg max-h-[60vh] overflow-auto">
-              <table className="w-full text-sm">
+          <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
+            <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
+              <table className="leads-table w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                   <tr>
                     <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Unique ID</th>
@@ -395,7 +400,7 @@ export default function Nutrition() {
                     <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Modified at</th>
                     <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Modified by</th>
                     <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap font-semibold">Remark/Comment</th>
-                    <th className="sticky right-0 bg-gray-50 dark:bg-gray-800 z-20 px-4 py-3 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2">Actions</th>
+                    <th className="bg-gray-50 dark:bg-gray-800 z-20 px-4 py-3 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2 actions-column">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -438,8 +443,8 @@ export default function Nutrition() {
                         <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.modifiedAt ? new Date(record.modifiedAt).toLocaleString() : '-'}</td>
                         <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.modifiedBy || '-'}</td>
                         <td className="min-w-[200px] px-4 py-3 whitespace-nowrap">{record.remarksComment || '-'}</td>
-                        <td className="sticky right-0 bg-white dark:bg-gray-900 z-[15] px-4 py-3 border-l-2 border-gray-200 dark:border-gray-700 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
+                        <td className="border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column px-4 py-3">
+                          <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
                             <Button
                               variant="outline"
                               size="sm"
@@ -501,12 +506,14 @@ export default function Nutrition() {
             </div>
             {/* Pagination controls */}
             {paginatedRecords.length > 0 && (
-              <div className="p-4 flex items-center justify-between">
-                <div>Showing {startIdx + 1 <= totalRecords ? (startIdx + 1) : 0} - {Math.min(startIdx + pageSize, totalRecords)} of {totalRecords}</div>
-                <div className="flex items-center space-x-2">
-                  <Button disabled={currentPage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Prev</Button>
-                  <div>Page {currentPage} / {totalPages}</div>
-                  <Button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>Next</Button>
+              <div className="p-4">
+                <div className="pagination-controls flex items-center justify-between">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Showing {startIdx + 1 <= totalRecords ? (startIdx + 1) : 0} - {Math.min(startIdx + pageSize, totalRecords)} of {totalRecords}</div>
+                  <div className="flex items-center space-x-2">
+                    <Button className="min-w-[48px]" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Prev</Button>
+                    <div className="px-2 text-sm">Page {currentPage} / {totalPages}</div>
+                    <Button className="min-w-[48px]" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>Next</Button>
+                  </div>
                 </div>
               </div>
             )}

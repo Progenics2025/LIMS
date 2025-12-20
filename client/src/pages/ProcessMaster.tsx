@@ -533,8 +533,9 @@ export default function ProcessMaster() {
       </div>
 
       <Card>
-        <CardContent className="p-0 overflow-auto">
-          <Table>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
+            <Table className="leads-table w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="whitespace-nowrap">Unique ID</TableHead>
@@ -576,7 +577,7 @@ export default function ProcessMaster() {
                 <TableHead className="whitespace-nowrap">Remark/Comment</TableHead>
                 <TableHead className="whitespace-nowrap">Modified By</TableHead>
                 <TableHead className="whitespace-nowrap">Modified At</TableHead>
-                <TableHead className="whitespace-nowrap">Actions</TableHead>
+                <TableHead className="actions-column whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -621,7 +622,7 @@ export default function ProcessMaster() {
                   <TableCell className="whitespace-nowrap">{lead.remarkComment || '-'}</TableCell>
                   <TableCell className="whitespace-nowrap">{lead.modifiedBy || '-'}</TableCell>
                   <TableCell className="whitespace-nowrap">{lead.modifiedAt ? new Date(lead.modifiedAt).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell>
+                  <TableCell className="actions-column">
                     <div className="flex gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
                         <Edit className="h-4 w-4" />
@@ -634,10 +635,11 @@ export default function ProcessMaster() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </CardContent>
-        {/* Pagination controls */}
-        <div className="p-4 flex items-center justify-between border-t">
+        {/* Pagination controls (responsive) */}
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t">
           <div className="flex items-center space-x-2">
             <Label>Page size</Label>
             <Select onValueChange={(v) => { setPageSize(parseInt(v || '25', 10)); setPage(1); }} value={String(pageSize)}>
@@ -650,11 +652,11 @@ export default function ProcessMaster() {
               </SelectContent>
             </Select>
           </div>
-          <div>Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}</div>
-          <div className="flex items-center space-x-2">
-            <Button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Prev</Button>
-            <div>Page {page} / {totalPages}</div>
-            <Button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</Button>
+          <div className="text-sm">Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered}</div>
+          <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+            <Button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} size="sm">Prev</Button>
+            <div className="text-sm px-2 min-w-[60px] text-center">Page {page} / {totalPages}</div>
+            <Button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} size="sm">Next</Button>
           </div>
         </div>
       </Card>

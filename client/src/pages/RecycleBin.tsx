@@ -164,7 +164,7 @@ export default function RecycleBin() {
               </div>
               <div className="space-y-2">
                 {grouped[entityType].map((it) => (
-                  <div key={it.uid} className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <div key={it.uid} className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
                     <div className="flex-1">
                       <div className="font-medium">{it.name ?? `${it.entityType} — ${it.entityId}`}</div>
                       <div className="text-xs text-muted-foreground space-y-1">
@@ -172,9 +172,15 @@ export default function RecycleBin() {
                         {it.createdBy && <div>Deleted by {it.createdBy}</div>}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button size="sm" onClick={() => { handleRestore(it.uid); }}>Restore</Button>
-                      <Button size="sm" variant="destructive" onClick={() => { setConfirmUid(it.uid); setConfirmType('permanent'); }}>Delete permanently</Button>
+                    <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
+                      <Button size="sm" className="min-w-[40px] px-2 py-1 text-sm" onClick={() => { handleRestore(it.uid); }}>
+                        <span className="sm:hidden">Restore</span>
+                        <span className="hidden sm:inline">Restore</span>
+                      </Button>
+                      <Button size="sm" variant="destructive" className="min-w-[40px] px-2 py-1 text-sm" onClick={() => { setConfirmUid(it.uid); setConfirmType('permanent'); }}>
+                        <span className="sm:hidden">Delete</span>
+                        <span className="hidden sm:inline">Delete permanently</span>
+                      </Button>
                     </div>
                   </div>
                 ))}
