@@ -576,7 +576,7 @@ interface PerformanceMetrics {
                         name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
                       ]}
                     />
-                    <Legend />
+                    <Legend iconSize={1} wrapperStyle={{ fontSize: '13px' }} />
                     <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" barSize={60} />
                     <Line
                       type="monotone"
@@ -601,7 +601,7 @@ interface PerformanceMetrics {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 pb-2">
-              <div style={{ height: '740px', width: '100%' }}>
+              <div style={{ height: '800px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={yearlyRevenueData} margin={{ top: 10, right: 15, left: 15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -613,9 +613,12 @@ interface PerformanceMetrics {
                         name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
                       ]}
                     />
-                    <Legend wrapperStyle={{ paddingTop: '5px' }} />
-                    <Bar dataKey="actual" fill="#10b981" name="Actual" />
-                    <Bar dataKey="target" fill="#fbbf24" name="Target" />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '5px', fontSize: '12px' }} 
+                      iconSize={10}
+                    />
+                    <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" />
+                    <Bar dataKey="target" fill="#fbbf24" name="Target Revenue" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
