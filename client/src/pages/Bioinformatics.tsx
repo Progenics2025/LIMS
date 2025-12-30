@@ -1014,7 +1014,7 @@ export default function Bioinformatics() {
                     visibleRows.map((r) => {
                       if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
                         return (
-                          <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
+                          <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                             {columnPrefs.isColumnVisible('uniqueId') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.uniqueId ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('projectId') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('sampleId') && <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}

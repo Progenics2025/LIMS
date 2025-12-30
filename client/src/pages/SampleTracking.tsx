@@ -614,7 +614,7 @@ export default function SampleTracking() {
                   ) : (
                     visibleSamples.map((sample) => {
                       return (
-                        <TableRow key={sample.id} className={`${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
+                        <TableRow key={sample.id} className={`${sample.alertToLabprocessTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                           {sampleColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{sample.uniqueId ?? sample.id ?? '-'}</TableCell>}
                           {sampleColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] text-gray-900 dark:text-white sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{sample.projectId ?? '-'}</TableCell>}
                           {sampleColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleCollectionDate ? new Date(sample.sampleCollectionDate).toLocaleDateString() : sample.lead?.sampleCollectionDate ? new Date(sample.lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>}

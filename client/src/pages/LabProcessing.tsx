@@ -990,7 +990,7 @@ export default function LabProcessing() {
                       ? 'No lab processing records found'
                       : 'No records match your search criteria'
                 }
-                rowClassName={(lab) => lab.alertToBioinformaticsTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}
+                rowClassName={(lab) => lab.alertToBioinformaticsTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'}
               />
             </div>
           )}

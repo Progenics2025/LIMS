@@ -502,7 +502,7 @@ export default function ReportManagement() {
 
   const getStatusCounts = () => {
     return {
-      inProgress: reports.filter(r => r.status === 'in_progress').length,
+      inProgress: reports.filter(r => !r.status || r.status === 'in_progress').length,
       awaitingApproval: reports.filter(r => r.status === 'awaiting_approval').length,
       approved: reports.filter(r => r.status === 'approved').length,
       delivered: reports.filter(r => r.status === 'delivered').length,
@@ -895,7 +895,7 @@ export default function ReportManagement() {
                 </TableHeader>
                 <TableBody>
                   {paginatedReports.map((report) => (
-                    <TableRow key={report.unique_id}>
+                    <TableRow key={report.unique_id} className={`${report.report_release_date ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
                       {reportColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.unique_id ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.project_id ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('reportUrl') && <TableCell>{report.report_url ?? '-'}</TableCell>}

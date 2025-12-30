@@ -586,7 +586,7 @@ export default function GeneticCounselling() {
                   </TableRow>
                 ) : (
                   visibleRows.map((r) => (
-                    <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                    <TableRow key={r.id} className={`${r.testing_status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                       {gcColumnPrefs.isColumnVisible('unique_id') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.unique_id}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('project_id') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.project_id ?? '-'}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('counselling_date') && <TableCell className="text-sm">

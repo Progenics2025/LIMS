@@ -3042,7 +3042,7 @@ export default function LeadManagement() {
                   </TableRow>
                 ) : (
                   visibleLeads.map((lead) => (
-                    <TableRow key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                    <TableRow key={lead.id} className={`${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                       {leadColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('leadType') && <TableCell className="whitespace-nowrap">

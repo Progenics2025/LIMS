@@ -678,7 +678,7 @@ export default function FinanceManagement() {
                         const lead = s.lead || {};
                         const balance = s.balanceAmount != null ? Number(s.balanceAmount) : (Number(s.amount || (lead as any).amount || 0) - Number(s.paidAmount || (lead as any).paidAmount || 0));
                         return (
-                          <TableRow key={s.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                          <TableRow key={s.id} className={`${s.approveToLabProcess ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                             <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white">{s.uniqueId ?? s.unique_id ?? '-'}</TableCell>
                             <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{s.projectId ?? s.project_id ?? '-'}</TableCell>
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.sampleCollectionDate ? new Date(s.sampleCollectionDate).toLocaleDateString() : ((lead as any).sampleCollectionDate ? new Date((lead as any).sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>

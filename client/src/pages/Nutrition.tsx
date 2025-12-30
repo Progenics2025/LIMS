@@ -323,7 +323,7 @@ export default function Nutrition() {
   // Calculate summary statistics
   const stats = {
     total: records.length,
-    pending: records.filter(r => r.counsellingStatus?.toLowerCase() === 'pending').length,
+    pending: records.filter(r => !r.counsellingStatus || r.counsellingStatus.toLowerCase() === 'pending').length,
     completed: records.filter(r => r.counsellingStatus?.toLowerCase() === 'completed').length,
     alertsActive: records.filter(r => r.alertToTechnicalLead || r.alertToReportTeam).length,
   };
@@ -479,7 +479,7 @@ export default function Nutrition() {
                     </tr>
                   ) : (
                     paginatedRecords.map((record) => (
-                      <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <tr key={record.id} className={`${record.alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
                         {nutritionColumnPrefs.isColumnVisible('uniqueId') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.uniqueId || '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('projectId') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.projectId || '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('sampleId') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.sampleId || '-'}</td>}
