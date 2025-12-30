@@ -535,7 +535,7 @@ export default function GeneticCounselling() {
               <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b-2">
                 <TableRow>
                   {gcColumnPrefs.isColumnVisible('unique_id') && <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {gcColumnPrefs.isColumnVisible('project_id') && <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('project_id') && <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('counselling_date') && <TableHead onClick={() => { setSortKey('counselling_date'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling date{sortKey === 'counselling_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('gc_registration_start_time') && <TableHead onClick={() => { setSortKey('gc_registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration start time{sortKey === 'gc_registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('gc_registration_end_time') && <TableHead onClick={() => { setSortKey('gc_registration_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration end time{sortKey === 'gc_registration_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
@@ -588,7 +588,7 @@ export default function GeneticCounselling() {
                   visibleRows.map((r) => (
                     <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
                       {gcColumnPrefs.isColumnVisible('unique_id') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.unique_id}</TableCell>}
-                      {gcColumnPrefs.isColumnVisible('project_id') && <TableCell>{r.project_id ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('project_id') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.project_id ?? '-'}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('counselling_date') && <TableCell className="text-sm">
                         {r.counselling_date ? (
                           (() => {

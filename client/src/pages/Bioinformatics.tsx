@@ -950,7 +950,7 @@ export default function Bioinformatics() {
                   {biTypeFilter === 'clinical' || biTypeFilter === 'discovery' ? (
                     <TableRow>
                       {columnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
-                      {columnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap font-semibold">Project ID</TableHead>}
+                      {columnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
                       {columnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>}
                       {columnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>}
                       {columnPrefs.isColumnVisible('organisationHospital') && <TableHead className="whitespace-nowrap font-semibold">Organisation/Hospital</TableHead>}
@@ -1016,7 +1016,7 @@ export default function Bioinformatics() {
                         return (
                           <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                             {columnPrefs.isColumnVisible('uniqueId') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.uniqueId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('projectId') && <TableCell>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('projectId') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('sampleId') && <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('clientId') && <TableCell>{(r as any).clientId ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('organisationHospital') && <TableCell>{(r as any).organisationHospital ?? '-'}</TableCell>}

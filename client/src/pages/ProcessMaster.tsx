@@ -682,7 +682,7 @@ export default function ProcessMaster() {
               <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
                 <TableRow>
                   {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap">Project ID</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
                   {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap">Sample ID</TableHead>}
                   {processMasterColumnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap">Client ID</TableHead>}
                   {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="whitespace-nowrap">Organisation/Hospital</TableHead>}
@@ -727,7 +727,7 @@ export default function ProcessMaster() {
                 {visibleLeads.map((lead: any, i: any) => (
                   <TableRow key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
                     {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId || '-'}</TableCell>}
-                    {processMasterColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap">{lead.projectId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.projectId || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableCell className="whitespace-nowrap">{lead.sampleId || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('clientId') && <TableCell className="whitespace-nowrap">{lead.clientId || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="whitespace-nowrap">{lead.organisationHospital || lead.organization || '-'}</TableCell>}

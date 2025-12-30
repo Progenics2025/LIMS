@@ -861,7 +861,7 @@ export default function ReportManagement() {
                 <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
                   <TableRow>
                     {reportColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('projectId') && <TableHead>Project ID</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
                     {reportColumnPrefs.isColumnVisible('reportUrl') && <TableHead>Report URL</TableHead>}
                     {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableHead>Report release Date</TableHead>}
                     {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableHead>Organisation / Hospital</TableHead>}
@@ -897,7 +897,7 @@ export default function ReportManagement() {
                   {paginatedReports.map((report) => (
                     <TableRow key={report.unique_id}>
                       {reportColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.unique_id ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('projectId') && <TableCell>{report.project_id ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.project_id ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('reportUrl') && <TableCell>{report.report_url ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableCell>{report.report_release_date ? new Date(report.report_release_date).toLocaleDateString() : '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableCell>{report.organisation_hospital ?? '-'}</TableCell>}

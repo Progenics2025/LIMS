@@ -751,7 +751,7 @@ export default function LabProcessing() {
       accessorKey: "uniqueId",
       className: "sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
     },
-    { id: 'projectId', header: "Project ID", accessorKey: "projectId" },
+    { id: 'projectId', header: "Project ID", accessorKey: "projectId", className: "sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" },
     {
       id: 'sampleId',
       header: "Sample ID",

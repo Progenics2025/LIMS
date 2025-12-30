@@ -1147,7 +1147,7 @@ export default function FinanceManagement() {
                     <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                       <TableRow>
                         {financeColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
-                        {financeColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Project ID</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold sticky left-[140px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
                         {financeColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Sample Collection Date</TableHead>}
                         {financeColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Organisation / Hospital</TableHead>}
                         {financeColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Name</TableHead>}
@@ -1205,7 +1205,7 @@ export default function FinanceManagement() {
                           return (
                             <TableRow key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
                               {financeColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{uniqueIdDisplay}</TableCell>}
-                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{projectIdDisplay}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white sticky left-[140px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{projectIdDisplay}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>}
