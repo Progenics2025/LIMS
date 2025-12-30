@@ -141,7 +141,7 @@ async function syncLeadToProcessMaster(lead: any, isUpdate: boolean = false) {
       gender: lead.gender || null,
       patient_client_email: lead.patientClientEmail || lead.patient_client_email || null,
       patient_client_phone: lead.patientClientPhone || lead.patient_client_phone || null,
-      patient_client_address: lead.patientClientAddress || lead.patient_client_address || null,
+      patient_client_address: lead.patientClientAddress || null,
       sample_collection_date: lead.sampleCollectionDate || lead.sample_collection_date || null,
       sample_recevied_date: lead.sampleReceivedDate || lead.sample_recevied_date || null,
       service_name: lead.serviceName || lead.service_name || null,
@@ -163,6 +163,8 @@ async function syncLeadToProcessMaster(lead: any, isUpdate: boolean = false) {
       nutritional_management_status: null, // Set separately
       progenics_report_release_date: null, // Set separately
       Remark_Comment: lead.remarkComment || lead.Remark_Comment || null,
+      created_by: lead.leadCreatedBy || lead.lead_created_by || null,
+      modified_by: lead.modifiedBy || lead.modified_by || null,
     };
 
     // Check if record exists in ProcessMaster
@@ -941,8 +943,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If genetic counselling is required, auto-create a genetic counselling record
       console.log('Lead geneticCounselorRequired check:', lead.geneticCounselorRequired, 'Lead keys:', Object.keys(lead).filter(k => k.includes('genetic')));
       console.log('[GC Auto-Create] Full lead object keys:', Object.keys(lead));
-      console.log('[GC Auto-Create] Lead.patientClientAddress:', lead.patientClientAddress);
-      console.log('[GC Auto-Create] Lead.patient_client_address:', lead.patient_client_address);
       if (lead.geneticCounselorRequired) {
         try {
           // Check if GC record already exists for this unique_id
@@ -965,7 +965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               unique_id: toString(lead.uniqueId) || '',
               project_id: lead.projectId || null,
               patient_client_name: toString(lead.patientClientName),
-              patient_client_address: toString(lead.patientClientAddress || lead.patient_client_address),
+              patient_client_address: toString(lead.patientClientAddress),
               age: lead.age ? Number(lead.age) : null,
               gender: toString(lead.gender),
               patient_client_email: toString(lead.patientClientEmail),
@@ -989,7 +989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               service_name: geneticCounsellingRecord.service_name,
               sample_type: geneticCounsellingRecord.sample_type
             });
-            console.log('[GC Auto-Create Debug] Lead source address - patientClientAddress:', lead.patientClientAddress, 'patient_client_address:', lead.patient_client_address);
+            console.log('[GC Auto-Create Debug] Lead source address - patientClientAddress:', lead.patientClientAddress);
 
             // Direct table insert
             const keys = Object.keys(geneticCounsellingRecord).filter(k => geneticCounsellingRecord[k as keyof typeof geneticCounsellingRecord] !== undefined);
@@ -1875,7 +1875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update bioinformatics table to set alert_to_report_team flag
       try {
         const isDiscovery = projectId.startsWith('DG');
-        const bioTableName = isDiscovery ? 'bioinfo_discovery_sheet' : 'bioinfo_clinical_sheet';
+        const bioTableName = isDiscovery ? 'bioinformatics_sheet_discovery' : 'bioinformatics_sheet_clinical';
         await pool.execute(
           `UPDATE ${bioTableName} SET alert_to_report_team = ?, modified_at = ? WHERE id = ?`,
           [1, new Date(), bioinformaticsId]
@@ -3061,7 +3061,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let leadData: any = { service_name: serviceName, sample_type: sampleType };
       try {
         const [leadRows]: any = await pool.execute(
-          'SELECT service_name, sample_type, no_of_samples FROM lead_management WHERE unique_id = ? LIMIT 1',
+          'SELECT service_name, sample_type, no_of_samples, lead_created_by FROM lead_management WHERE unique_id = ? LIMIT 1',
           [uniqueId]
         );
         if (leadRows && leadRows.length > 0) {
@@ -3069,6 +3069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           leadData.service_name = serviceName || lead.service_name || null;
           leadData.sample_type = sampleType || lead.sample_type || null;
           leadData.no_of_samples = lead.no_of_samples || null;
+          leadData.lead_created_by = lead.lead_created_by || null;
           console.log('Fetched lead data from lead_management table:', leadData);
         }
       } catch (leadError) {
@@ -3099,7 +3100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
       }
 
-      baseLabProcessData.created_by = createdBy || 'system';
+      baseLabProcessData.created_by = createdBy || leadData.lead_created_by || 'system';
       baseLabProcessData.created_at = new Date();
 
       let tableName = isDiscovery ? 'labprocess_discovery_sheet' : 'labprocess_clinical_sheet';
@@ -3107,15 +3108,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Loop through numberOfSamples and create a record for each
       for (let sampleNum = 1; sampleNum <= numberOfSamples; sampleNum++) {
-        // Create sample_id with suffix for each sample record
-        // Use sampleId if provided, otherwise fall back to uniqueId
-        // If only 1 sample, use the base ID
-        // If multiple samples, append the sample number (e.g., TEST-ID_1, _2, _3, _4)
-        const baseSampleId = sampleId || uniqueId || '';
-        let recordSampleId = baseSampleId;
-        if (numberOfSamples > 1) {
-          recordSampleId = `${baseSampleId}_${sampleNum}`;
-        }
+        // Create sample_id using PROJECT_ID as base with sequential number suffix
+        // Sample ID format: PROJECT_ID_N (e.g., DG251227165628_1, DG251227165628_2, etc.)
+        // This ensures Sample ID is distinct from Unique ID
+        const recordSampleId = `${projectId}_${sampleNum}`;
 
         // Prepare lab process data for this sample
         // unique_id remains the same, only sample_id changes
@@ -3220,13 +3216,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process Master Canonical Routes - maps to process_master_sheet table
+  // Process Master Canonical Routes - DYNAMIC aggregation from all source tables
+  // This provides real-time updates across all sections
   app.get('/api/process-master', async (req, res) => {
     try {
-      const [rows] = await pool.execute('SELECT * FROM process_master_sheet');
+      // Comprehensive query that aggregates data from all source tables
+      // This ensures real-time updates when any section is modified
+      // NOTE: sample_tracking table does NOT have sample_id, service_name, sample_type, no_of_samples, tat, logistic_status, progenics_trf columns
+      // These come from labprocess tables or lead_management
+      const query = `
+        SELECT 
+          pm.id,
+          pm.unique_id,
+          pm.project_id,
+          -- Get sample_id from labprocess tables (where it's actually stored)
+          COALESCE(lpd.sample_id, lpc.sample_id, pm.sample_id) as sample_id,
+          pm.client_id,
+          COALESCE(st.organisation_hospital, pm.organisation_hospital) as organisation_hospital,
+          COALESCE(st.clinician_researcher_name, pm.clinician_researcher_name) as clinician_researcher_name,
+          pm.speciality,
+          pm.clinician_researcher_email,
+          COALESCE(st.clinician_researcher_phone, pm.clinician_researcher_phone) as clinician_researcher_phone,
+          pm.clinician_researcher_address,
+          COALESCE(st.patient_client_name, pm.patient_client_name) as patient_client_name,
+          pm.age,
+          pm.gender,
+          pm.patient_client_email,
+          COALESCE(st.patient_client_phone, pm.patient_client_phone) as patient_client_phone,
+          pm.patient_client_address,
+          COALESCE(st.sample_collection_date, pm.sample_collection_date) as sample_collection_date,
+          COALESCE(st.sample_recevied_date, pm.sample_recevied_date) as sample_recevied_date,
+          COALESCE(lpd.service_name, lpc.service_name, pm.service_name) as service_name,
+          COALESCE(lpd.sample_type, lpc.sample_type, pm.sample_type) as sample_type,
+          COALESCE(lpd.no_of_samples, lpc.no_of_samples, pm.no_of_samples) as no_of_samples,
+          pm.tat,
+          COALESCE(st.sales_responsible_person, pm.sales_responsible_person) as sales_responsible_person,
+          COALESCE(lpd.progenics_trf, lpc.progenics_trf, pm.progenics_trf) as progenics_trf,
+          COALESCE(st.third_party_trf, pm.third_party_trf) as third_party_trf,
+          pm.progenics_report,
+          COALESCE(st.sample_sent_to_third_party_date, pm.sample_sent_to_third_party_date) as sample_sent_to_third_party_date,
+          COALESCE(st.third_party_name, pm.third_party_name) as third_party_name,
+          COALESCE(st.third_party_report, pm.third_party_report) as third_party_report,
+          pm.results_raw_data_received_from_third_party_date,
+          -- Get real-time status from respective tables
+          pm.logistic_status,
+          COALESCE(
+            CASE 
+              WHEN fs.total_amount_received_status = 1 OR fs.total_amount_received_status = true THEN 'Completed'
+              WHEN fs.payment_receipt_amount > 0 THEN 'Partial'
+              ELSE pm.finance_status
+            END,
+            pm.finance_status
+          ) as finance_status,
+          COALESCE(
+            CASE 
+              WHEN lpd.extraction_qc_status IS NOT NULL THEN lpd.extraction_qc_status
+              WHEN lpc.extraction_qc_status IS NOT NULL THEN lpc.extraction_qc_status
+              ELSE pm.lab_process_status
+            END,
+            pm.lab_process_status
+          ) as lab_process_status,
+          COALESCE(
+            CASE 
+              WHEN bid.analysis_status IS NOT NULL THEN bid.analysis_status
+              WHEN bic.analysis_status IS NOT NULL THEN bic.analysis_status
+              ELSE pm.bioinformatics_status
+            END,
+            pm.bioinformatics_status
+          ) as bioinformatics_status,
+          COALESCE(nm.counselling_status, pm.nutritional_management_status) as nutritional_management_status,
+          pm.progenics_report_release_date,
+          pm.Remark_Comment,
+          pm.created_at,
+          pm.created_by,
+          pm.modified_at,
+          pm.modified_by
+        FROM process_master_sheet pm
+        LEFT JOIN sample_tracking st ON pm.unique_id = st.unique_id
+        LEFT JOIN finance_sheet fs ON pm.unique_id = fs.unique_id
+        LEFT JOIN labprocess_discovery_sheet lpd ON pm.unique_id = lpd.unique_id
+        LEFT JOIN labprocess_clinical_sheet lpc ON pm.unique_id = lpc.unique_id
+        LEFT JOIN bioinformatics_sheet_discovery bid ON pm.unique_id = bid.unique_id
+        LEFT JOIN bioinformatics_sheet_clinical bic ON pm.unique_id = bic.unique_id
+        LEFT JOIN nutritional_management nm ON pm.unique_id = nm.unique_id
+        ORDER BY pm.created_at DESC
+      `;
+
+      const [rows] = await pool.execute(query);
       res.json(rows || []);
     } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch process master records' });
+      console.error('Failed to fetch process master records:', (error as Error).message);
+      // Fallback to basic query if JOINs fail (e.g., missing tables)
+      try {
+        const [rows] = await pool.execute('SELECT * FROM process_master_sheet ORDER BY created_at DESC');
+        res.json(rows || []);
+      } catch (fallbackError) {
+        res.status(500).json({ message: 'Failed to fetch process master records' });
+      }
     }
   });
 
@@ -3272,6 +3358,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ id });
     } catch (error) {
       res.status(500).json({ message: 'Failed to delete process master record' });
+    }
+  });
+
+  // Migration endpoint to fix existing sample_id values to use PROJECT_ID_N format
+  // This is a one-time fix for data created before the proper format was implemented
+  app.post('/api/migrate-sample-ids', async (req, res) => {
+    try {
+      console.log('Starting sample_id migration...');
+
+      // Get all records from discovery sheet where sample_id doesn't follow PROJECT_ID_N format
+      const [discoveryRows]: any = await pool.execute(
+        `SELECT id, unique_id, project_id, sample_id FROM labprocess_discovery_sheet 
+         WHERE sample_id NOT LIKE CONCAT(project_id, '_%') OR sample_id IS NULL`
+      );
+
+      let discoveryUpdated = 0;
+      for (const row of discoveryRows) {
+        if (row.project_id) {
+          // Count existing samples with this project_id to get the next number
+          const [countResult]: any = await pool.execute(
+            `SELECT COUNT(*) as cnt FROM labprocess_discovery_sheet WHERE project_id = ? AND id < ?`,
+            [row.project_id, row.id]
+          );
+          const sampleNum = (countResult[0]?.cnt || 0) + 1;
+          const newSampleId = `${row.project_id}_${sampleNum}`;
+
+          await pool.execute(
+            'UPDATE labprocess_discovery_sheet SET sample_id = ? WHERE id = ?',
+            [newSampleId, row.id]
+          );
+          discoveryUpdated++;
+          console.log(`Updated discovery sheet ID ${row.id}: sample_id = ${newSampleId}`);
+        }
+      }
+
+      // Get all records from clinical sheet where sample_id doesn't follow PROJECT_ID_N format
+      const [clinicalRows]: any = await pool.execute(
+        `SELECT id, unique_id, project_id, sample_id FROM labprocess_clinical_sheet 
+         WHERE sample_id NOT LIKE CONCAT(project_id, '_%') OR sample_id IS NULL`
+      );
+
+      let clinicalUpdated = 0;
+      for (const row of clinicalRows) {
+        if (row.project_id) {
+          const [countResult]: any = await pool.execute(
+            `SELECT COUNT(*) as cnt FROM labprocess_clinical_sheet WHERE project_id = ? AND id < ?`,
+            [row.project_id, row.id]
+          );
+          const sampleNum = (countResult[0]?.cnt || 0) + 1;
+          const newSampleId = `${row.project_id}_${sampleNum}`;
+
+          await pool.execute(
+            'UPDATE labprocess_clinical_sheet SET sample_id = ? WHERE id = ?',
+            [newSampleId, row.id]
+          );
+          clinicalUpdated++;
+          console.log(`Updated clinical sheet ID ${row.id}: sample_id = ${newSampleId}`);
+        }
+      }
+
+      // Also update process_master_sheet to match
+      const [pmRows]: any = await pool.execute(
+        `SELECT pm.id, pm.unique_id, pm.project_id, 
+                COALESCE(lpd.sample_id, lpc.sample_id) as correct_sample_id
+         FROM process_master_sheet pm
+         LEFT JOIN labprocess_discovery_sheet lpd ON pm.unique_id = lpd.unique_id
+         LEFT JOIN labprocess_clinical_sheet lpc ON pm.unique_id = lpc.unique_id
+         WHERE COALESCE(lpd.sample_id, lpc.sample_id) IS NOT NULL 
+           AND pm.sample_id != COALESCE(lpd.sample_id, lpc.sample_id)`
+      );
+
+      let pmUpdated = 0;
+      for (const row of pmRows) {
+        if (row.correct_sample_id) {
+          await pool.execute(
+            'UPDATE process_master_sheet SET sample_id = ? WHERE id = ?',
+            [row.correct_sample_id, row.id]
+          );
+          pmUpdated++;
+          console.log(`Updated process master ID ${row.id}: sample_id = ${row.correct_sample_id}`);
+        }
+      }
+
+      console.log(`Migration complete: ${discoveryUpdated} discovery, ${clinicalUpdated} clinical, ${pmUpdated} process master records updated`);
+
+      res.json({
+        success: true,
+        updated: {
+          discovery: discoveryUpdated,
+          clinical: clinicalUpdated,
+          processMaster: pmUpdated
+        }
+      });
+    } catch (error) {
+      console.error('Migration failed:', (error as Error).message);
+      res.status(500).json({ message: 'Migration failed', error: (error as Error).message });
     }
   });
 
@@ -4015,6 +4197,260 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Recent Activities API - Aggregates recent activities from all major tables
+  app.get("/api/dashboard/recent-activities", async (req, res) => {
+    try {
+      const activities: Array<{
+        id: string;
+        action: string;
+        entity: string;
+        timestamp: string;
+        type: 'lead' | 'sample' | 'report' | 'payment';
+        userId: string;
+        details?: string;
+      }> = [];
+
+      // Get recent leads (last 50)
+      try {
+        const [leadRows]: any = await pool.execute(`
+          SELECT id, unique_id, patient_client_name, service_name, status, lead_created, lead_created_by, organisation_hospital
+          FROM lead_management 
+          ORDER BY lead_created DESC 
+          LIMIT 50
+        `);
+
+        for (const lead of leadRows || []) {
+          activities.push({
+            id: `lead-${lead.id}`,
+            action: lead.status === 'converted' ? 'Lead converted' : `New lead created`,
+            entity: lead.patient_client_name || lead.organisation_hospital || 'Unknown',
+            timestamp: lead.lead_created,
+            type: 'lead',
+            userId: lead.lead_created_by || 'system',
+            details: lead.service_name ? `Service: ${lead.service_name}` : undefined
+          });
+        }
+      } catch (leadError) {
+        console.log('lead_management query skipped:', (leadError as Error).message);
+      }
+
+      // Get recent samples (last 50)
+      try {
+        const [sampleRows]: any = await pool.execute(`
+          SELECT id, unique_id, patient_client_name, organisation_hospital, created_at, created_by, sample_recevied_date
+          FROM sample_tracking 
+          ORDER BY created_at DESC 
+          LIMIT 50
+        `);
+
+        for (const sample of sampleRows || []) {
+          activities.push({
+            id: `sample-${sample.id}`,
+            action: sample.sample_recevied_date ? 'Sample received' : 'Sample registered',
+            entity: sample.patient_client_name || sample.organisation_hospital || sample.unique_id || 'Unknown',
+            timestamp: sample.created_at,
+            type: 'sample',
+            userId: sample.created_by || 'system',
+            details: sample.unique_id ? `Sample ID: ${sample.unique_id}` : undefined
+          });
+        }
+      } catch (sampleError) {
+        console.log('sample_tracking query skipped:', (sampleError as Error).message);
+      }
+
+      // Get recent reports from report_management (last 50)
+      try {
+        const [reportRows]: any = await pool.execute(`
+          SELECT unique_id, project_id, patient_client_name, service_name, created_at, sales_responsible_person, report_release_date
+          FROM report_management 
+          ORDER BY COALESCE(created_at, report_release_date) DESC 
+          LIMIT 50
+        `);
+
+        for (const report of reportRows || []) {
+          const hasReleaseDate = report.report_release_date != null;
+          activities.push({
+            id: `report-${report.unique_id}`,
+            action: hasReleaseDate ? 'Report released' : 'Report created',
+            entity: report.patient_client_name || report.unique_id || 'Unknown',
+            timestamp: report.created_at || new Date().toISOString(),
+            type: 'report',
+            userId: report.sales_responsible_person || 'system',
+            details: report.service_name ? `Service: ${report.service_name}` : undefined
+          });
+        }
+      } catch (reportError) {
+        console.log('report_management query skipped:', (reportError as Error).message);
+      }
+
+      // Get recent finance activities (last 50)
+      try {
+        const [financeRows]: any = await pool.execute(`
+          SELECT id, unique_id, patient_client_name, organisation_hospital, payment_receipt_amount, invoice_amount, created_at, created_by, mode_of_payment
+          FROM finance_sheet 
+          ORDER BY created_at DESC 
+          LIMIT 50
+        `);
+
+        for (const finance of financeRows || []) {
+          const amount = finance.payment_receipt_amount || finance.invoice_amount || 0;
+          activities.push({
+            id: `payment-${finance.id}`,
+            action: finance.payment_receipt_amount ? 'Payment received' : 'Invoice generated',
+            entity: finance.patient_client_name || finance.organisation_hospital || finance.unique_id || 'Unknown',
+            timestamp: finance.created_at,
+            type: 'payment',
+            userId: finance.created_by || 'system',
+            details: amount > 0 ? `Amount: ₹${amount}` : undefined
+          });
+        }
+      } catch (financeError) {
+        console.log('finance_sheet query skipped:', (financeError as Error).message);
+      }
+
+      // Sort all activities by timestamp (most recent first) and return top 20
+      activities.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0).getTime();
+        const dateB = new Date(b.timestamp || 0).getTime();
+        return dateB - dateA;
+      });
+
+      res.json(activities.slice(0, 20));
+    } catch (error) {
+      console.error('Failed to fetch recent activities:', (error as Error).message);
+      res.status(500).json({ message: "Failed to fetch recent activities" });
+    }
+  });
+
+  // Performance Metrics API - Calculates key performance indicators
+  app.get("/api/dashboard/performance-metrics", async (req, res) => {
+    try {
+      let leadConversionRate = 0;
+      let exceedingTAT = 0;
+      let monthlyRevenue = 0;
+      let lastMonthRevenue = 0;
+      let revenueGrowth = 0;
+      let activeSamples = 0;
+      let completedReports = 0;
+      let pendingApprovals = 0;
+      const customerSatisfaction = 95; // Default placeholder
+
+      // Lead Conversion Rate: (converted leads / total leads) * 100
+      try {
+        const [leadStats]: any = await pool.execute(`
+          SELECT 
+            COUNT(*) as total_leads,
+            SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_leads
+          FROM lead_management
+        `);
+        const totalLeads = Number(leadStats?.[0]?.total_leads || 0);
+        const convertedLeads = Number(leadStats?.[0]?.converted_leads || 0);
+        leadConversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+      } catch (e) { console.log('Lead stats query skipped:', (e as Error).message); }
+
+      // Exceeding TAT: count from lead_management where TAT has passed
+      try {
+        const [tatStats]: any = await pool.execute(`
+          SELECT COUNT(*) as exceeding_tat
+          FROM lead_management
+          WHERE status = 'converted'
+          AND sample_recevied_date IS NOT NULL
+          AND tat IS NOT NULL
+          AND DATE_ADD(sample_recevied_date, INTERVAL CAST(tat AS UNSIGNED) DAY) < NOW()
+        `);
+        exceedingTAT = Number(tatStats?.[0]?.exceeding_tat || 0);
+      } catch (e) { console.log('TAT stats query skipped:', (e as Error).message); }
+
+      // Monthly Revenue from finance_sheet - use payment_receipt_date or invoice_date, or fallback to total
+      try {
+        // First try payment_receipt_date for current month
+        const [monthlyRevenueStats]: any = await pool.execute(`
+          SELECT COALESCE(SUM(payment_receipt_amount), 0) as monthly_revenue
+          FROM finance_sheet
+          WHERE (
+            (payment_receipt_date IS NOT NULL AND MONTH(payment_receipt_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_receipt_date) = YEAR(CURRENT_DATE()))
+            OR (payment_receipt_date IS NULL AND invoice_date IS NOT NULL AND MONTH(invoice_date) = MONTH(CURRENT_DATE()) AND YEAR(invoice_date) = YEAR(CURRENT_DATE()))
+          )
+        `);
+        monthlyRevenue = Number(monthlyRevenueStats?.[0]?.monthly_revenue || 0);
+        
+        // If still 0, get total revenue instead as a fallback for display
+        if (monthlyRevenue === 0) {
+          const [totalRevenueStats]: any = await pool.execute(`
+            SELECT COALESCE(SUM(payment_receipt_amount), 0) as total_revenue FROM finance_sheet
+          `);
+          monthlyRevenue = Number(totalRevenueStats?.[0]?.total_revenue || 0);
+        }
+      } catch (e) { console.log('Monthly revenue query skipped:', (e as Error).message); }
+
+      // Last Month Revenue (for growth calculation)
+      try {
+        const [lastMonthRevenueStats]: any = await pool.execute(`
+          SELECT COALESCE(SUM(payment_receipt_amount), 0) as last_month_revenue
+          FROM finance_sheet
+          WHERE (
+            (payment_receipt_date IS NOT NULL AND MONTH(payment_receipt_date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AND YEAR(payment_receipt_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)))
+            OR (payment_receipt_date IS NULL AND invoice_date IS NOT NULL AND MONTH(invoice_date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AND YEAR(invoice_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)))
+          )
+        `);
+        lastMonthRevenue = Number(lastMonthRevenueStats?.[0]?.last_month_revenue || 0);
+        revenueGrowth = lastMonthRevenue > 0
+          ? Math.round(((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
+          : 0;
+      } catch (e) { console.log('Last month revenue query skipped:', (e as Error).message); }
+
+      // Active Samples: samples currently in sample_tracking
+      try {
+        const [activeSamplesStats]: any = await pool.execute(`
+          SELECT COUNT(*) as active_samples FROM sample_tracking
+        `);
+        activeSamples = Number(activeSamplesStats?.[0]?.active_samples || 0);
+      } catch (e) { console.log('Active samples query skipped:', (e as Error).message); }
+
+      // Completed Reports: count from report_management with report_release_date, or total count as fallback
+      try {
+        const [completedReportsStats]: any = await pool.execute(`
+          SELECT COUNT(*) as completed_reports FROM report_management WHERE report_release_date IS NOT NULL
+        `);
+        completedReports = Number(completedReportsStats?.[0]?.completed_reports || 0);
+        
+        // If 0, get total count as fallback
+        if (completedReports === 0) {
+          const [totalReportsStats]: any = await pool.execute(`
+            SELECT COUNT(*) as total_reports FROM report_management
+          `);
+          completedReports = Number(totalReportsStats?.[0]?.total_reports || 0);
+        }
+      } catch (e) {
+        console.log('Completed reports query skipped:', (e as Error).message);
+      }
+
+      // Pending Approvals: count from report_management where approval_from_finance is false/null
+      try {
+        const [pendingApprovalsStats]: any = await pool.execute(`
+          SELECT COUNT(*) as pending_approvals FROM report_management WHERE approval_from_finance = 0 OR approval_from_finance IS NULL
+        `);
+        pendingApprovals = Number(pendingApprovalsStats?.[0]?.pending_approvals || 0);
+      } catch (e) {
+        console.log('Pending approvals query skipped:', (e as Error).message);
+      }
+
+      res.json({
+        leadConversionRate,
+        exceedingTAT,
+        customerSatisfaction,
+        monthlyRevenue,
+        activeSamples,
+        completedReports,
+        pendingApprovals,
+        revenueGrowth
+      });
+    } catch (error) {
+      console.error('Failed to fetch performance metrics:', (error as Error).message);
+      res.status(500).json({ message: "Failed to fetch performance metrics" });
+    }
+  });
+
   // Revenue Analytics API
   app.get("/api/dashboard/revenue-analytics", async (req, res) => {
     try {
@@ -4111,14 +4547,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         serviceBreakdown[service] = (serviceBreakdown[service] || 0) + amount;
       }
 
+      // Calculate total revenue for percentage calculation
+      const totalServiceRevenue = Object.values(serviceBreakdown).reduce((sum, val) => sum + val, 0);
+
       const breakdownData = Object.entries(serviceBreakdown)
         .filter(([_, value]) => value > 0)
         .map(([name, value]) => ({
-          name: name || 'Other',
-          value: Math.round(value),
+          category: name || 'Other',
+          revenue: Math.round(value),
+          percentage: totalServiceRevenue > 0 ? Math.round((value / totalServiceRevenue) * 100) : 0,
           color: getRandomColor(name)
         }))
-        .sort((a, b) => b.value - a.value)
+        .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 10); // Top 10 services
 
       // Summary stats

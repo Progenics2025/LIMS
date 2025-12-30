@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -153,8 +155,11 @@ function normalizeLead(l: any) {
 }
 
 export default function ProcessMaster() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const deleteConfirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
   const { add } = useRecycle();
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
@@ -216,13 +221,34 @@ export default function ProcessMaster() {
   const processMasterColumnPrefs = useColumnPreferences('process_master_table', processMasterColumns);
 
 
-  const { data: processMasterData = [], isLoading: processMasterLoading } = useQuery({
+  const { data: processMasterData = [], isLoading: processMasterLoading, refetch: refetchProcessMaster } = useQuery({
     queryKey: ['/api/process-master'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/process-master');
       return res.json();
-    }
+    },
+    // Auto-refresh every 30 seconds to catch real-time updates from other sections
+    refetchInterval: 30000,
+    // Also refetch when the window gains focus
+    refetchOnWindowFocus: true,
   });
+
+  // Listen for data change events from other sections to trigger immediate refresh
+  useEffect(() => {
+    const handleDataChange = () => {
+      console.log('[ProcessMaster] Data change detected, refreshing...');
+      refetchProcessMaster();
+    };
+
+    // Listen for custom events dispatched by other sections when they modify data
+    window.addEventListener('ll:data:changed', handleDataChange);
+    window.addEventListener('ll:recycle:update', handleDataChange);
+
+    return () => {
+      window.removeEventListener('ll:data:changed', handleDataChange);
+      window.removeEventListener('ll:recycle:update', handleDataChange);
+    };
+  }, [refetchProcessMaster]);
 
   const normalizeProjectSample = (ps: any) => {
     if (!ps) return ps;
@@ -434,150 +460,163 @@ export default function ProcessMaster() {
   };
 
   const handleSave = async () => {
-    try {
-      if (!editingLead || !editingLead.id) {
-        toast({ title: 'Error', description: 'Record ID is missing', variant: 'destructive' });
-        return;
-      }
+    if (!editingLead || !editingLead.id) {
+      toast({ title: 'Error', description: 'Record ID is missing', variant: 'destructive' });
+      return;
+    }
 
-      setIsSaving(true);
+    editConfirmation.confirmEdit({
+      title: 'Update Process Master Record',
+      description: `Are you sure you want to save changes to the record for "${editingLead.patientClientName || editingLead.sampleId || editingLead.id}"?`,
+      onConfirm: async () => {
+        try {
+          setIsSaving(true);
 
-      // Convert camelCase back to snake_case for database
-      const convertToDbFormat = (obj: any) => {
-        const dbObj: any = {};
-        const fieldMapping: { [key: string]: string } = {
-          uniqueId: 'unique_id',
-          projectId: 'project_id',
-          sampleId: 'sample_id',
-          clientId: 'client_id',
-          organisationHospital: 'organisation_hospital',
-          clinicianResearcherName: 'clinician_researcher_name',
-          specialty: 'speciality',
-          clinicianResearcherEmail: 'clinician_researcher_email',
-          clinicianResearcherPhone: 'clinician_researcher_phone',
-          clinicianResearcherAddress: 'clinician_researcher_address',
-          patientClientName: 'patient_client_name',
-          age: 'age',
-          gender: 'gender',
-          patientClientEmail: 'patient_client_email',
-          patientClientPhone: 'patient_client_phone',
-          patientClientAddress: 'patient_client_address',
-          dateSampleCollected: 'sample_collection_date',
-          sampleCollectionDate: 'sample_collection_date',
-          sampleReceivedDate: 'sample_recevied_date',
-          serviceName: 'service_name',
-          sampleType: 'sample_type',
-          noOfSamples: 'no_of_samples',
-          tat: 'tat',
-          salesResponsiblePerson: 'sales_responsible_person',
-          progenicsTrf: 'progenics_trf',
-          thirdPartyTrf: 'third_party_trf',
-          progenicsReport: 'progenics_report',
-          sampleSentToThirdPartyDate: 'sample_sent_to_third_party_date',
-          thirdPartyName: 'third_party_name',
-          thirdPartyReport: 'third_party_report',
-          resultsRawDataReceivedFromThirdPartyDate: 'results_raw_data_received_from_third_party_date',
-          logisticStatus: 'logistic_status',
-          financeStatus: 'finance_status',
-          labProcessStatus: 'lab_process_status',
-          bioinformaticsStatus: 'bioinformatics_status',
-          nutritionalManagementStatus: 'nutritional_management_status',
-          progenicsReportReleaseDate: 'progenics_report_release_date',
-          remarkComment: 'Remark_Comment',
-          createdBy: 'created_by',
-          modifiedBy: 'modified_by',
-        };
+          // Convert camelCase back to snake_case for database
+          const convertToDbFormat = (obj: any) => {
+            const dbObj: any = {};
+            const fieldMapping: { [key: string]: string } = {
+              uniqueId: 'unique_id',
+              projectId: 'project_id',
+              sampleId: 'sample_id',
+              clientId: 'client_id',
+              organisationHospital: 'organisation_hospital',
+              clinicianResearcherName: 'clinician_researcher_name',
+              specialty: 'speciality',
+              clinicianResearcherEmail: 'clinician_researcher_email',
+              clinicianResearcherPhone: 'clinician_researcher_phone',
+              clinicianResearcherAddress: 'clinician_researcher_address',
+              patientClientName: 'patient_client_name',
+              age: 'age',
+              gender: 'gender',
+              patientClientEmail: 'patient_client_email',
+              patientClientPhone: 'patient_client_phone',
+              patientClientAddress: 'patient_client_address',
+              dateSampleCollected: 'sample_collection_date',
+              sampleCollectionDate: 'sample_collection_date',
+              sampleReceivedDate: 'sample_recevied_date',
+              serviceName: 'service_name',
+              sampleType: 'sample_type',
+              noOfSamples: 'no_of_samples',
+              tat: 'tat',
+              salesResponsiblePerson: 'sales_responsible_person',
+              progenicsTrf: 'progenics_trf',
+              thirdPartyTrf: 'third_party_trf',
+              progenicsReport: 'progenics_report',
+              sampleSentToThirdPartyDate: 'sample_sent_to_third_party_date',
+              thirdPartyName: 'third_party_name',
+              thirdPartyReport: 'third_party_report',
+              resultsRawDataReceivedFromThirdPartyDate: 'results_raw_data_received_from_third_party_date',
+              logisticStatus: 'logistic_status',
+              financeStatus: 'finance_status',
+              labProcessStatus: 'lab_process_status',
+              bioinformaticsStatus: 'bioinformatics_status',
+              nutritionalManagementStatus: 'nutritional_management_status',
+              progenicsReportReleaseDate: 'progenics_report_release_date',
+              remarkComment: 'Remark_Comment',
+              createdBy: 'created_by',
+              modifiedBy: 'modified_by',
+            };
 
-        // Date fields that need to be formatted as YYYY-MM-DD
-        const dateFields = [
-          'sampleCollectionDate', 'sampleReceivedDate', 'sampleSentToThirdPartyDate',
-          'resultsRawDataReceivedFromThirdPartyDate', 'progenicsReportReleaseDate',
-          'dateSampleCollected'
-        ];
+            // Date fields that need to be formatted as YYYY-MM-DD
+            const dateFields = [
+              'sampleCollectionDate', 'sampleReceivedDate', 'sampleSentToThirdPartyDate',
+              'resultsRawDataReceivedFromThirdPartyDate', 'progenicsReportReleaseDate',
+              'dateSampleCollected'
+            ];
 
-        for (const [camel, snake] of Object.entries(fieldMapping)) {
-          if (obj[camel] !== undefined && obj[camel] !== null) {
-            let value = obj[camel];
+            for (const [camel, snake] of Object.entries(fieldMapping)) {
+              if (obj[camel] !== undefined && obj[camel] !== null) {
+                let value = obj[camel];
 
-            // Format date fields to YYYY-MM-DD
-            if (dateFields.includes(camel) && value) {
-              if (value instanceof Date) {
-                value = value.toISOString().split('T')[0];
-              } else if (typeof value === 'string' && value.length > 10) {
-                // If it's an ISO string with time, extract just the date part
-                value = value.split('T')[0];
+                // Format date fields to YYYY-MM-DD
+                if (dateFields.includes(camel) && value) {
+                  if (value instanceof Date) {
+                    value = value.toISOString().split('T')[0];
+                  } else if (typeof value === 'string' && value.length > 10) {
+                    // If it's an ISO string with time, extract just the date part
+                    value = value.split('T')[0];
+                  }
+                }
+
+                dbObj[snake] = value;
               }
             }
 
-            dbObj[snake] = value;
+            // Include id but not createdAt, modifiedAt (those are system fields)
+            if (obj.id !== undefined) {
+              dbObj.id = obj.id;
+            }
+
+            return dbObj;
+          };
+
+          editingLead.modifiedBy = user?.name || user?.email || 'System';
+          const dbData = convertToDbFormat(editingLead);
+
+          // Validate that we have at least some data to save
+          const fieldsToUpdate = Object.keys(dbData).filter(k => k !== 'id');
+          if (fieldsToUpdate.length === 0) {
+            toast({ title: 'Error', description: 'No fields to update', variant: 'destructive' });
+            setIsSaving(false);
+            return;
           }
+
+          console.debug('[ProcessMaster] Saving record:', { id: editingLead.id, dbData });
+
+          // All records are now ProcessMaster records from database
+          const response = await apiRequest('PUT', `/api/process-master/${editingLead.id}`, dbData);
+
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status} ${response.statusText}`);
+          }
+
+          toast({ title: 'Success', description: 'Record updated successfully' });
+          setIsEditDialogOpen(false);
+          setEditingLead(null);
+          setEditSelectedTitle('Dr');
+          setEditClinicianName('');
+          await queryClient.invalidateQueries({ queryKey: ['/api/process-master'], refetchType: 'all' });
+        } catch (error: any) {
+          console.error('[ProcessMaster] Save error:', error);
+          toast({ title: 'Error', description: error?.message || 'Failed to update record', variant: 'destructive' });
+        } finally {
+          setIsSaving(false);
+          editConfirmation.hideConfirmation();
         }
-
-        // Include id but not createdAt, modifiedAt (those are system fields)
-        if (obj.id !== undefined) {
-          dbObj.id = obj.id;
-        }
-
-        return dbObj;
-      };
-
-      const dbData = convertToDbFormat(editingLead);
-
-      // Validate that we have at least some data to save
-      const fieldsToUpdate = Object.keys(dbData).filter(k => k !== 'id');
-      if (fieldsToUpdate.length === 0) {
-        toast({ title: 'Error', description: 'No fields to update', variant: 'destructive' });
-        setIsSaving(false);
-        return;
       }
-
-      console.debug('[ProcessMaster] Saving record:', { id: editingLead.id, dbData });
-
-      // All records are now ProcessMaster records from database
-      const response = await apiRequest('PUT', `/api/process-master/${editingLead.id}`, dbData);
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-
-      toast({ title: 'Success', description: 'Record updated successfully' });
-      setIsEditDialogOpen(false);
-      setEditingLead(null);
-      setEditSelectedTitle('Dr');
-      setEditClinicianName('');
-      await queryClient.invalidateQueries({ queryKey: ['/api/process-master'], refetchType: 'all' });
-    } catch (error: any) {
-      console.error('[ProcessMaster] Save error:', error);
-      toast({ title: 'Error', description: error?.message || 'Failed to update record', variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
+    });
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this record?')) return;
-    try {
-      const leadToDelete = combinedLeads.find((l: any) => l.id === id);
-      if (leadToDelete) {
-        await add({
-          entityType: 'lead',
-          entityId: String(id),
-          name: leadToDelete.patientClientName || leadToDelete.sampleId || 'Unknown Lead',
-          originalPath: '/process-master',
-          data: leadToDelete,
-          deletedAt: new Date().toISOString()
-        });
+    const leadToDelete = combinedLeads.find((l: any) => l.id === id);
+    deleteConfirmation.confirmDelete({
+      title: 'Delete Process Master Record',
+      description: `Are you sure you want to delete the record for "${leadToDelete?.patientClientName || leadToDelete?.uniqueId || id}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          if (leadToDelete) {
+            await add({
+              entityType: 'lead',
+              entityId: String(id),
+              name: leadToDelete.patientClientName || leadToDelete.sampleId || 'Unknown Lead',
+              originalPath: '/process-master',
+              data: leadToDelete,
+              deletedAt: new Date().toISOString()
+            });
+          }
+
+          // All records are ProcessMaster records
+          await apiRequest('DELETE', `/api/process-master/${id}`);
+
+          toast({ title: 'Success', description: 'Record moved to recycle bin' });
+          await queryClient.invalidateQueries({ queryKey: ['/api/process-master'], refetchType: 'all' });
+        } catch (error) {
+          toast({ title: 'Error', description: 'Failed to delete record', variant: 'destructive' });
+        }
+        deleteConfirmation.hideConfirmation();
       }
-
-      // Determine if this is a lead or ProcessMaster record and delete accordingly
-      // All records are ProcessMaster records
-      await apiRequest('DELETE', `/api/process-master/${id}`);
-
-      toast({ title: 'Success', description: 'Record moved to recycle bin' });
-      await queryClient.invalidateQueries({ queryKey: ['/api/process-master'], refetchType: 'all' });
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to delete record', variant: 'destructive' });
-    }
+    });
   };
 
   if (processMasterLoading) {
@@ -975,6 +1014,18 @@ export default function ProcessMaster() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        onOpenChange={deleteConfirmation.onOpenChange}
+        title={deleteConfirmation.title}
+        description={deleteConfirmation.description}
+        confirmText={deleteConfirmation.confirmText}
+        onConfirm={deleteConfirmation.onConfirm}
+        type={deleteConfirmation.type}
+        isLoading={deleteConfirmation.isLoading}
+      />
     </div>
   );
 }

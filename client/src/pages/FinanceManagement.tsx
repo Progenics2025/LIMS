@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -89,6 +90,8 @@ export default function FinanceManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const deleteConfirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
 
   const financeFormSchema = z.object({
     uniqueId: z.string().optional(),
@@ -217,6 +220,8 @@ export default function FinanceManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
+      // Notify ProcessMaster to refresh for real-time updates
+      window.dispatchEvent(new CustomEvent('ll:data:changed', { detail: { action: 'finance-updated' } }));
       setIsEditDialogOpen(false);
       setSelectedRecord(null);
       toast({ title: 'Finance record updated', description: 'Record updated successfully' });
@@ -780,8 +785,14 @@ export default function FinanceManagement() {
                                   <EditIcon className="h-4 w-4" />
                                 </Button>
                                 <Button variant="ghost" size="sm" onClick={() => {
-                                  if (!confirm('Delete this finance record? This action cannot be undone.')) return;
-                                  deleteFinanceMutation.mutate({ id: s.id });
+                                  deleteConfirmation.confirmDelete({
+                                    title: 'Delete Finance Record',
+                                    description: `Are you sure you want to delete the finance record for "${s.unique_id || s.uniqueId}"? This action cannot be undone.`,
+                                    onConfirm: () => {
+                                      deleteFinanceMutation.mutate({ id: s.id });
+                                      deleteConfirmation.hideConfirmation();
+                                    }
+                                  });
                                 }}>
                                   <Trash2 className="h-4 w-4 text-red-600" />
                                 </Button>
@@ -884,9 +895,18 @@ export default function FinanceManagement() {
                 delete updates[k];
               }
             });
+            // Set modifiedBy to current user's name
+            updates.modifiedBy = user?.name || user?.email || 'system';
 
             console.log('[Finance Edit] Submitting updates:', updates);
-            updateFinanceMutation.mutate({ id: selectedRecord.id, updates });
+            editConfirmation.confirmEdit({
+              title: 'Update Finance Record',
+              description: `Are you sure you want to save changes to the finance record for "${selectedRecord.unique_id || selectedRecord.uniqueId}"?`,
+              onConfirm: () => {
+                updateFinanceMutation.mutate({ id: selectedRecord.id, updates });
+                editConfirmation.hideConfirmation();
+              }
+            });
           })} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1289,9 +1309,14 @@ export default function FinanceManagement() {
                                     <EditIcon className="h-4 w-4" />
                                   </Button>
                                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Delete finance record" onClick={() => {
-                                    if (!confirm('Delete this finance record? This action cannot be undone.')) return;
-                                    // Server snapshots finance deletes; don't create local duplicate
-                                    deleteFinanceMutation.mutate({ id: record.id });
+                                    deleteConfirmation.confirmDelete({
+                                      title: 'Delete Finance Record',
+                                      description: `Are you sure you want to delete the finance record for "${record.unique_id || record.uniqueId}"? This action cannot be undone.`,
+                                      onConfirm: () => {
+                                        deleteFinanceMutation.mutate({ id: record.id });
+                                        deleteConfirmation.hideConfirmation();
+                                      }
+                                    });
                                   }}>
                                     <Trash2 className="h-4 w-4 text-red-600" />
                                   </Button>
@@ -1330,6 +1355,29 @@ export default function FinanceManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        onOpenChange={deleteConfirmation.onOpenChange}
+        title={deleteConfirmation.title}
+        description={deleteConfirmation.description}
+        confirmText={deleteConfirmation.confirmText}
+        onConfirm={deleteConfirmation.onConfirm}
+        type={deleteConfirmation.type}
+        isLoading={deleteConfirmation.isLoading}
+      />
+      {/* Edit Confirmation Dialog */}
+      <ConfirmationDialog
+        open={editConfirmation.open}
+        onOpenChange={editConfirmation.onOpenChange}
+        title={editConfirmation.title}
+        description={editConfirmation.description}
+        confirmText={editConfirmation.confirmText}
+        onConfirm={editConfirmation.onConfirm}
+        type={editConfirmation.type}
+        isLoading={editConfirmation.isLoading}
+      />
     </div>
   );
 }

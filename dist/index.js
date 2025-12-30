@@ -804,7 +804,7 @@ import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
 function getDbConfig() {
   const config2 = {
-    host: process.env.DB_HOST || "192.168.29.11",
+    host: process.env.DB_HOST || "localhost",
     port: parseInt(process.env.DB_PORT || "3306"),
     user: process.env.DB_USER || "remote_user",
     // allow percent-encoded passwords in env (e.g. Prolab%2305) and decode them
@@ -2224,13 +2224,42 @@ var DBStorage = class {
       };
     }
     try {
-      const leadsRows = await db.select().from(leads).where(eq(leads.status, "cold"));
+      const allLeadsRows = await db.select().from(leads);
+      const activeLeads = allLeadsRows.filter(
+        (l) => !["converted"].includes(String(l.status ?? "").toLowerCase())
+      ).length;
       const samplesRows = await db.select().from(samples);
-      const reportsRows = await db.select().from(reports).where(eq(reports.status, "awaiting_approval"));
-      const activeLeads = leadsRows.length;
-      const samplesProcessing = samplesRows.filter((s) => ["received", "lab_processing", "bioinformatics"].includes(s.status ?? "")).length;
-      const pendingRevenue = samplesRows.reduce((sum, s) => sum + Number(s.amount ?? 0) - Number(s.paidAmount ?? 0), 0);
-      const reportsPending = reportsRows.length;
+      const samplesProcessing = samplesRows.length;
+      const [pendingReportsRows] = await pool.execute(
+        `SELECT COUNT(*) as count FROM reports WHERE status IN ('in_progress', 'awaiting_approval', 'approved')`
+      );
+      const reportsPending = Number(pendingReportsRows?.[0]?.count ?? 0);
+      let pendingRevenue = 0;
+      try {
+        const [financeRows] = await pool.execute(
+          `SELECT COALESCE(SUM(COALESCE(budget, 0)), 0) as pending 
+           FROM finance_sheet 
+           WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL`
+        );
+        pendingRevenue = Number(financeRows?.[0]?.pending ?? 0);
+        if (pendingRevenue === 0) {
+          const [leadBudgetRows] = await pool.execute(
+            `SELECT COALESCE(SUM(COALESCE(budget, 0)), 0) as pending 
+             FROM lead_management 
+             WHERE status = 'converted'`
+          );
+          pendingRevenue = Number(leadBudgetRows?.[0]?.pending ?? 0);
+        }
+        if (pendingRevenue === 0) {
+          const [sampleRows] = await pool.execute(
+            `SELECT COALESCE(SUM(COALESCE(sample_shipment_amount, 0)), 0) as pending FROM sample_tracking`
+          );
+          pendingRevenue = Number(sampleRows?.[0]?.pending ?? 0);
+        }
+      } catch (err) {
+        console.error("Pending revenue query failed:", err.message);
+        pendingRevenue = samplesRows.reduce((sum, s) => sum + Number(s.sampleShipmentAmount ?? 0), 0);
+      }
       return { activeLeads, samplesProcessing, pendingRevenue, reportsPending };
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -2243,12 +2272,26 @@ var DBStorage = class {
     }
   }
   async getFinanceStats() {
-    const samplesRows = await db.select().from(samples);
-    const reportsRows = await db.select().from(reports).where(eq(reports.status, "awaiting_approval"));
-    const totalRevenue = samplesRows.reduce((sum, s) => sum + Number(s.paidAmount ?? 0), 0);
-    const pendingPayments = samplesRows.reduce((sum, s) => sum + (Number(s.amount ?? 0) - Number(s.paidAmount ?? 0)), 0);
-    const pendingApprovals = reportsRows.length;
-    return { totalRevenue, pendingPayments, pendingApprovals };
+    try {
+      const [revenueRows] = await pool.execute(
+        `SELECT COALESCE(SUM(payment_receipt_amount), 0) as total FROM finance_sheet`
+      );
+      const totalRevenue = Number(revenueRows?.[0]?.total || 0);
+      const [pendingRows] = await pool.execute(
+        `SELECT COALESCE(SUM(COALESCE(budget, 0) - COALESCE(payment_receipt_amount, 0)), 0) as pending 
+         FROM finance_sheet 
+         WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL`
+      );
+      const pendingPayments = Number(pendingRows?.[0]?.pending || 0);
+      const [approvalsRows] = await pool.execute(
+        `SELECT COUNT(*) as count FROM finance_sheet WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL`
+      );
+      const pendingApprovals = Number(approvalsRows?.[0]?.count || 0);
+      return { totalRevenue, pendingPayments, pendingApprovals };
+    } catch (error) {
+      console.error("Failed to get finance stats:", error.message);
+      return { totalRevenue: 0, pendingPayments: 0, pendingApprovals: 0 };
+    }
   }
   async getPendingFinanceApprovals() {
     const rows = await db.select({ r: reports, sample: samples, lead: leads }).from(reports).leftJoin(samples, eq(reports.sampleId, samples.id)).leftJoin(leads, eqUtf8Columns(samples.projectId, leads.projectId)).where(eq(reports.status, "awaiting_approval"));
@@ -2384,6 +2427,118 @@ var DBStorage = class {
     } catch (error) {
       console.error("Failed to get file upload by ID:", error.message);
       return void 0;
+    }
+  }
+  // ============================================================================
+  // NEW STATS METHODS FOR DASHBOARD TILES
+  // ============================================================================
+  /**
+   * Get Lead Management stats (Projected Revenue & Actual Revenue)
+   */
+  async getLeadsStats() {
+    try {
+      const [projectedRows] = await pool.execute(
+        `SELECT COALESCE(SUM(amount_quoted), 0) as projected FROM lead_management`
+      );
+      const projectedRevenue = Number(projectedRows?.[0]?.projected || 0);
+      const [actualRows] = await pool.execute(
+        `SELECT COALESCE(SUM(budget), 0) as actual FROM lead_management`
+      );
+      const actualRevenue = Number(actualRows?.[0]?.actual || 0);
+      const [totalRows] = await pool.execute(
+        `SELECT COUNT(*) as total FROM lead_management`
+      );
+      const totalLeads = Number(totalRows?.[0]?.total || 0);
+      const [activeRows] = await pool.execute(
+        `SELECT COUNT(*) as active FROM lead_management WHERE status IN ('quoted', 'cold', 'hot', 'won')`
+      );
+      const activeLeads = Number(activeRows?.[0]?.active || 0);
+      const [convertedRows] = await pool.execute(
+        `SELECT COUNT(*) as converted FROM lead_management WHERE status = 'converted'`
+      );
+      const convertedLeads = Number(convertedRows?.[0]?.converted || 0);
+      return { projectedRevenue, actualRevenue, totalLeads, activeLeads, convertedLeads };
+    } catch (error) {
+      console.error("Failed to get leads stats:", error.message);
+      return { projectedRevenue: 0, actualRevenue: 0, totalLeads: 0, activeLeads: 0, convertedLeads: 0 };
+    }
+  }
+  /**
+   * Get Sample Tracking stats
+   */
+  async getSampleTrackingStats() {
+    try {
+      const [totalRows] = await pool.execute(
+        `SELECT COUNT(*) as total FROM sample_tracking`
+      );
+      const totalSamples = Number(totalRows?.[0]?.total || 0);
+      const [awaitingRows] = await pool.execute(
+        `SELECT COUNT(*) as awaiting FROM sample_tracking WHERE alert_to_labprocess_team = 0 OR alert_to_labprocess_team IS NULL`
+      );
+      const samplesAwaitingPickup = Number(awaitingRows?.[0]?.awaiting || 0);
+      const [sentRows] = await pool.execute(
+        `SELECT COUNT(*) as sent FROM sample_tracking WHERE alert_to_labprocess_team = 1`
+      );
+      const samplesProcessing = Number(sentRows?.[0]?.sent || 0);
+      return {
+        totalSamples,
+        samplesAwaitingPickup,
+        samplesInTransit: 0,
+        // Can be added later based on status field
+        samplesReceived: totalSamples,
+        // All samples in tracking are received
+        samplesProcessing
+      };
+    } catch (error) {
+      console.error("Failed to get sample tracking stats:", error.message);
+      return {
+        totalSamples: 0,
+        samplesAwaitingPickup: 0,
+        samplesInTransit: 0,
+        samplesReceived: 0,
+        samplesProcessing: 0
+      };
+    }
+  }
+  /**
+   * Get Lab Processing stats (Samples Under Process & Processed/Sent to Bioinformatics)
+   */
+  async getLabProcessingStats() {
+    try {
+      const [discoveryQueueRows] = await pool.execute(
+        `SELECT COUNT(*) as total FROM labprocess_discovery_sheet`
+      );
+      const discoveryInQueue = Number(discoveryQueueRows?.[0]?.total || 0);
+      const [discoverySentRows] = await pool.execute(
+        `SELECT COUNT(*) as sent FROM labprocess_discovery_sheet WHERE alert_to_bioinformatics_team = 1`
+      );
+      const discoverySent = Number(discoverySentRows?.[0]?.sent || 0);
+      const [clinicalQueueRows] = await pool.execute(
+        `SELECT COUNT(*) as total FROM labprocess_clinical_sheet`
+      );
+      const clinicalInQueue = Number(clinicalQueueRows?.[0]?.total || 0);
+      const [clinicalSentRows] = await pool.execute(
+        `SELECT COUNT(*) as sent FROM labprocess_clinical_sheet WHERE alert_to_bioinformatics_team = 1`
+      );
+      const clinicalSent = Number(clinicalSentRows?.[0]?.sent || 0);
+      return {
+        totalInQueue: discoveryInQueue + clinicalInQueue,
+        sentToBioinformatics: discoverySent + clinicalSent,
+        discoveryInQueue,
+        discoverySent,
+        clinicalInQueue,
+        clinicalSent
+      };
+    } catch (error) {
+      console.error("Failed to get lab processing stats:", error.message);
+      return {
+        totalInQueue: 0,
+        sentToBioinformatics: 0,
+        discoveryInQueue: 0,
+        discoverySent: 0,
+        clinicalInQueue: 0,
+        clinicalSent: 0
+      };
     }
   }
 };
@@ -2622,6 +2777,281 @@ var NotificationService = class _NotificationService {
 };
 var notificationService = NotificationService.getInstance();
 
+// server/services/EmailAlertService.ts
+import nodemailer from "nodemailer";
+var transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || "465"),
+  secure: process.env.SMTP_SECURE === "true" || parseInt(process.env.SMTP_PORT || "465") === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+transporter.verify((error, success) => {
+  if (error) {
+    console.log("\u{1F4E7} Email Alert Service - SMTP Connection Error:", error.message);
+  } else {
+    console.log("\u{1F4E7} Email Alert Service - SMTP Server is ready");
+  }
+});
+var EmailAlertService = class _EmailAlertService {
+  static instance;
+  static getInstance() {
+    if (!_EmailAlertService.instance) {
+      _EmailAlertService.instance = new _EmailAlertService();
+    }
+    return _EmailAlertService.instance;
+  }
+  /**
+   * Get email addresses of users by their roles
+   */
+  async getUserEmailsByRoles(roles) {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const emails = allUsers.filter(
+        (user) => user.isActive && user.email && roles.includes(user.role?.toLowerCase())
+      ).map((user) => user.email);
+      return Array.from(new Set(emails));
+    } catch (error) {
+      console.error("Error fetching user emails by roles:", error);
+      return [];
+    }
+  }
+  /**
+   * Send email to Lab Process team
+   * Recipients: users with 'lab', 'manager', 'admin' roles
+   */
+  async sendLabProcessAlert(data) {
+    const roles = ["lab", "manager", "admin"];
+    const recipients = await this.getUserEmailsByRoles(roles);
+    if (recipients.length === 0) {
+      console.log("\u{1F4E7} No recipients found for Lab Process alert (roles: lab, manager, admin)");
+      return false;
+    }
+    const subject = `\u{1F52C} New Sample Alert - Lab Processing Required`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #0B1139 0%, #1a2255 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+          <h2 style="margin: 0; display: flex; align-items: center;">
+            <span style="font-size: 24px; margin-right: 10px;">\u{1F52C}</span>
+            Lab Processing Alert
+          </h2>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="color: #333; font-size: 16px;">A new sample has been sent for lab processing and requires your attention.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: #e8f4fd;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; width: 40%;">Unique ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.uniqueId || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Project ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.projectId || "-"}</td>
+            </tr>
+            <tr style="background: #e8f4fd;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Sample ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.sampleId || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Patient Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.patientName || "-"}</td>
+            </tr>
+            <tr style="background: #e8f4fd;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Service Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.serviceName || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Organisation</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.organisationHospital || "-"}</td>
+            </tr>
+            <tr style="background: #e8f4fd;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Clinician</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.clinicianName || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Routed To</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.tableName || "Lab Processing Sheet"}</td>
+            </tr>
+          </table>
+          
+          <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <strong>\u26A1 Action Required:</strong> Please log in to the LIMS system to view and process this sample.
+          </div>
+          
+          <p style="color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+            This is an automated notification from Progenics LIMS. 
+            ${data.triggeredBy ? `Triggered by: ${data.triggeredBy}` : ""}
+          </p>
+        </div>
+      </div>
+    `;
+    return await this.sendEmail(recipients, subject, html);
+  }
+  /**
+   * Send email to Bioinformatics team
+   * Recipients: users with 'bioinformatics', 'manager', 'admin' roles
+   */
+  async sendBioinformaticsAlert(data) {
+    const roles = ["bioinformatics", "manager", "admin"];
+    const recipients = await this.getUserEmailsByRoles(roles);
+    if (recipients.length === 0) {
+      console.log("\u{1F4E7} No recipients found for Bioinformatics alert (roles: bioinformatics, manager, admin)");
+      return false;
+    }
+    const subject = `\u{1F9EC} New Sample Alert - Bioinformatics Analysis Required`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a472a 0%, #2d5a3d 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+          <h2 style="margin: 0; display: flex; align-items: center;">
+            <span style="font-size: 24px; margin-right: 10px;">\u{1F9EC}</span>
+            Bioinformatics Alert
+          </h2>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="color: #333; font-size: 16px;">A sample has completed lab processing and is ready for bioinformatics analysis.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: #e8f5e9;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; width: 40%;">Unique ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.uniqueId || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Project ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.projectId || "-"}</td>
+            </tr>
+            <tr style="background: #e8f5e9;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Sample ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.sampleId || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Patient Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.patientName || "-"}</td>
+            </tr>
+            <tr style="background: #e8f5e9;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Service Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.serviceName || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Organisation</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.organisationHospital || "-"}</td>
+            </tr>
+            <tr style="background: #e8f5e9;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Clinician</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.clinicianName || "-"}</td>
+            </tr>
+          </table>
+          
+          <div style="background: #d4edda; border: 1px solid #28a745; padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <strong>\u{1F504} Action Required:</strong> Please begin bioinformatics analysis for this sample.
+          </div>
+          
+          <p style="color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+            This is an automated notification from Progenics LIMS.
+            ${data.triggeredBy ? `Triggered by: ${data.triggeredBy}` : ""}
+          </p>
+        </div>
+      </div>
+    `;
+    return await this.sendEmail(recipients, subject, html);
+  }
+  /**
+   * Send email to Report team
+   * Recipients: users with 'reporting', 'manager', 'admin' roles
+   */
+  async sendReportTeamAlert(data) {
+    const roles = ["reporting", "manager", "admin"];
+    const recipients = await this.getUserEmailsByRoles(roles);
+    if (recipients.length === 0) {
+      console.log("\u{1F4E7} No recipients found for Report Team alert (roles: reporting, manager, admin)");
+      return false;
+    }
+    const subject = `\u{1F4CA} New Sample Alert - Report Generation Required`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #4a1c6b 0%, #6b2d8f 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+          <h2 style="margin: 0; display: flex; align-items: center;">
+            <span style="font-size: 24px; margin-right: 10px;">\u{1F4CA}</span>
+            Report Team Alert
+          </h2>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
+          <p style="color: #333; font-size: 16px;">Bioinformatics analysis is complete. A new report needs to be generated.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background: #f3e5f5;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; width: 40%;">Unique ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.uniqueId || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Project ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.projectId || "-"}</td>
+            </tr>
+            <tr style="background: #f3e5f5;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Sample ID</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.sampleId || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Patient Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.patientName || "-"}</td>
+            </tr>
+            <tr style="background: #f3e5f5;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Service Name</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.serviceName || "-"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Organisation</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.organisationHospital || "-"}</td>
+            </tr>
+            <tr style="background: #f3e5f5;">
+              <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Clinician</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${data.clinicianName || "-"}</td>
+            </tr>
+          </table>
+          
+          <div style="background: #e1bee7; border: 1px solid #9c27b0; padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <strong>\u{1F4DD} Action Required:</strong> Please generate and review the report for this sample.
+          </div>
+          
+          <p style="color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+            This is an automated notification from Progenics LIMS.
+            ${data.triggeredBy ? `Triggered by: ${data.triggeredBy}` : ""}
+          </p>
+        </div>
+      </div>
+    `;
+    return await this.sendEmail(recipients, subject, html);
+  }
+  /**
+   * Generic email sender
+   */
+  async sendEmail(to, subject, html) {
+    try {
+      if (!process.env.SMTP_USER) {
+        console.log("\u{1F4E7} Email not sent - SMTP not configured");
+        return false;
+      }
+      const mailOptions = {
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: to.join(", "),
+        subject,
+        html
+      };
+      await transporter.sendMail(mailOptions);
+      console.log(`\u{1F4E7} Email sent successfully to: ${to.join(", ")}`);
+      return true;
+    } catch (error) {
+      console.error("\u{1F4E7} Failed to send email:", error.message);
+      return false;
+    }
+  }
+};
+var emailAlertService = EmailAlertService.getInstance();
+
 // server/routes.ts
 init_schema();
 import path2 from "path";
@@ -2858,6 +3288,7 @@ function handleFileUpload(file, category, userId) {
 // server/routes.ts
 import xlsx from "xlsx";
 import multer from "multer";
+import nodemailer2 from "nodemailer";
 var uploadsDir = path2.join(process.cwd(), "uploads");
 if (!fs2.existsSync(uploadsDir)) fs2.mkdirSync(uploadsDir, { recursive: true });
 var storageM = multer.diskStorage({
@@ -3061,6 +3492,100 @@ async function registerRoutes(app2) {
       res.json({ user: userWithoutPassword });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  const otpStore = /* @__PURE__ */ new Map();
+  const transporter2 = nodemailer2.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "465"),
+    secure: true,
+    // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+  transporter2.verify(function(error, success) {
+    if (error) {
+      console.log("SMTP Connection Error:", error);
+    } else {
+      console.log("SMTP Server is ready to take our messages");
+    }
+  });
+  app2.post("/api/auth/send-otp", async (req, res) => {
+    try {
+      const { email, type } = req.body;
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const otp = Math.floor(1e5 + Math.random() * 9e5).toString();
+      otpStore.set(email, {
+        code: otp,
+        expires: Date.now() + 5 * 60 * 1e3
+        // 5 minutes
+      });
+      const mailOptions = {
+        from: process.env.SMTP_USER,
+        // Use the authenticated user as sender
+        to: email,
+        subject: "Your Verification Code - Progenics LIMS",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #0891b2;">Verification Required</h2>
+            <p>Your verification code is:</p>
+            <h1 style="font-size: 32px; letter-spacing: 5px; color: #7c3aed;">${otp}</h1>
+            <p>This code will expire in 5 minutes.</p>
+            <p>If you did not request this code, please ignore this email.</p>
+          </div>
+        `
+      };
+      await transporter2.sendMail(mailOptions);
+      console.log(`OTP sent to ${email}`);
+      res.json({ message: "OTP sent successfully" });
+    } catch (error) {
+      console.error("Send OTP Error:", error);
+      res.status(500).json({ message: "Failed to send OTP" });
+    }
+  });
+  app2.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const { email, otp } = req.body;
+      const storedData = otpStore.get(email);
+      if (!storedData) {
+        return res.status(400).json({ message: "OTP not requested or expired" });
+      }
+      if (Date.now() > storedData.expires) {
+        otpStore.delete(email);
+        return res.status(400).json({ message: "OTP expired" });
+      }
+      if (storedData.code !== otp) {
+        return res.status(400).json({ message: "Invalid OTP" });
+      }
+      res.json({ message: "OTP verified successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+  app2.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { email, newPassword, otp } = req.body;
+      const storedData = otpStore.get(email);
+      if (!storedData || storedData.code !== otp) {
+        return res.status(400).json({ message: "Invalid or expired OTP session" });
+      }
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const hashedPassword = await bcrypt2.hash(newPassword, 10);
+      await storage.updateUser(user.id, { password: hashedPassword });
+      otpStore.delete(email);
+      res.json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Reset Password Error:", error);
+      res.status(500).json({ message: "Server error" });
     }
   });
   app2.get("/api/users", async (req, res) => {
@@ -4073,85 +4598,104 @@ async function registerRoutes(app2) {
   app2.post("/api/send-to-reports", async (req, res) => {
     try {
       const {
+        // IDs
+        uniqueId,
+        projectId,
         bioinformaticsId,
         sampleId,
-        projectId,
-        uniqueId,
+        clientId,
+        // Patient info
+        patientClientName,
+        age,
+        gender,
+        // Clinician info
+        clinicianResearcherName,
+        organisationHospital,
+        // Service info
         serviceName,
+        noOfSamples,
+        // TAT and comments
+        tat,
+        remarkComment,
+        // Optional lead fields
+        createdBy,
+        modifiedBy,
+        // Additional fields
         analysisDate,
-        createdBy
+        sampleReceivedDate
       } = req.body;
       console.log("Send to Reports triggered for bioinformatics:", bioinformaticsId, "Project ID:", projectId);
+      if (!uniqueId) {
+        return res.status(400).json({ message: "Unique ID is required" });
+      }
       if (!projectId) {
         return res.status(400).json({ message: "Project ID is required" });
       }
-      const isDiscovery = projectId.startsWith("DG");
-      const isClinical = projectId.startsWith("PG");
-      console.log("Project ID analysis - Discovery:", isDiscovery, "Clinical:", isClinical);
-      if (!isDiscovery && !isClinical) {
-        return res.status(400).json({ message: "Project ID must start with DG (Discovery) or PG (Clinical)" });
-      }
-      let leadData = { service_name: serviceName };
       try {
-        const [leadRows] = await pool.execute(
-          "SELECT service_name FROM lead_management WHERE unique_id = ? LIMIT 1",
+        const [existingReport] = await pool.execute(
+          "SELECT id FROM report_management WHERE unique_id = ? LIMIT 1",
           [uniqueId]
         );
-        if (leadRows && leadRows.length > 0) {
-          const lead = leadRows[0];
-          leadData.service_name = serviceName || lead.service_name || null;
-          console.log("Fetched lead data from lead_management table:", leadData);
+        if (existingReport.length > 0) {
+          console.log("Report already exists for unique_id:", uniqueId);
+          return res.status(409).json({
+            success: true,
+            alreadyExists: true,
+            recordId: uniqueId,
+            message: "Report has already been released for this sample."
+          });
         }
-      } catch (leadError) {
-        console.log("Note: Could not fetch lead data -", leadError.message);
+      } catch (checkError) {
+        console.error("Error checking for existing report:", checkError.message);
       }
       const reportData = {
-        unique_id: uniqueId || "",
-        project_id: projectId,
-        bioinformatics_id: bioinformaticsId || null,
-        sample_id: sampleId || null
+        unique_id: uniqueId,
+        project_id: projectId
       };
-      if (leadData.service_name) reportData.service_name = leadData.service_name;
-      if (analysisDate) {
-        const dateObj = new Date(analysisDate);
-        const year = dateObj.getUTCFullYear();
-        const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
-        const day = String(dateObj.getUTCDate()).padStart(2, "0");
-        reportData.report_date = `${year}-${month}-${day}`;
+      if (patientClientName) reportData.patient_client_name = patientClientName;
+      if (age) reportData.age = parseInt(age) || null;
+      if (gender) reportData.gender = gender;
+      if (clinicianResearcherName) reportData.clinician_researcher_name = clinicianResearcherName;
+      if (organisationHospital) reportData.organisation_hospital = organisationHospital;
+      if (serviceName) reportData.service_name = serviceName;
+      if (noOfSamples) reportData.no_of_samples = parseInt(noOfSamples) || null;
+      if (sampleId) reportData.sample_id = sampleId;
+      if (tat) reportData.tat = parseInt(tat) || null;
+      if (remarkComment) reportData.remark_comment = remarkComment;
+      if (createdBy) reportData.lead_created_by = createdBy;
+      if (modifiedBy) {
+        reportData.lead_modified = modifiedBy;
+      } else {
+        reportData.lead_modified = /* @__PURE__ */ new Date();
       }
-      reportData.created_by = createdBy || "system";
+      if (sampleReceivedDate) {
+        try {
+          const dateObj = new Date(sampleReceivedDate);
+          const year = dateObj.getUTCFullYear();
+          const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(dateObj.getUTCDate()).padStart(2, "0");
+          reportData.sample_received_date = `${year}-${month}-${day}`;
+        } catch (e) {
+          console.log("Warning: Could not parse sample_received_date");
+        }
+      }
       reportData.created_at = /* @__PURE__ */ new Date();
-      reportData.status = "pending_review";
+      console.log("Prepared report data for report_management:", reportData);
       const keys = Object.keys(reportData);
       const cols = keys.map((k) => `\`${k}\``).join(",");
       const placeholders = keys.map(() => "?").join(",");
       const values = keys.map((k) => reportData[k]);
-      let insertResult;
-      let tableName;
-      if (isDiscovery) {
-        tableName = "report_discovery_sheet";
-        console.log(`Inserting into ${tableName} for discovery project:`, projectId);
-        const result = await pool.execute(
-          `INSERT INTO report_discovery_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
-      } else {
-        tableName = "report_clinical_sheet";
-        console.log(`Inserting into ${tableName} for clinical project:`, projectId);
-        const result = await pool.execute(
-          `INSERT INTO report_clinical_sheet (${cols}) VALUES (${placeholders})`,
-          values
-        );
-        insertResult = result[0];
-      }
-      const insertId = insertResult.insertId || null;
-      console.log(`Inserted into ${tableName} with ID:`, insertId);
+      const result = await pool.execute(
+        `INSERT INTO report_management (${cols}) VALUES (${placeholders})`,
+        values
+      );
+      console.log("Inserted into report_management:", result);
       try {
+        const isDiscovery = projectId.startsWith("DG");
         const bioTableName = isDiscovery ? "bioinfo_discovery_sheet" : "bioinfo_clinical_sheet";
         await pool.execute(
-          `UPDATE ${bioTableName} SET alert_to_report_team = ?, updated_at = ? WHERE id = ?`,
-          [true, /* @__PURE__ */ new Date(), bioinformaticsId]
+          `UPDATE ${bioTableName} SET alert_to_report_team = ?, modified_at = ? WHERE id = ?`,
+          [1, /* @__PURE__ */ new Date(), bioinformaticsId]
         );
         console.log("Updated bioinformatics flag for:", bioinformaticsId);
       } catch (updateError) {
@@ -4159,23 +4703,48 @@ async function registerRoutes(app2) {
       }
       try {
         await notificationService.notifyReportGenerated(
-          insertId,
+          uniqueId,
           "Bioinformatics Analysis Report",
-          leadData.service_name || "Analysis Report",
+          serviceName || "Analysis Report",
           createdBy || "system"
         );
       } catch (notificationError) {
         console.error("Failed to send report notification:", notificationError);
       }
+      try {
+        await emailAlertService.sendReportTeamAlert({
+          alertType: "report",
+          uniqueId,
+          projectId,
+          sampleId,
+          patientName: patientClientName || "",
+          serviceName: serviceName || "",
+          organisationHospital: organisationHospital || "",
+          clinicianName: clinicianResearcherName || "",
+          triggeredBy: createdBy || "system"
+        });
+        console.log("\u{1F4E7} Report Team alert email sent successfully");
+      } catch (emailError) {
+        console.error("Warning: Failed to send Report Team alert email", emailError.message);
+      }
       res.json({
         success: true,
-        reportId: insertId,
+        recordId: uniqueId,
         bioinformaticsId,
-        table: tableName,
-        message: "Bioinformatics record sent to Reports module"
+        table: "report_management",
+        message: "Bioinformatics record sent to report_management table"
       });
     } catch (error) {
       console.error("Error in send-to-reports:", error);
+      if (error.code === "ER_DUP_ENTRY" || error.sqlState === "23000") {
+        console.log("Duplicate entry error - report already exists");
+        return res.status(409).json({
+          success: true,
+          alreadyExists: true,
+          message: "Report has already been released for this sample.",
+          error: error.message
+        });
+      }
       res.status(500).json({
         message: "Failed to send bioinformatics record to Reports",
         error: error.message
@@ -4925,6 +5494,22 @@ async function registerRoutes(app2) {
       const [result] = await pool.execute(insertQuery, values);
       const recordId = result.insertId || data.id;
       console.log("Inserted bioinformatics_sheet_discovery with ID:", recordId);
+      try {
+        await emailAlertService.sendBioinformaticsAlert({
+          alertType: "bioinformatics",
+          uniqueId: data.unique_id || "",
+          projectId: data.project_id || "",
+          sampleId: data.sample_id || "",
+          patientName: data.patient_client_name || "",
+          serviceName: data.service_name || "",
+          organisationHospital: data.organisation_hospital || "",
+          clinicianName: data.clinician_researcher_name || "",
+          triggeredBy: data.created_by || "system"
+        });
+        console.log("\u{1F4E7} Bioinformatics alert email sent successfully (Discovery)");
+      } catch (emailError) {
+        console.error("Warning: Failed to send Bioinformatics alert email", emailError.message);
+      }
       if (data.sample_id) {
         const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE sample_id = ? ORDER BY id DESC LIMIT 1", [data.sample_id]);
         return res.json(rows[0] ?? { id: recordId });
@@ -4991,10 +5576,29 @@ async function registerRoutes(app2) {
         INSERT IGNORE INTO bioinformatics_sheet_clinical (${cols}) 
         VALUES (${placeholders})
       `;
-      console.log("Inserting bioinformatics_sheet_clinical record with columns:", keys);
+      console.log("\u{1F50D} Inserting bioinformatics_sheet_clinical record with columns:", keys);
+      console.log("\u{1F50D} Request body data:", JSON.stringify(data, null, 2));
+      console.log("\u{1F50D} Parsed values for INSERT:", values.map((v, i) => ({ column: keys[i], value: v })));
       const [result] = await pool.execute(insertQuery, values);
       const recordId = result.insertId || data.id;
-      console.log("Inserted bioinformatics_sheet_clinical with ID:", recordId);
+      console.log("\u2705 Inserted bioinformatics_sheet_clinical with ID:", recordId);
+      console.log("\u2705 Insert result affectedRows:", result.affectedRows);
+      try {
+        await emailAlertService.sendBioinformaticsAlert({
+          alertType: "bioinformatics",
+          uniqueId: data.unique_id || "",
+          projectId: data.project_id || "",
+          sampleId: data.sample_id || "",
+          patientName: data.patient_client_name || "",
+          serviceName: data.service_name || "",
+          organisationHospital: data.organisation_hospital || "",
+          clinicianName: data.clinician_researcher_name || "",
+          triggeredBy: data.created_by || "system"
+        });
+        console.log("\u{1F4E7} Bioinformatics alert email sent successfully (Clinical)");
+      } catch (emailError) {
+        console.error("Warning: Failed to send Bioinformatics alert email", emailError.message);
+      }
       if (data.sample_id) {
         const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE sample_id = ? ORDER BY id DESC LIMIT 1", [data.sample_id]);
         return res.json(rows[0] ?? { id: recordId });
@@ -5092,11 +5696,7 @@ async function registerRoutes(app2) {
       let tableName = isDiscovery ? "labprocess_discovery_sheet" : "labprocess_clinical_sheet";
       const insertedIds = [];
       for (let sampleNum = 1; sampleNum <= numberOfSamples; sampleNum++) {
-        const baseSampleId = sampleId || uniqueId || "";
-        let recordSampleId = baseSampleId;
-        if (numberOfSamples > 1) {
-          recordSampleId = `${baseSampleId}_${sampleNum}`;
-        }
+        const recordSampleId = `${projectId}_${sampleNum}`;
         const labProcessData = {
           ...baseLabProcessData,
           sample_id: recordSampleId
@@ -5139,6 +5739,39 @@ async function registerRoutes(app2) {
       } catch (updateError) {
         console.error("Warning: Failed to update sample_tracking flag", updateError.message);
       }
+      try {
+        let patientName = "";
+        let clinicianName = "";
+        let organisationHospital = "";
+        try {
+          const [sampleRows] = await pool.execute(
+            "SELECT patient_client_name, clinician_researcher_name, organisation_hospital FROM sample_tracking WHERE unique_id = ? LIMIT 1",
+            [uniqueId]
+          );
+          if (sampleRows && sampleRows.length > 0) {
+            patientName = sampleRows[0].patient_client_name || "";
+            clinicianName = sampleRows[0].clinician_researcher_name || "";
+            organisationHospital = sampleRows[0].organisation_hospital || "";
+          }
+        } catch (fetchErr) {
+          console.log("Warning: Could not fetch sample details for email");
+        }
+        await emailAlertService.sendLabProcessAlert({
+          alertType: "lab_process",
+          uniqueId,
+          projectId,
+          sampleId,
+          patientName,
+          serviceName: leadData.service_name || serviceName,
+          organisationHospital,
+          clinicianName,
+          tableName,
+          triggeredBy: createdBy || "system"
+        });
+        console.log("\u{1F4E7} Lab Process alert email sent successfully");
+      } catch (emailError) {
+        console.error("Warning: Failed to send Lab Process alert email", emailError.message);
+      }
       res.json({
         success: true,
         recordIds: insertedIds,
@@ -5153,10 +5786,93 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/process-master", async (req, res) => {
     try {
-      const [rows] = await pool.execute("SELECT * FROM process_master_sheet");
+      const query = `
+        SELECT 
+          pm.id,
+          pm.unique_id,
+          pm.project_id,
+          -- Get sample_id from labprocess tables (where it's actually stored)
+          COALESCE(lpd.sample_id, lpc.sample_id, pm.sample_id) as sample_id,
+          pm.client_id,
+          COALESCE(st.organisation_hospital, pm.organisation_hospital) as organisation_hospital,
+          COALESCE(st.clinician_researcher_name, pm.clinician_researcher_name) as clinician_researcher_name,
+          pm.speciality,
+          pm.clinician_researcher_email,
+          COALESCE(st.clinician_researcher_phone, pm.clinician_researcher_phone) as clinician_researcher_phone,
+          pm.clinician_researcher_address,
+          COALESCE(st.patient_client_name, pm.patient_client_name) as patient_client_name,
+          pm.age,
+          pm.gender,
+          pm.patient_client_email,
+          COALESCE(st.patient_client_phone, pm.patient_client_phone) as patient_client_phone,
+          pm.patient_client_address,
+          COALESCE(st.sample_collection_date, pm.sample_collection_date) as sample_collection_date,
+          COALESCE(st.sample_recevied_date, pm.sample_recevied_date) as sample_recevied_date,
+          COALESCE(lpd.service_name, lpc.service_name, pm.service_name) as service_name,
+          COALESCE(lpd.sample_type, lpc.sample_type, pm.sample_type) as sample_type,
+          COALESCE(lpd.no_of_samples, lpc.no_of_samples, pm.no_of_samples) as no_of_samples,
+          pm.tat,
+          COALESCE(st.sales_responsible_person, pm.sales_responsible_person) as sales_responsible_person,
+          COALESCE(lpd.progenics_trf, lpc.progenics_trf, pm.progenics_trf) as progenics_trf,
+          COALESCE(st.third_party_trf, pm.third_party_trf) as third_party_trf,
+          pm.progenics_report,
+          COALESCE(st.sample_sent_to_third_party_date, pm.sample_sent_to_third_party_date) as sample_sent_to_third_party_date,
+          COALESCE(st.third_party_name, pm.third_party_name) as third_party_name,
+          COALESCE(st.third_party_report, pm.third_party_report) as third_party_report,
+          pm.results_raw_data_received_from_third_party_date,
+          -- Get real-time status from respective tables
+          pm.logistic_status,
+          COALESCE(
+            CASE 
+              WHEN fs.total_amount_received_status = 1 OR fs.total_amount_received_status = true THEN 'Completed'
+              WHEN fs.payment_receipt_amount > 0 THEN 'Partial'
+              ELSE pm.finance_status
+            END,
+            pm.finance_status
+          ) as finance_status,
+          COALESCE(
+            CASE 
+              WHEN lpd.extraction_qc_status IS NOT NULL THEN lpd.extraction_qc_status
+              WHEN lpc.extraction_qc_status IS NOT NULL THEN lpc.extraction_qc_status
+              ELSE pm.lab_process_status
+            END,
+            pm.lab_process_status
+          ) as lab_process_status,
+          COALESCE(
+            CASE 
+              WHEN bid.analysis_status IS NOT NULL THEN bid.analysis_status
+              WHEN bic.analysis_status IS NOT NULL THEN bic.analysis_status
+              ELSE pm.bioinformatics_status
+            END,
+            pm.bioinformatics_status
+          ) as bioinformatics_status,
+          COALESCE(nm.counselling_status, pm.nutritional_management_status) as nutritional_management_status,
+          pm.progenics_report_release_date,
+          pm.Remark_Comment,
+          pm.created_at,
+          pm.created_by,
+          pm.modified_at,
+          pm.modified_by
+        FROM process_master_sheet pm
+        LEFT JOIN sample_tracking st ON pm.unique_id = st.unique_id
+        LEFT JOIN finance_sheet fs ON pm.unique_id = fs.unique_id
+        LEFT JOIN labprocess_discovery_sheet lpd ON pm.unique_id = lpd.unique_id
+        LEFT JOIN labprocess_clinical_sheet lpc ON pm.unique_id = lpc.unique_id
+        LEFT JOIN bioinformatics_sheet_discovery bid ON pm.unique_id = bid.unique_id
+        LEFT JOIN bioinformatics_sheet_clinical bic ON pm.unique_id = bic.unique_id
+        LEFT JOIN nutritional_management nm ON pm.unique_id = nm.unique_id
+        ORDER BY pm.created_at DESC
+      `;
+      const [rows] = await pool.execute(query);
       res.json(rows || []);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch process master records" });
+      console.error("Failed to fetch process master records:", error.message);
+      try {
+        const [rows] = await pool.execute("SELECT * FROM process_master_sheet ORDER BY created_at DESC");
+        res.json(rows || []);
+      } catch (fallbackError) {
+        res.status(500).json({ message: "Failed to fetch process master records" });
+      }
     }
   });
   app2.post("/api/process-master", async (req, res) => {
@@ -5198,6 +5914,85 @@ async function registerRoutes(app2) {
       res.json({ id });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete process master record" });
+    }
+  });
+  app2.post("/api/migrate-sample-ids", async (req, res) => {
+    try {
+      console.log("Starting sample_id migration...");
+      const [discoveryRows] = await pool.execute(
+        `SELECT id, unique_id, project_id, sample_id FROM labprocess_discovery_sheet 
+         WHERE sample_id NOT LIKE CONCAT(project_id, '_%') OR sample_id IS NULL`
+      );
+      let discoveryUpdated = 0;
+      for (const row of discoveryRows) {
+        if (row.project_id) {
+          const [countResult] = await pool.execute(
+            `SELECT COUNT(*) as cnt FROM labprocess_discovery_sheet WHERE project_id = ? AND id < ?`,
+            [row.project_id, row.id]
+          );
+          const sampleNum = (countResult[0]?.cnt || 0) + 1;
+          const newSampleId = `${row.project_id}_${sampleNum}`;
+          await pool.execute(
+            "UPDATE labprocess_discovery_sheet SET sample_id = ? WHERE id = ?",
+            [newSampleId, row.id]
+          );
+          discoveryUpdated++;
+          console.log(`Updated discovery sheet ID ${row.id}: sample_id = ${newSampleId}`);
+        }
+      }
+      const [clinicalRows] = await pool.execute(
+        `SELECT id, unique_id, project_id, sample_id FROM labprocess_clinical_sheet 
+         WHERE sample_id NOT LIKE CONCAT(project_id, '_%') OR sample_id IS NULL`
+      );
+      let clinicalUpdated = 0;
+      for (const row of clinicalRows) {
+        if (row.project_id) {
+          const [countResult] = await pool.execute(
+            `SELECT COUNT(*) as cnt FROM labprocess_clinical_sheet WHERE project_id = ? AND id < ?`,
+            [row.project_id, row.id]
+          );
+          const sampleNum = (countResult[0]?.cnt || 0) + 1;
+          const newSampleId = `${row.project_id}_${sampleNum}`;
+          await pool.execute(
+            "UPDATE labprocess_clinical_sheet SET sample_id = ? WHERE id = ?",
+            [newSampleId, row.id]
+          );
+          clinicalUpdated++;
+          console.log(`Updated clinical sheet ID ${row.id}: sample_id = ${newSampleId}`);
+        }
+      }
+      const [pmRows] = await pool.execute(
+        `SELECT pm.id, pm.unique_id, pm.project_id, 
+                COALESCE(lpd.sample_id, lpc.sample_id) as correct_sample_id
+         FROM process_master_sheet pm
+         LEFT JOIN labprocess_discovery_sheet lpd ON pm.unique_id = lpd.unique_id
+         LEFT JOIN labprocess_clinical_sheet lpc ON pm.unique_id = lpc.unique_id
+         WHERE COALESCE(lpd.sample_id, lpc.sample_id) IS NOT NULL 
+           AND pm.sample_id != COALESCE(lpd.sample_id, lpc.sample_id)`
+      );
+      let pmUpdated = 0;
+      for (const row of pmRows) {
+        if (row.correct_sample_id) {
+          await pool.execute(
+            "UPDATE process_master_sheet SET sample_id = ? WHERE id = ?",
+            [row.correct_sample_id, row.id]
+          );
+          pmUpdated++;
+          console.log(`Updated process master ID ${row.id}: sample_id = ${row.correct_sample_id}`);
+        }
+      }
+      console.log(`Migration complete: ${discoveryUpdated} discovery, ${clinicalUpdated} clinical, ${pmUpdated} process master records updated`);
+      res.json({
+        success: true,
+        updated: {
+          discovery: discoveryUpdated,
+          clinical: clinicalUpdated,
+          processMaster: pmUpdated
+        }
+      });
+    } catch (error) {
+      console.error("Migration failed:", error.message);
+      res.status(500).json({ message: "Migration failed", error: error.message });
     }
   });
   app2.get("/api/project-samples", async (_req, res) => {
@@ -5806,12 +6601,159 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
+  app2.get("/api/dashboard/revenue-analytics", async (req, res) => {
+    try {
+      const [financeRows] = await pool.execute(`
+        SELECT 
+          id,
+          created_at,
+          budget,
+          payment_receipt_amount,
+          invoice_amount,
+          service_name,
+          organisation_hospital
+        FROM finance_sheet
+        ORDER BY created_at DESC
+      `);
+      const now = /* @__PURE__ */ new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const weeklyData = [];
+      for (let i = 11; i >= 0; i--) {
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - (i * 7 + weekStart.getDay()));
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        let actual = 0;
+        for (const row of financeRows) {
+          const createdAt = new Date(row.created_at);
+          if (createdAt >= weekStart && createdAt < weekEnd) {
+            actual += parseFloat(row.payment_receipt_amount || row.budget || 0);
+          }
+        }
+        const weekLabel = `Week ${12 - i}`;
+        weeklyData.push({
+          week: weekLabel,
+          actual: Math.round(actual),
+          target: 5e4
+          // Default weekly target
+        });
+      }
+      const monthlyData = [];
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      for (let i = 11; i >= 0; i--) {
+        const targetMonth = (currentMonth - i + 12) % 12;
+        const targetYear = currentMonth - i < 0 ? currentYear - 1 : currentYear;
+        let actual = 0;
+        for (const row of financeRows) {
+          const createdAt = new Date(row.created_at);
+          if (createdAt.getMonth() === targetMonth && createdAt.getFullYear() === targetYear) {
+            actual += parseFloat(row.payment_receipt_amount || row.budget || 0);
+          }
+        }
+        monthlyData.push({
+          month: `${monthNames[targetMonth]} ${targetYear}`,
+          actual: Math.round(actual),
+          target: 2e5
+          // Default monthly target
+        });
+      }
+      const yearlyData = [];
+      for (let i = 4; i >= 0; i--) {
+        const targetYear = currentYear - i;
+        let actual = 0;
+        for (const row of financeRows) {
+          const createdAt = new Date(row.created_at);
+          if (createdAt.getFullYear() === targetYear) {
+            actual += parseFloat(row.payment_receipt_amount || row.budget || 0);
+          }
+        }
+        yearlyData.push({
+          year: targetYear.toString(),
+          actual: Math.round(actual),
+          target: 24e5
+          // Default yearly target
+        });
+      }
+      const serviceBreakdown = {};
+      for (const row of financeRows) {
+        const service = row.service_name || "Other";
+        const amount = parseFloat(row.payment_receipt_amount || row.budget || 0);
+        serviceBreakdown[service] = (serviceBreakdown[service] || 0) + amount;
+      }
+      const breakdownData = Object.entries(serviceBreakdown).filter(([_, value]) => value > 0).map(([name, value]) => ({
+        name: name || "Other",
+        value: Math.round(value),
+        color: getRandomColor(name)
+      })).sort((a, b) => b.value - a.value).slice(0, 10);
+      const totalRecords = financeRows.length;
+      const totalRevenue = financeRows.reduce(
+        (sum, row) => sum + parseFloat(row.payment_receipt_amount || row.budget || 0),
+        0
+      );
+      const thisMonthRevenue = monthlyData[monthlyData.length - 1]?.actual || 0;
+      const lastMonthRevenue = monthlyData[monthlyData.length - 2]?.actual || 0;
+      const monthlyGrowth = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1) : "0";
+      res.json({
+        weekly: weeklyData,
+        monthly: monthlyData,
+        yearly: yearlyData,
+        breakdown: breakdownData,
+        summary: {
+          totalRecords,
+          totalRevenue: Math.round(totalRevenue),
+          thisMonth: Math.round(thisMonthRevenue),
+          lastMonth: Math.round(lastMonthRevenue),
+          monthlyGrowth: parseFloat(monthlyGrowth)
+        }
+      });
+    } catch (error) {
+      console.error("Failed to fetch revenue analytics:", error.message);
+      res.status(500).json({ message: "Failed to fetch revenue analytics" });
+    }
+  });
+  function getRandomColor(seed) {
+    const colors = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
   app2.get("/api/finance/stats", async (req, res) => {
     try {
       const stats = await storage.getFinanceStats();
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch finance stats" });
+    }
+  });
+  app2.get("/api/leads/stats", async (req, res) => {
+    try {
+      const stats = await storage.getLeadsStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to fetch leads stats:", error);
+      res.status(500).json({ message: "Failed to fetch leads stats" });
+    }
+  });
+  app2.get("/api/sample-tracking/stats", async (req, res) => {
+    try {
+      const stats = await storage.getSampleTrackingStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to fetch sample tracking stats:", error);
+      res.status(500).json({ message: "Failed to fetch sample tracking stats" });
+    }
+  });
+  app2.get("/api/lab-processing/stats", async (req, res) => {
+    try {
+      const stats = await storage.getLabProcessingStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to fetch lab processing stats:", error);
+      res.status(500).json({ message: "Failed to fetch lab processing stats" });
     }
   });
   app2.get("/api/finance/pending-approvals", async (req, res) => {
@@ -6261,15 +7203,22 @@ async function registerRoutes(app2) {
       const updates = req.body || {};
       const keys = Object.keys(updates);
       if (keys.length === 0) return res.status(400).json({ message: "No updates provided" });
-      const set = keys.map((k) => `\`${k}\` = ?`).join(",");
-      const values = keys.map((k) => updates[k]);
+      const safeKeys = keys.filter((k) => updates[k] !== void 0);
+      if (safeKeys.length === 0) return res.status(400).json({ message: "No valid updates provided" });
+      const set = safeKeys.map((k) => `\`${k}\` = ?`).join(", ");
+      const values = safeKeys.map((k) => {
+        const v = updates[k];
+        if (typeof v === "boolean") return v ? 1 : 0;
+        return v;
+      });
       values.push(unique_id);
       const sql3 = `UPDATE report_management SET ${set}, lead_modified = NOW() WHERE unique_id = ?`;
+      console.log("PUT SQL:", sql3, "Values:", values);
       const [result] = await pool.execute(sql3, values);
       res.json({ ok: true, affectedRows: result.affectedRows });
     } catch (error) {
       console.error("PUT /api/report_management/:unique_id failed:", error.message);
-      res.status(500).json({ message: "Failed to update record" });
+      res.status(500).json({ message: "Failed to update record", error: error.message });
     }
   });
   app2.delete("/api/report_management/:unique_id", async (req, res) => {
@@ -6460,6 +7409,7 @@ var AbstractModule = class {
 // server/modules/auth/index.ts
 init_schema();
 import mysql2 from "mysql2/promise";
+import nodemailer3 from "nodemailer";
 var AuthenticationModule = class extends AbstractModule {
   name = "authentication";
   version = "1.0.0";
@@ -6469,10 +7419,10 @@ var AuthenticationModule = class extends AbstractModule {
   async validateSchema() {
     try {
       const connection = await mysql2.createConnection({
-        host: process.env.DB_HOST || "192.168.29.12",
+        host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-        database: process.env.DB_NAME || "leadlab_lims"
+        database: process.env.DB_NAME || "lead_lims2"
       });
       const [rows] = await connection.execute("DESCRIBE users");
       await connection.end();
@@ -6581,6 +7531,104 @@ var AuthenticationModule = class extends AbstractModule {
         res.status(500).json({ message: "Failed to update user" });
       }
     });
+    const otpStore = /* @__PURE__ */ new Map();
+    const transporter2 = nodemailer3.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || "465"),
+      secure: process.env.SMTP_SECURE === "true",
+      // false if SMTP_SECURE is not set
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+    app2.post("/api/auth/send-otp", async (req, res) => {
+      try {
+        if (!this.enabled) return res.status(503).json({ message: "Authentication module is disabled" });
+        const { email, type } = req.body;
+        const user = await this.storage.getUserByEmail(email);
+        if (type === "register") {
+          if (user) {
+            return res.status(400).json({ message: "Email already registered" });
+          }
+        } else {
+          if (!user) {
+            return res.status(404).json({ message: "User not found" });
+          }
+        }
+        const otp = Math.floor(1e5 + Math.random() * 9e5).toString();
+        otpStore.set(email, {
+          code: otp,
+          expires: Date.now() + 5 * 60 * 1e3
+        });
+        const mailOptions = {
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: email,
+          subject: "Your Progenics LIMS Verification Code",
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+              <h2 style="color: #0891b2;">Progenics LIMS Verification</h2>
+              <p>Your verification code is:</p>
+              <h1 style="font-size: 32px; letter-spacing: 5px; color: #7c3aed;">${otp}</h1>
+              <p>This code will expire in 5 minutes.</p>
+              <p>If you did not request this code, please ignore this email.</p>
+            </div>
+          `
+        };
+        await transporter2.sendMail(mailOptions);
+        console.log(`OTP sent to ${email}`);
+        res.json({ message: "OTP sent to your email" });
+      } catch (error) {
+        console.error("Send OTP Error:", error);
+        res.status(500).json({ message: "Failed to send OTP. Please check email configuration." });
+      }
+    });
+    app2.post("/api/auth/verify-otp", async (req, res) => {
+      try {
+        if (!this.enabled) return res.status(503).json({ message: "Authentication module is disabled" });
+        const { email, otp } = req.body;
+        const storedData = otpStore.get(email);
+        if (!storedData) {
+          return res.status(400).json({ message: "OTP not requested or expired" });
+        }
+        if (Date.now() > storedData.expires) {
+          otpStore.delete(email);
+          return res.status(400).json({ message: "OTP expired" });
+        }
+        if (storedData.code !== otp) {
+          return res.status(400).json({ message: "Invalid OTP" });
+        }
+        res.json({ message: "OTP verified successfully" });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+      }
+    });
+    app2.post("/api/auth/reset-password", async (req, res) => {
+      try {
+        if (!this.enabled) return res.status(503).json({ message: "Authentication module is disabled" });
+        const { email, newPassword, otp } = req.body;
+        const storedData = otpStore.get(email);
+        if (!storedData || storedData.code !== otp) {
+          return res.status(400).json({ message: "Invalid or expired OTP session" });
+        }
+        if (Date.now() > storedData.expires) {
+          otpStore.delete(email);
+          return res.status(400).json({ message: "OTP expired" });
+        }
+        const user = await this.storage.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const hashedPassword = await bcrypt3.hash(newPassword, 10);
+        await this.storage.updateUser(user.id, { password: hashedPassword });
+        otpStore.delete(email);
+        res.json({ message: "Password reset successfully" });
+      } catch (error) {
+        console.error("Reset Password Error:", error);
+        res.status(500).json({ message: "Server error" });
+      }
+    });
     app2.get("/api/modules/auth/health", async (req, res) => {
       const health = await this.healthCheck();
       res.status(health.status === "healthy" ? 200 : 503).json(health);
@@ -6601,7 +7649,7 @@ var LeadManagementModule = class extends AbstractModule {
   async validateSchema() {
     try {
       const connection = await mysql3.createConnection({
-        host: process.env.DB_HOST || "192.168.29.11",
+        host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
         database: process.env.DB_NAME || "lead_lims2"
@@ -6953,10 +8001,10 @@ var SampleTrackingModule = class extends AbstractModule {
   async validateSchema() {
     try {
       const connection = await mysql4.createConnection({
-        host: process.env.DB_HOST || "192.168.29.12",
+        host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-        database: process.env.DB_NAME || "leadlab_lims"
+        database: process.env.DB_NAME || "lead_lims2"
       });
       const [rows] = await connection.execute("DESCRIBE sample_tracking");
       await connection.end();
@@ -7212,10 +8260,10 @@ var DashboardModule = class extends AbstractModule {
   async validateSchema() {
     try {
       const connection = await mysql5.createConnection({
-        host: process.env.DB_HOST || "192.168.29.12",
+        host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-        database: process.env.DB_NAME || "leadlab_lims"
+        database: process.env.DB_NAME || "lead_lims2"
       });
       const [tables] = await connection.execute("SHOW TABLES");
       await connection.end();
@@ -7244,10 +8292,10 @@ var DashboardModule = class extends AbstractModule {
         };
         try {
           const connection = await mysql5.createConnection({
-            host: process.env.DB_HOST || "192.168.29.12",
+            host: process.env.DB_HOST || "localhost",
             user: process.env.DB_USER || "remote_user",
             password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-            database: process.env.DB_NAME || "leadlab_lims"
+            database: process.env.DB_NAME || "lead_lims2"
           });
           const [leadRows] = await connection.execute(`
             SELECT COUNT(*) as count FROM lead_management 
@@ -7263,11 +8311,33 @@ var DashboardModule = class extends AbstractModule {
             WHERE status IN ('in_progress', 'awaiting_approval', 'approved')
           `);
           stats.reportsPending = reportRows[0]?.count || 0;
-          const [revenueRows] = await connection.execute(`
-            SELECT COALESCE(SUM(sample_shipment_amount), 0) as pending
-            FROM sample_tracking
-          `);
-          stats.pendingRevenue = parseFloat(revenueRows[0]?.pending || 0);
+          let pendingRevenue = 0;
+          try {
+            const [revenueRows] = await connection.execute(`
+              SELECT COALESCE(SUM(COALESCE(budget, 0)), 0) as pending
+              FROM finance_sheet
+              WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL
+            `);
+            pendingRevenue = parseFloat(revenueRows[0]?.pending || 0);
+            if (pendingRevenue === 0) {
+              const [leadBudgetRows] = await connection.execute(`
+                SELECT COALESCE(SUM(COALESCE(budget, 0)), 0) as pending
+                FROM lead_management
+                WHERE status = 'converted'
+              `);
+              pendingRevenue = parseFloat(leadBudgetRows[0]?.pending || 0);
+            }
+            if (pendingRevenue === 0) {
+              const [sampleBudgetRows] = await connection.execute(`
+                SELECT COALESCE(SUM(COALESCE(sample_shipment_amount, 0)), 0) as pending 
+                FROM sample_tracking
+              `);
+              pendingRevenue = parseFloat(sampleBudgetRows[0]?.pending || 0);
+            }
+          } catch (err) {
+            console.warn("Pending revenue query failed:", err);
+          }
+          stats.pendingRevenue = pendingRevenue;
           await connection.end();
         } catch (error) {
           console.warn("Dashboard stats query failed, using defaults:", error);
@@ -7382,10 +8452,10 @@ var FinanceModule = class extends AbstractModule {
       console.log("Count SQL:", countSql);
       console.log("Count bindings:", countBindings);
       const connection = await mysql6.createConnection({
-        host: process.env.DB_HOST || "192.168.29.12",
+        host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-        database: process.env.DB_NAME || "leadlab_lims"
+        database: process.env.DB_NAME || "lead_lims2"
       });
       const [rows] = await connection.execute(sql3, queryBindings);
       const [countResult] = await connection.execute(countSql, countBindings);
@@ -7401,10 +8471,10 @@ var FinanceModule = class extends AbstractModule {
   async validateSchema() {
     try {
       const connection = await mysql6.createConnection({
-        host: process.env.DB_HOST || "192.168.29.12",
+        host: process.env.DB_HOST || "localhost",
         user: process.env.DB_USER || "remote_user",
         password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
-        database: process.env.DB_NAME || "leadlab_lims"
+        database: process.env.DB_NAME || "lead_lims2"
       });
       const [rows] = await connection.execute("DESCRIBE finance_sheet");
       await connection.end();

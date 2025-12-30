@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -640,6 +641,8 @@ export default function LeadManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const deleteConfirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
   // All fields in Lead Management Add & Edit modals are editable per user instruction
 
   // Role-based permissions helper
@@ -1273,7 +1276,18 @@ export default function LeadManagement() {
 
   const onEditSubmit = (data: any) => {
     if (!selectedLead) return;
-    updateLeadMutation.mutate({ id: selectedLead.id, data });
+    editConfirmation.confirmEdit({
+      title: 'Update Lead',
+      description: `Are you sure you want to save changes to the lead for "${selectedLead.patientClientName || selectedLead.uniqueId}"?`,
+      onConfirm: () => {
+        const updateData = {
+          ...data,
+          modifiedBy: user?.name || user?.email || 'system'
+        };
+        updateLeadMutation.mutate({ id: selectedLead.id, data: updateData });
+        editConfirmation.hideConfirmation();
+      }
+    });
   };
 
   const { add } = useRecycle();
@@ -3089,9 +3103,14 @@ export default function LeadManagement() {
                             )}
                             {canDelete() && (
                               <Button variant="ghost" size="sm" onClick={() => {
-                                if (!confirm('Delete this lead? This action cannot be undone.')) return;
-                                // Server will create the recycle snapshot; do not create a duplicate on the client
-                                deleteLeadMutation.mutate({ id: lead.id });
+                                deleteConfirmation.confirmDelete({
+                                  title: 'Delete Lead',
+                                  description: `Are you sure you want to delete the lead for "${lead.patientClientName || lead.uniqueId}"? This action cannot be undone.`,
+                                  onConfirm: () => {
+                                    deleteLeadMutation.mutate({ id: lead.id });
+                                    deleteConfirmation.hideConfirmation();
+                                  }
+                                });
                               }} className="p-1 h-8 w-8">
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
@@ -3147,6 +3166,30 @@ export default function LeadManagement() {
           </div>
         </div>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        onOpenChange={deleteConfirmation.onOpenChange}
+        title={deleteConfirmation.title}
+        description={deleteConfirmation.description}
+        confirmText={deleteConfirmation.confirmText}
+        onConfirm={deleteConfirmation.onConfirm}
+        type={deleteConfirmation.type}
+        isLoading={deleteConfirmation.isLoading}
+      />
+
+      {/* Edit Confirmation Dialog */}
+      <ConfirmationDialog
+        open={editConfirmation.open}
+        onOpenChange={editConfirmation.onOpenChange}
+        title={editConfirmation.title}
+        description={editConfirmation.description}
+        confirmText={editConfirmation.confirmText}
+        onConfirm={editConfirmation.onConfirm}
+        type={editConfirmation.type}
+        isLoading={editConfirmation.isLoading}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export default function AdminPanel() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirmation = useConfirmationDialog();
 
   // Column configuration for hide/show feature
   const adminColumns: ColumnConfig[] = useMemo(() => [
@@ -234,9 +236,15 @@ export default function AdminPanel() {
   };
 
   const handleDeleteUser = (id: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
-    // Server will snapshot deleted users; avoid creating a duplicate client-side entry
-    deleteUserMutation.mutate(id);
+    const userToDelete = users?.find(u => u.id === id);
+    confirmation.confirmDelete({
+      title: 'Delete User',
+      description: `Are you sure you want to delete user "${userToDelete?.name || id}"? This action cannot be undone.`,
+      onConfirm: () => {
+        deleteUserMutation.mutate(id);
+        confirmation.hideConfirmation();
+      }
+    });
   };
 
   const handleDeactivateUser = (user: User) => {
@@ -526,8 +534,16 @@ export default function AdminPanel() {
                             size="sm"
                             onClick={() => {
                               const action = user.isActive ? 'lock' : 'unlock';
-                              if (!confirm(`Are you sure you want to ${action} login for ${user.name}?`)) return;
-                              updateUserMutation.mutate({ id: user.id, updates: { isActive: !user.isActive } });
+                              confirmation.showConfirmation({
+                                type: user.isActive ? 'warning' : 'info',
+                                title: `${user.isActive ? 'Lock' : 'Unlock'} User Login`,
+                                description: `Are you sure you want to ${action} login for ${user.name}?`,
+                                confirmText: user.isActive ? 'Lock' : 'Unlock',
+                                onConfirm: () => {
+                                  updateUserMutation.mutate({ id: user.id, updates: { isActive: !user.isActive } });
+                                  confirmation.hideConfirmation();
+                                }
+                              });
                             }}
                             className={cn(
                               'flex items-center justify-center',
@@ -602,6 +618,17 @@ export default function AdminPanel() {
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmationDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={confirmation.title}
+        description={confirmation.description}
+        confirmText={confirmation.confirmText}
+        onConfirm={confirmation.onConfirm}
+        type={confirmation.type}
+        isLoading={confirmation.isLoading}
+      />
     </div>
   );
 }

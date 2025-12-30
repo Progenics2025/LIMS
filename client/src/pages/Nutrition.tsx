@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -122,6 +124,7 @@ interface NutritionRecord {
 }
 
 export default function Nutrition() {
+  const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<NutritionRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -131,6 +134,8 @@ export default function Nutrition() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editFormValues, setEditFormValues] = useState<any>({});
   const queryClient = useQueryClient();
+  const deleteConfirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
   const { add } = useRecycle();
 
   // Column configuration for hide/show feature
@@ -526,34 +531,37 @@ export default function Nutrition() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                if (!confirm('Move this nutrition record to Recycle Bin?')) return;
-                                try {
-                                  const now = new Date();
-                                  const deletedAt = now.toISOString();
-                                  add({
-                                    entityType: 'nutrition',
-                                    entityId: record.id,
-                                    name: `${record.patientClientName || record.id}`,
-                                    originalPath: '/nutrition',
-                                    data: { ...record, deletedAt },
-                                    deletedAt,
-                                  }).catch(() => { /* ignore */ });
-                                } catch (err) {
-                                  // ignore recycle failures
-                                }
+                                deleteConfirmation.confirmDelete({
+                                  title: 'Delete Nutrition Record',
+                                  description: `Are you sure you want to move the nutrition record for "${record.patientClientName || record.id}" to the Recycle Bin?`,
+                                  onConfirm: async () => {
+                                    try {
+                                      const now = new Date();
+                                      const deletedAt = now.toISOString();
+                                      add({
+                                        entityType: 'nutrition',
+                                        entityId: record.id,
+                                        name: `${record.patientClientName || record.id}`,
+                                        originalPath: '/nutrition',
+                                        data: { ...record, deletedAt },
+                                        deletedAt,
+                                      }).catch(() => { /* ignore */ });
+                                    } catch (err) {
+                                      // ignore recycle failures
+                                    }
 
-                                (async () => {
-                                  try {
-                                    const res = await fetch(`/api/nutrition/${record.id}`, { method: 'DELETE' });
-                                    if (!res.ok) throw new Error('Delete failed');
-                                    queryClient.invalidateQueries({ queryKey: ['/api/nutrition'] });
-                                    toast({ title: 'Moved to Recycle', description: 'Nutrition record moved to recycle bin' });
-                                    window.dispatchEvent(new Event('ll:recycle:update'));
-                                    return;
-                                  } catch (e) {
-                                    toast({ title: 'Recycle saved locally', description: 'Server delete failed; record kept locally', variant: 'destructive' });
+                                    try {
+                                      const res = await fetch(`/api/nutrition/${record.id}`, { method: 'DELETE' });
+                                      if (!res.ok) throw new Error('Delete failed');
+                                      queryClient.invalidateQueries({ queryKey: ['/api/nutrition'] });
+                                      toast({ title: 'Moved to Recycle', description: 'Nutrition record moved to recycle bin' });
+                                      window.dispatchEvent(new Event('ll:recycle:update'));
+                                    } catch (e) {
+                                      toast({ title: 'Recycle saved locally', description: 'Server delete failed; record kept locally', variant: 'destructive' });
+                                    }
+                                    deleteConfirmation.hideConfirmation();
                                   }
-                                })();
+                                });
                               }}
                             >
                               <Trash2 className="h-4 w-4 text-red-600" />
@@ -617,11 +625,18 @@ export default function Nutrition() {
                 alertToTechnicalLead: editFormValues.alertToTechnicalLead || false,
                 alertToReportTeam: editFormValues.alertToReportTeam || false,
                 remarksComment: formData.get('remarksComment') as string,
-                modifiedBy: 'System', // Should be current user
+                modifiedBy: user?.name || user?.email || 'System',
                 modifiedAt: new Date().toISOString(),
               };
               console.log('[Nutrition Form] Submitting data:', data);
-              updateMutation.mutate({ id: selectedRecord.id, data });
+              editConfirmation.confirmEdit({
+                title: 'Update Nutrition Record',
+                description: `Are you sure you want to save changes to the nutrition record for "${selectedRecord.patientClientName || selectedRecord.id}"?`,
+                onConfirm: () => {
+                  updateMutation.mutate({ id: selectedRecord.id, data });
+                  editConfirmation.hideConfirmation();
+                }
+              });
             }} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Unique ID and Project ID are excluded as requested */}
@@ -701,6 +716,30 @@ export default function Nutrition() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        onOpenChange={deleteConfirmation.onOpenChange}
+        title={deleteConfirmation.title}
+        description={deleteConfirmation.description}
+        confirmText={deleteConfirmation.confirmText}
+        onConfirm={deleteConfirmation.onConfirm}
+        type={deleteConfirmation.type}
+        isLoading={deleteConfirmation.isLoading}
+      />
+
+      {/* Edit Confirmation Dialog */}
+      <ConfirmationDialog
+        open={editConfirmation.open}
+        onOpenChange={editConfirmation.onOpenChange}
+        title={editConfirmation.title}
+        description={editConfirmation.description}
+        confirmText={editConfirmation.confirmText}
+        onConfirm={editConfirmation.onConfirm}
+        type={editConfirmation.type}
+        isLoading={editConfirmation.isLoading}
+      />
     </div>
   );
 }

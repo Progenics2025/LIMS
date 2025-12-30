@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,6 +27,7 @@ import { ColumnSettings } from '@/components/ColumnSettings';
 
 
 export default function ReportManagement() {
+  const { user } = useAuth();
   // Helper: remove common honorifics from a name to avoid duplicated prefixes
   const stripHonorific = (name?: string) => {
     if (!name) return '';
@@ -32,6 +35,8 @@ export default function ReportManagement() {
   };
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
   const [, location] = useLocation();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [filter, setFilter] = useState('all');
@@ -315,66 +320,82 @@ export default function ReportManagement() {
       toast({ title: 'Missing ID', description: 'Cannot determine unique id for record' });
       return;
     }
-    // Exclude read-only fields from the update payload
-    // Normalize types: booleans -> 0/1, empty numeric strings -> null, numeric strings -> numbers
-    const { unique_id, lead_modified, ...base } = editForm;
-    const updatePayload: any = {
-      ...base,
-      genetic_counselor_required: base.genetic_counselor_required ? 1 : 0,
-      nutritional_counselling_required: base.nutritional_counselling_required ? 1 : 0,
-      approval_from_finance: base.approval_from_finance ? 1 : 0,
-    };
 
-    // Coerce numeric-like fields to numbers or null to avoid MySQL "Incorrect integer value" errors
-    const numericFields = ['age', 'no_of_samples', 'tat'];
-    for (const k of numericFields) {
-      if (updatePayload[k] === '' || updatePayload[k] === undefined) {
-        updatePayload[k] = null;
-        continue;
-      }
-      if (typeof updatePayload[k] === 'string') {
-        const n = Number(updatePayload[k]);
-        updatePayload[k] = Number.isNaN(n) ? null : n;
-      }
-    }
-    // Coerce empty date strings to null to avoid MySQL "Incorrect date value" errors
-    const dateFields = ['report_release_date', 'sample_received_date'];
-    for (const k of dateFields) {
-      if (updatePayload[k] === '' || updatePayload[k] === undefined) {
-        updatePayload[k] = null;
-        continue;
-      }
-      // If it's a non-empty string, attempt to normalize to YYYY-MM-DD
-      if (typeof updatePayload[k] === 'string') {
-        const s = updatePayload[k].trim();
-        if (s === '') {
-          updatePayload[k] = null;
-        } else {
-          // if already in ISO date or YYYY-MM-DD, keep; otherwise try to parse
-          const maybeDate = new Date(s);
-          if (!isNaN(maybeDate.getTime())) {
-            // send only the date part
-            updatePayload[k] = maybeDate.toISOString().split('T')[0];
+    editConfirmation.confirmEdit({
+      title: 'Update Report Record',
+      description: `Are you sure you want to save changes to the report record for "${editForm.patient_client_name || uniqueId}"?`,
+      onConfirm: async () => {
+        try {
+          // Exclude read-only fields from the update payload
+          // Normalize types: booleans -> 0/1, empty numeric strings -> null, numeric strings -> numbers
+          const { unique_id, lead_modified, ...base } = editForm;
+          const updatePayload: any = {
+            ...base,
+            genetic_counselor_required: base.genetic_counselor_required ? 1 : 0,
+            nutritional_counselling_required: base.nutritional_counselling_required ? 1 : 0,
+            approval_from_finance: base.approval_from_finance ? 1 : 0,
+            modified_by: user?.name || user?.email || 'system',
+          };
+
+          // Coerce numeric-like fields to numbers or null to avoid MySQL "Incorrect integer value" errors
+          const numericFields = ['age', 'no_of_samples', 'tat'];
+          for (const k of numericFields) {
+            if (updatePayload[k] === '' || updatePayload[k] === undefined) {
+              updatePayload[k] = null;
+              continue;
+            }
+            if (typeof updatePayload[k] === 'string') {
+              const n = Number(updatePayload[k]);
+              updatePayload[k] = Number.isNaN(n) ? null : n;
+            }
           }
+          // Coerce empty date strings to null to avoid MySQL "Incorrect date value" errors
+          const dateFields = ['report_release_date', 'sample_received_date'];
+          for (const k of dateFields) {
+            if (updatePayload[k] === '' || updatePayload[k] === undefined) {
+              updatePayload[k] = null;
+              continue;
+            }
+            // If it's a non-empty string, attempt to normalize to YYYY-MM-DD
+            if (typeof updatePayload[k] === 'string') {
+              const s = updatePayload[k].trim();
+              if (s === '') {
+                updatePayload[k] = null;
+              } else {
+                // if already in ISO date or YYYY-MM-DD, keep; otherwise try to parse
+                const maybeDate = new Date(s);
+                if (!isNaN(maybeDate.getTime())) {
+                  // send only the date part
+                  updatePayload[k] = maybeDate.toISOString().split('T')[0];
+                }
+              }
+            }
+          }
+          console.log('Saving record:', uniqueId, 'with payload:', updatePayload);
+          await updateMutation.mutateAsync({ uniqueId, updates: updatePayload });
+          setIsEditOpen(false);
+        } catch (e: any) {
+          console.error('Save error:', e);
+          toast({ title: 'Save error', description: e?.message || 'Failed to save' });
+        } finally {
+          editConfirmation.hideConfirmation();
         }
       }
-    }
-    console.log('Saving record:', uniqueId, 'with payload:', updatePayload);
-    try {
-      await updateMutation.mutateAsync({ uniqueId, updates: updatePayload });
-      setIsEditOpen(false);
-    } catch (err: any) {
-      console.error('Save error:', err);
-      toast({ title: 'Save error', description: err?.message || 'Failed to save' });
-    }
+    });
   };
 
   const handleDelete = async (record: any) => {
     const uniqueId = getUniqueId(record);
     if (!uniqueId) return toast({ title: 'Missing ID', description: 'Cannot determine unique id for record' });
-    const ok = window.confirm('Delete this report_management record?');
-    if (!ok) return;
-    await deleteMutation.mutateAsync(uniqueId);
+
+    confirmation.confirmDelete({
+      title: 'Delete Report Record',
+      description: `Are you sure you want to delete the report record for "${record.patient_client_name || uniqueId}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        await deleteMutation.mutateAsync(uniqueId);
+        confirmation.hideConfirmation();
+      }
+    });
   };
 
   // TAT Logic (simplified for report_management table data structure)
@@ -936,6 +957,28 @@ export default function ReportManagement() {
           )}
         </CardContent>
       </Card>
+      <ConfirmationDialog
+        open={confirmation.open}
+        onOpenChange={confirmation.onOpenChange}
+        title={confirmation.title}
+        description={confirmation.description}
+        confirmText={confirmation.confirmText}
+        onConfirm={confirmation.onConfirm}
+        type={confirmation.type}
+        isLoading={confirmation.isLoading}
+      />
+
+      {/* Edit Confirmation Dialog */}
+      <ConfirmationDialog
+        open={editConfirmation.open}
+        onOpenChange={editConfirmation.onOpenChange}
+        title={editConfirmation.title}
+        description={editConfirmation.description}
+        confirmText={editConfirmation.confirmText}
+        onConfirm={editConfirmation.onConfirm}
+        type={editConfirmation.type}
+        isLoading={editConfirmation.isLoading}
+      />
     </div>
   );
 }

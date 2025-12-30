@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRecycle } from '@/contexts/RecycleContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from "@/contexts/AuthContext";
 import { User, Clock, Check, Search, Edit as EditIcon, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -67,6 +68,7 @@ type GCRecord = {
 const initialData: GCRecord[] = [];
 
 export default function GeneticCounselling() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -366,6 +368,8 @@ export default function GeneticCounselling() {
       try {
         if (editing) {
           console.log('[GC onSave] Updating record ID:', data.id);
+          // Set modified_by to current user's name
+          data.modified_by = user?.name || user?.email || 'system';
           const res = await fetch(`/api/genetic-counselling-sheet/${data.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
           console.log('[GC onSave] PUT response status:', res.status);
           if (!res.ok) {
@@ -380,6 +384,8 @@ export default function GeneticCounselling() {
           toast({ title: 'Updated', description: 'Record updated' });
         } else {
           console.log('[GC onSave] Creating new record');
+          // Set created_by to current user's name
+          data.created_by = user?.name || user?.email || 'system';
           const res = await fetch('/api/genetic-counselling-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
           console.log('[GC onSave] POST response status:', res.status);
           if (!res.ok) {

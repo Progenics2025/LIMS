@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +24,7 @@ import { ColumnSettings } from '@/components/ColumnSettings';
 
 
 export default function SampleTracking() {
+  const { user } = useAuth();
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [selectedSample, setSelectedSample] = useState<any>(null);
   const [dialogLabDestination, setDialogLabDestination] = useState<string>('internal');
@@ -31,6 +34,8 @@ export default function SampleTracking() {
   const [uploadedThirdPartyTrf, setUploadedThirdPartyTrf] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const deleteConfirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
   // Client-side search & pagination for samples table
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
@@ -244,6 +249,8 @@ export default function SampleTracking() {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking/stats'], refetchType: 'all' });
+      // Notify ProcessMaster to refresh for real-time updates
+      window.dispatchEvent(new CustomEvent('ll:data:changed', { detail: { action: 'sample-updated' } }));
       setIsUpdateDialogOpen(false);
       toast({
         title: "Sample updated",
@@ -672,8 +679,14 @@ export default function SampleTracking() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  if (!confirm('Delete this sample? This action cannot be undone.')) return;
-                                  deleteSampleMutation.mutate({ sampleId: sample.id });
+                                  deleteConfirmation.confirmDelete({
+                                    title: 'Delete Sample',
+                                    description: `Are you sure you want to delete the sample "${sample.uniqueId || sample.id}"? This action cannot be undone.`,
+                                    onConfirm: () => {
+                                      deleteSampleMutation.mutate({ sampleId: sample.id });
+                                      deleteConfirmation.hideConfirmation();
+                                    }
+                                  });
                                 }}
                               >
                                 <Trash2 className="h-4 w-4 text-red-600" />
@@ -1034,12 +1047,21 @@ export default function SampleTracking() {
                     if (v === undefined) delete updates[k];
                     if (typeof v === 'string' && v.trim() === '') delete updates[k];
                   });
+                  // Set modifiedBy to current user's name
+                  updates.modifiedBy = user?.name || user?.email || 'system';
 
                   // debug log the payload (visible in browser console)
                   // eslint-disable-next-line no-console
                   console.debug('Sample update payload (client):', updates);
 
-                  updateSampleMutation.mutate({ sampleId: selectedSample.id, updates });
+                  editConfirmation.confirmEdit({
+                    title: 'Update Sample',
+                    description: `Are you sure you want to save changes to sample "${selectedSample.uniqueId || selectedSample.id}"?`,
+                    onConfirm: () => {
+                      updateSampleMutation.mutate({ sampleId: selectedSample.id, updates });
+                      editConfirmation.hideConfirmation();
+                    }
+                  });
                 }}>
                   Save Changes
                 </Button>
@@ -1048,6 +1070,30 @@ export default function SampleTracking() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        onOpenChange={deleteConfirmation.onOpenChange}
+        title={deleteConfirmation.title}
+        description={deleteConfirmation.description}
+        confirmText={deleteConfirmation.confirmText}
+        onConfirm={deleteConfirmation.onConfirm}
+        type={deleteConfirmation.type}
+        isLoading={deleteConfirmation.isLoading}
+      />
+
+      {/* Edit Confirmation Dialog */}
+      <ConfirmationDialog
+        open={editConfirmation.open}
+        onOpenChange={editConfirmation.onOpenChange}
+        title={editConfirmation.title}
+        description={editConfirmation.description}
+        confirmText={editConfirmation.confirmText}
+        onConfirm={editConfirmation.onConfirm}
+        type={editConfirmation.type}
+        isLoading={editConfirmation.isLoading}
+      />
     </div>
   );
 }

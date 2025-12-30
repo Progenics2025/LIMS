@@ -62,6 +62,7 @@ export const leads = mysqlTable("lead_management", {
   salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
   leadCreated: timestamp("lead_created", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
   leadModified: timestamp("lead_modified", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+  modifiedBy: varchar("modified_by", { length: 255 }),
 });
 
 export const leadTrfs = mysqlTable('lead_trfs', {
@@ -102,6 +103,8 @@ export const samples = mysqlTable("sample_tracking", {
   createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
   createdBy: varchar("created_by", { length: 80 }),
   remarkComment: text("remark_comment"),
+  modifiedAt: timestamp("modified_at", { mode: "date" }),
+  modifiedBy: varchar("modified_by", { length: 255 }),
 });
 
 // Enhanced lab processing table

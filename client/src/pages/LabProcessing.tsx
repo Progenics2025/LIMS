@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +62,8 @@ export default function LabProcessing() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const deleteConfirmation = useConfirmationDialog();
+  const editConfirmation = useConfirmationDialog();
 
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -558,6 +561,8 @@ export default function LabProcessing() {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+      // Notify ProcessMaster to refresh for real-time updates
+      window.dispatchEvent(new CustomEvent('ll:data:changed', { detail: { action: 'lab-updated' } }));
       setIsEditDialogOpen(false);
       setSelectedLab(null);
       toast({ title: 'Lab processing updated', description: 'Record updated successfully' });
@@ -672,7 +677,7 @@ export default function LabProcessing() {
         sequencing_status: 'pending',
         analysis_status: 'pending',
         tat: lead.tat || null,
-        created_by: user?.email || 'system',
+        created_by: user?.name || user?.email || 'system',
       };
 
       console.log('✅ [FIXED] DEBUG bioinformatics send to reports - after normalizeLab fix:', {
@@ -858,8 +863,14 @@ export default function LabProcessing() {
             {lab.alertToBioinformaticsTeam ? 'Sent ✓' : 'Send For Bioinformatics'}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => {
-            if (!confirm('Delete this lab processing record? This action cannot be undone.')) return;
-            deleteLabMutation.mutate({ id: lab.id });
+            deleteConfirmation.confirmDelete({
+              title: 'Delete Lab Processing Record',
+              description: `Are you sure you want to delete the lab processing record for "${lab.titleUniqueId || lab.sampleId || lab.id}"? This action cannot be undone.`,
+              onConfirm: () => {
+                deleteLabMutation.mutate({ id: lab.id });
+                deleteConfirmation.hideConfirmation();
+              }
+            });
           }}>
             <Trash2 className="h-4 w-4 text-red-600" />
           </Button>
@@ -1021,7 +1032,16 @@ export default function LabProcessing() {
             Object.keys(vals || {}).forEach((k) => {
               if (labEditable.has(k)) updates[k] = (vals as any)[k];
             });
-            updateLabMutation.mutate({ id: selectedLab.id, updates });
+            // Set modifiedBy to current user's name
+            updates.modifiedBy = user?.name || user?.email || 'system';
+            editConfirmation.confirmEdit({
+              title: 'Update Lab Processing Record',
+              description: `Are you sure you want to save changes to the lab processing record for "${selectedLab.titleUniqueId || selectedLab.sampleId || selectedLab.id}"?`,
+              onConfirm: () => {
+                updateLabMutation.mutate({ id: selectedLab.id, updates });
+                editConfirmation.hideConfirmation();
+              }
+            });
           })} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div><Label>Unique ID</Label><Input {...editForm.register('titleUniqueId')} disabled={!labEditable.has('titleUniqueId')} /></div>
@@ -1070,6 +1090,30 @@ export default function LabProcessing() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        onOpenChange={deleteConfirmation.onOpenChange}
+        title={deleteConfirmation.title}
+        description={deleteConfirmation.description}
+        confirmText={deleteConfirmation.confirmText}
+        onConfirm={deleteConfirmation.onConfirm}
+        type={deleteConfirmation.type}
+        isLoading={deleteConfirmation.isLoading}
+      />
+
+      {/* Edit Confirmation Dialog */}
+      <ConfirmationDialog
+        open={editConfirmation.open}
+        onOpenChange={editConfirmation.onOpenChange}
+        title={editConfirmation.title}
+        description={editConfirmation.description}
+        confirmText={editConfirmation.confirmText}
+        onConfirm={editConfirmation.onConfirm}
+        type={editConfirmation.type}
+        isLoading={editConfirmation.isLoading}
+      />
     </div>
   );
 }

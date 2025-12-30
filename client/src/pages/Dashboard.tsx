@@ -244,10 +244,10 @@ interface PerformanceMetrics {
   const metrics = (performanceMetrics as PerformanceMetrics) || defaultMetrics;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+        <p className="mt-1 text-gray-600 dark:text-gray-400">
           Monitor your laboratory operations and key metrics
         </p>
       </div>
@@ -424,7 +424,7 @@ interface PerformanceMetrics {
       </div>
 
       {/* Revenue Analytics Section */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between">
             <div>
@@ -593,27 +593,27 @@ interface PerformanceMetrics {
           </Card>
 
           {/* Yearly Revenue Projection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
+          <Card className="h-fit overflow-hidden">
+            <CardHeader className="py-2 px-3">
+              <CardTitle className="flex items-center text-base">
                 <BarChart3 className="mr-2 h-5 w-5" />
                 Yearly Revenue Outlook
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="h-80">
+            <CardContent className="p-0 pb-2">
+              <div style={{ height: '740px', width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={yearlyRevenueData}>
+                  <BarChart data={yearlyRevenueData} margin={{ top: 10, right: 15, left: 15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="year" />
-                    <YAxis tickFormatter={formatCurrency} />
+                    <YAxis tickFormatter={formatCurrency} width={55} />
                     <Tooltip
                       formatter={(value: number, name: string) => [
                         formatTooltipCurrency(value),
                         name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
                       ]}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ paddingTop: '5px' }} />
                     <Bar dataKey="actual" fill="#10b981" name="Actual" />
                     <Bar dataKey="target" fill="#fbbf24" name="Target" />
                   </BarChart>
@@ -683,7 +683,7 @@ interface PerformanceMetrics {
       </div>
 
       {/* Activity Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent Activity */}
         <Card>
           <CardHeader>

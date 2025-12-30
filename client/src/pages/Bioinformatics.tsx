@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useRecycle } from '@/contexts/RecycleContext';
+import { useAuth } from "@/contexts/AuthContext";
 import { Activity, Cpu, CheckCircle, Search, Edit as EditIcon, Trash2, Clock, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -63,6 +64,7 @@ type BIRecord = {
 };
 
 export default function Bioinformatics() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<BIRecord[]>([]);
   const [sendingIds, setSendingIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -256,6 +258,8 @@ export default function Bioinformatics() {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
+      // Notify ProcessMaster to refresh for real-time updates
+      window.dispatchEvent(new CustomEvent('ll:data:changed', { detail: { action: 'bioinformatics-updated' } }));
 
       // Show summary toast
       const successCount = responses.filter((r: any) => r.success && !r.alreadyExists).length;
@@ -493,7 +497,7 @@ export default function Bioinformatics() {
       database_tools_information: data.databaseToolsInformation,
       alert_to_technical_leadd: data.alertToTechnicalLeadd,
       alert_to_report_team: data.alertToReportTeam,
-      modified_by: data.modifiedBy,
+      modified_by: user?.name || user?.email || 'system',
       remark_comment: data.remarkComment,
     };
 
