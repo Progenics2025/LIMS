@@ -46,8 +46,8 @@ export default function AdminPanel() {
       const response = await apiRequest('POST', '/api/users', data);
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'], refetchType: 'all' });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({
@@ -89,9 +89,9 @@ export default function AdminPanel() {
         throw err;
       }
     },
-    onSuccess: (updatedUser: User) => {
+    onSuccess: async (updatedUser: User) => {
       // Ensure query cache is fresh and update local state
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'], refetchType: 'all' });
       setUsers((prev) => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
       toast({
         title: "User updated",
@@ -121,15 +121,15 @@ export default function AdminPanel() {
       if (context?.previous) setUsers(context.previous);
       toast({ title: 'Role change failed', description: err.message || 'Could not change role', variant: 'destructive' });
     },
-    onSuccess: (updatedUser: User) => {
+    onSuccess: async (updatedUser: User) => {
       // ensure the returned user from server replaces local copy
       setUsers((prev) => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'], refetchType: 'all' });
       toast({ title: 'Role updated', description: `Role updated to ${updatedUser.role}` });
     },
-    onSettled: () => {
+    onSettled: async () => {
       // keep cache consistent
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'], refetchType: 'all' });
     },
   });
 
@@ -138,8 +138,9 @@ export default function AdminPanel() {
       const response = await apiRequest('DELETE', `/api/users/${id}`);
       return { id };
     },
-    onSuccess: ({ id }) => {
+    onSuccess: async ({ id }) => {
       setUsers((prev) => prev.filter(u => u.id !== id));
+      await queryClient.invalidateQueries({ queryKey: ['/api/users'], refetchType: 'all' });
       toast({ title: 'User deleted', description: 'User has been removed' });
       // Notify recycle UI to refresh (server snapshots deleted users)
       window.dispatchEvent(new Event('ll:recycle:update'));
@@ -353,9 +354,9 @@ export default function AdminPanel() {
                 )}
               </div>
               <div className="flex justify-end space-x-3">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setIsCreateDialogOpen(false)}
                 >
                   Cancel
@@ -544,7 +545,7 @@ export default function AdminPanel() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -560,7 +561,7 @@ export default function AdminPanel() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">

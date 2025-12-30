@@ -20,6 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Eye, Edit, FlaskConical, TestTube, Microscope, Activity, Trash2, AlertCircle } from "lucide-react";
 import { useRecycle } from '@/contexts/RecycleContext';
+import { FilterBar } from "@/components/FilterBar";
 
 const labFormSchema = insertLabProcessingSchema.extend({
   projectId: z.string().optional(),
@@ -60,6 +61,8 @@ export default function LabProcessing() {
 
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   // Lab type filter: 'all' | 'clinical' | 'discovery' - Default to 'discovery' to show data immediately
   const [labTypeFilter, setLabTypeFilter] = useState<'all' | 'clinical' | 'discovery'>('discovery');
@@ -217,6 +220,9 @@ export default function LabProcessing() {
       purificationQualityCheck: get('purification_quality_check', 'purificationQualityCheck') ?? (l as any).purificationQualityCheck ?? (l as any).productQualityCheck ?? undefined,
       purificationQCStatus: get('purification_qc_status', 'purificationQCStatus') ?? (l as any).purificationQCStatus ?? undefined,
       purificationProcess: get('purification_process', 'purificationProcess') ?? (l as any).purificationProcess ?? undefined,
+      // Derive overall QC status: use extraction status as primary indicator
+      qcStatus: get('extraction_qc_status', 'extractionQCStatus') ?? (l as any).extractionQCStatus ?? undefined,
+      isOutsourced: Boolean(get('is_outsourced', 'isOutsourced') ?? (l as any).isOutsourced ?? false),
       alertToBioinformaticsTeam: Boolean(get('alert_to_bioinformatics_team', 'alertToBioinformaticsTeam') ?? (l as any).alertToBioinformaticsTeam ?? (l as any).approvedToBioinformatics ?? false),
       alertToTechnicalLead: Boolean(get('alert_to_technical_lead', 'alertToTechnicalLead') ?? get('alert_to_technical_leadd', 'alertToTechnicalLead') ?? (l as any).alertToTechnicalLead ?? (l as any).alertToTechnical ?? false),
       progenicsTrf: get('progenics_trf', 'progenicsTrf') ?? (l as any).progenicsTrf ?? lead.progenicsTRF ?? lead.progenics_trf ?? undefined,
@@ -241,12 +247,12 @@ export default function LabProcessing() {
   // Filter lab processing records based on search and status (use normalized shape)
   // Auto-detect lab type from project_id prefix: PG = clinical, DG = discovery
   const filteredLabs = normalizedLabs.filter((lab) => {
-    // Apply status filter
+    // 1. Status Filter
     if (statusFilter && statusFilter !== 'all' && lab.qcStatus !== statusFilter) {
       return false;
     }
 
-    // Apply lab type filter - auto-detect from project_id prefix if not found in other fields
+    // 2. Lab Type Filter
     if (labTypeFilter && labTypeFilter !== 'all') {
       let category = (lab.sample && lab.sample.lead && (lab.sample.lead.category || lab.sample.lead.type)) || (lab.lead && (lab.lead.category || lab.lead.type)) || (lab._raw && lab._raw.category);
       // If no explicit category, infer from project_id prefix
@@ -257,18 +263,37 @@ export default function LabProcessing() {
       if (String(category).toLowerCase() !== labTypeFilter) return false;
     }
 
-    // If no search, keep the record
-    if (!searchQuery) return true;
+    // 3. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = Object.values(lab).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
 
-    const q = String(searchQuery).toLowerCase();
-    return (
-      (String(lab.titleUniqueId ?? lab.id ?? '')).toLowerCase().includes(q) ||
-      (String(lab.projectId || lab._raw?.project_id || '')).toLowerCase().includes(q) ||
-      (String(lab.sampleId || lab.sample?.sampleId || lab.sample?.sample_id || '')).toLowerCase().includes(q) ||
-      (String(lab.clientId || lab._raw?.client_id || '')).toLowerCase().includes(q) ||
-      (String(lab.lead?.patientClientName || lab.sample?.lead?.patientClientName || '')).toLowerCase().includes(q) ||
-      (String(lab.lead?.patientClientPhone || lab.sample?.lead?.patientClientPhone || '')).toLowerCase().includes(q)
-    );
+    // 4. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (lab as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   // Separate labs by type based on project_id prefix (PG = clinical, DG = discovery)
@@ -340,20 +365,39 @@ export default function LabProcessing() {
   const DISCOVERY_HEADER_COUNT = 29;
   const DEFAULT_HEADER_COUNT = 20;
 
+  // Fetch lab processing stats from API
+  const { data: labStats } = useQuery<{
+    totalInQueue: number;
+    sentToBioinformatics: number;
+    discoveryInQueue: number;
+    discoverySent: number;
+    clinicalInQueue: number;
+    clinicalSent: number;
+  }>({
+    queryKey: ['/api/lab-processing/stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/lab-processing/stats');
+      if (!res.ok) throw new Error('Failed to fetch lab processing stats');
+      return res.json();
+    },
+  });
+
   const getStatusCounts = () => ({
-    passed: labQueue.filter(l => l.qcStatus === 'passed').length,
-    failed: labQueue.filter(l => l.qcStatus === 'failed').length,
-    retest_required: labQueue.filter(l => l.qcStatus === 'retest_required').length,
-    outsourced: labQueue.filter(l => l.isOutsourced).length,
+    passed: normalizedLabs.filter(l => l.qcStatus === 'passed').length,
+    failed: normalizedLabs.filter(l => l.qcStatus === 'failed').length,
+    retest_required: normalizedLabs.filter(l => l.qcStatus === 'retest_required').length,
+    outsourced: normalizedLabs.filter(l => l.isOutsourced).length,
+    totalInQueue: normalizedLabs.length,
+    sentToBioinformatics: normalizedLabs.filter(l => l.alertToBioinformaticsTeam).length,
   });
 
   const statusCounts = getStatusCounts();
 
   const statusCards = [
-    { title: "QC Passed", value: statusCounts.passed, icon: TestTube, color: "text-green-600 dark:text-green-400", bgColor: "bg-green-50 dark:bg-green-900/20" },
-    { title: "QC Failed", value: statusCounts.failed, icon: FlaskConical, color: "text-red-600 dark:text-red-400", bgColor: "bg-red-50 dark:bg-red-900/20" },
-    { title: "Retest Required", value: statusCounts.retest_required, icon: Microscope, color: "text-yellow-600 dark:text-yellow-400", bgColor: "bg-yellow-50 dark:bg-yellow-900/20" },
-    { title: "Outsourced", value: statusCounts.outsourced, icon: Activity, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-50 dark:bg-blue-900/20" },
+    { title: "Total Samples Under Process", value: labStats?.totalInQueue ?? statusCounts.totalInQueue, icon: TestTube, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-50 dark:bg-blue-900/20" },
+    { title: "Processed (Sent to Bioinformatics)", value: labStats?.sentToBioinformatics ?? statusCounts.sentToBioinformatics, icon: FlaskConical, color: "text-green-600 dark:text-green-400", bgColor: "bg-green-50 dark:bg-green-900/20" },
+    { title: "QC Passed", value: statusCounts.passed, icon: Microscope, color: "text-emerald-600 dark:text-emerald-400", bgColor: "bg-emerald-50 dark:bg-emerald-900/20" },
+    { title: "QC Failed", value: statusCounts.failed, icon: Activity, color: "text-red-600 dark:text-red-400", bgColor: "bg-red-50 dark:bg-red-900/20" },
   ];
 
   const getQCStatusBadge = (status: string | null | undefined) => {
@@ -399,13 +443,14 @@ export default function LabProcessing() {
       });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/samples'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/lab-processing/stats'], refetchType: 'all' });
       form.reset();
       setIsCreateDialogOpen(false);
       toast({ title: "Lab processing updated", description: "Sample processing information has been saved" });
@@ -493,14 +538,15 @@ export default function LabProcessing() {
       const response = await apiRequest('DELETE', endpoint);
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
-      toast({ title: 'Lab record deleted', description: 'Record has been deleted' });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/samples'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/lab-processing/stats'], refetchType: 'all' });
+      toast({ title: 'Record deleted', description: 'Lab processing record has been removed' });
       // Notify recycle UI to refresh (server snapshots deleted lab records)
       window.dispatchEvent(new Event('ll:recycle:update'));
     },
@@ -614,16 +660,14 @@ export default function LabProcessing() {
 
       return bioResponse;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'] });
-      toast({
-        title: "Sent for Processing",
-        description: "Sample has been sent to Bioinformatics for processing.",
-      });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/lab-processing/stats'], refetchType: 'all' });
+      toast({ title: "Sent to Bioinformatics", description: "Sample has been alerted to Bioinformatics team" });
     },
     onError: (error: any) => {
       toast({
@@ -631,7 +675,7 @@ export default function LabProcessing() {
         description: error.message || "Failed to send sample to bioinformatics team",
         variant: "destructive",
       });
-    }
+    },
   });
 
   const { add } = useRecycle();
@@ -657,7 +701,11 @@ export default function LabProcessing() {
   };
 
   const columns: ColumnDef<any>[] = [
-    { header: "Unique ID", accessorKey: "uniqueId" },
+    {
+      header: "Unique ID",
+      accessorKey: "uniqueId",
+      className: "sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+    },
     { header: "Project ID", accessorKey: "projectId" },
     {
       header: "Sample ID",
@@ -747,11 +795,11 @@ export default function LabProcessing() {
             variant="default"
             size="sm"
             className={`px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm ${lab.alertToBioinformaticsTeam
-                ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
-                : 'bg-green-500 hover:bg-green-600 text-white'
+              ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
+              : 'bg-green-500 hover:bg-green-600 text-white'
               } disabled:bg-gray-400 disabled:cursor-not-allowed`}
             onClick={() => {
-              alertBioinformaticsMutation.mutate({ 
+              alertBioinformaticsMutation.mutate({
                 labId: lab.id,
                 projectIdHint: lab.projectId || lab._raw?.project_id
               });
@@ -811,11 +859,15 @@ export default function LabProcessing() {
         {statusCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <Card key={index}>
-              <CardContent className="p-6 text-center">
-                <div className={`inline-flex p-3 rounded-lg ${card.bgColor} mb-3`}><Icon className={`h-6 w-6 ${card.color}`} /></div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{card.value}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{card.title}</p>
+            <Card key={index} className="overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center">
+                  <div className={`flex p-3 rounded-lg ${card.bgColor} mb-4`}>
+                    <Icon className={`h-6 w-6 ${card.color}`} />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white text-center break-words w-full">{card.value}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2 leading-tight">{card.title}</p>
+                </div>
               </CardContent>
             </Card>
           );
@@ -829,55 +881,24 @@ export default function LabProcessing() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Search and Filter Controls */}
-          <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <Input
-                placeholder="Search Unique ID / Project ID / Sample ID / Client ID / Patient Name / Phone"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1); // Reset to first page when searching
-                }}
-              />
-              <Select
-                onValueChange={(v) => {
-                  setStatusFilter(v);
-                  setPage(1); // Reset to first page when filtering
-                }}
-                value={statusFilter}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="QC Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="passed">Passed</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="retest_required">Retest Required</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Label>Page size</Label>
-              <Select
-                onValueChange={(v) => {
-                  setPageSize(parseInt(v || '25', 10));
-                  setPage(1); // Reset to first page when changing page size
-                }}
-                value={String(pageSize)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "createdAt" },
+              { label: "Sample Delivery Date", value: "sampleDeliveryDate" },
+              { label: "Modified At", value: "modifiedAt" },
+            ]}
+            totalItems={totalFiltered}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+            placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
+          />
 
           {isLoading ? (
             <div className="text-center py-8">Loading lab processing data...</div>

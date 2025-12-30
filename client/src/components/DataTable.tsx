@@ -74,7 +74,7 @@ export function DataTable<T>({
         <div className="overflow-x-auto">
             <div className="max-h-[60vh] overflow-y-auto">
                 <Table>
-                    <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-10 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                    <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                         <TableRow>
                             {columns.map((col, index) => (
                                 <TableHead
@@ -111,8 +111,8 @@ export function DataTable<T>({
 
                                         const span = rowSpanMap[rowIndex]?.[colIndex] ?? 1;
                                         return (
-                                            <TableCell 
-                                                key={colIndex} 
+                                            <TableCell
+                                                key={colIndex}
                                                 className={col.className}
                                                 rowSpan={span > 0 ? span : undefined}
                                             >

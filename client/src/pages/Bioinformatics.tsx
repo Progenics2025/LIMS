@@ -14,6 +14,7 @@ import { useForm } from 'react-hook-form';
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { FilterBar } from "@/components/FilterBar";
 
 type BIRecord = {
   id: string;
@@ -69,6 +70,8 @@ export default function Bioinformatics() {
 
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [reportStatusFilter, setReportStatusFilter] = useState<string>('all');
   // BI type filter: 'all' | 'clinical' | 'discovery'
@@ -96,7 +99,7 @@ export default function Bioinformatics() {
   const getRecordsWithSamplePrefix = (record: BIRecord, allRecords: BIRecord[]): BIRecord[] => {
     const prefix = getSampleIdPrefix(record.sampleId);
     if (!prefix) return [record];
-    
+
     return allRecords.filter((r) => {
       const rPrefix = getSampleIdPrefix((r as any).sampleId);
       return rPrefix === prefix;
@@ -108,7 +111,7 @@ export default function Bioinformatics() {
       // Send only the clicked record (no automatic batch)
       const recordsToSend = [record];
       console.log(`Sending single record ${record.id} (sample ${record.sampleId})`);
-      
+
       // Send records sequentially so each turns green individually
       const responses = [];
       for (const rec of recordsToSend) {
@@ -168,19 +171,19 @@ export default function Bioinformatics() {
 
           // 🔄 Refresh ReportManagement to show new record immediately
           await queryClient.refetchQueries({ queryKey: ['/api/report_management'] });
-          
+
         } catch (error: any) {
           // 🔍 Handle 409 (duplicate/already exists) as a success response
           if (error.status === 409) {
             responses.push(error.body);
-            
+
             // Mark as sent even if already exists
             setRows((prevRows) =>
               prevRows.map((r) =>
                 r.id === rec.id ? { ...r, alertToReportTeam: true } : r
               )
             );
-            
+
             // Refresh ReportManagement
             await queryClient.refetchQueries({ queryKey: ['/api/report_management'] });
           } else {
@@ -190,24 +193,24 @@ export default function Bioinformatics() {
           setSendingIds((s) => s.filter((id) => id !== rec.id));
         }
       }
-      
+
       return { responses, recordsToSend };
     },
-    onSuccess: (data: any, recordData: any) => {
+    onSuccess: async (data: any, recordData: any) => {
       const { responses, recordsToSend } = data;
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/report_management'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/report'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+
+      await queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/report_management'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/report'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
 
       // Show summary toast
       const successCount = responses.filter((r: any) => r.success && !r.alreadyExists).length;
       const duplicateCount = responses.filter((r: any) => r.alreadyExists).length;
-      
+
       if (successCount > 0) {
         toast({
           title: `Batch Send Complete`,
@@ -223,7 +226,7 @@ export default function Bioinformatics() {
     onError: (error: any) => {
       // 🔍 Better error handling - don't navigate on error
       const errorMessage = error?.body?.message || error?.message || "Failed to send bioinformatics records to Reports";
-      
+
       toast({
         title: "Failed to send to Reports",
         description: errorMessage,
@@ -234,22 +237,42 @@ export default function Bioinformatics() {
 
   // Filter records based on search and filters
   const filteredRows = rows.filter((record) => {
-    // Apply analysis status filter
+    // 1. Analysis Status Filter
     if (statusFilter !== 'all' && record.analysisStatus !== statusFilter) {
       return false;
     }
 
-    // Apply search query
-    if (!searchQuery) return true;
+    // 2. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = Object.values(record).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
 
-    const query = searchQuery.toLowerCase();
-    return (
-      (record.uniqueId || '').toLowerCase().includes(query) ||
-      (record.projectId || '').toLowerCase().includes(query) ||
-      (record.sampleId || '').toLowerCase().includes(query) ||
-      (record.clientId || '').toLowerCase().includes(query) ||
-      (record.patientClientName || '').toLowerCase().includes(query)
-    );
+    // 3. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (record as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   // Apply BI type filter (if set)
@@ -274,13 +297,13 @@ export default function Bioinformatics() {
   const getSequentialSampleId = (record: BIRecord, recordsToCheck: BIRecord[]): number => {
     const projectId = (record as any).projectId || (record as any)._raw?.project_id || '';
     if (!projectId) return 1;
-    
+
     // Count how many records exist for this project ID in the current view
     const sameProjectRecords = recordsToCheck.filter((r: any) => {
       const pid = (r as any).projectId || (r as any)._raw?.project_id || '';
       return pid === projectId;
     });
-    
+
     // Find the index of the current record in the list
     const index = sameProjectRecords.findIndex((r: any) => r.id === record.id);
     return index >= 0 ? index + 1 : 1;
@@ -396,7 +419,6 @@ export default function Bioinformatics() {
       age: data.age,
       gender: data.gender,
       service_name: data.serviceName,
-      no_of_samples: data.noOfSamples,
       sequencing_status: data.sequencingStatus,
       sequencing_data_storage_date: data.sequencingDataStorageDate,
       basecalling: data.basecalling,
@@ -508,7 +530,7 @@ export default function Bioinformatics() {
         thirdPartyReport: 'Thirdparty_Report',
       };
       const category = categoryMap[field as string] || 'Thirdparty_TRF';
-      
+
       // Use the new categorized API endpoint
       const res = await fetch(`/api/uploads/categorized?category=${category}&entityType=bioinformatics`, {
         method: 'POST',
@@ -516,10 +538,10 @@ export default function Bioinformatics() {
       });
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
-      
+
       // Store the file path from the new API response
       form.setValue(field, data.filePath);
-      
+
       console.log('✅ File uploaded successfully:', {
         field,
         filePath: data.filePath,
@@ -527,10 +549,10 @@ export default function Bioinformatics() {
         category: data.category,
         fileSize: data.fileSize
       });
-      
-      toast({ 
-        title: 'Success', 
-        description: `File uploaded successfully to ${data.category} folder` 
+
+      toast({
+        title: 'Success',
+        description: `File uploaded successfully to ${data.category} folder`
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
@@ -791,90 +813,73 @@ export default function Bioinformatics() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Search and Filter Controls */}
-          <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b">
-            <div className="flex flex-col md:flex-row md:items-center gap-3 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search Unique ID / Project ID / Sample ID / Client ID / Patient Name"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setPage(1); // Reset to first page when searching
-                  }}
-                  className="pl-10"
-                />
-              </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "createdAt" },
+              { label: "Analysis Date", value: "analysisDate" },
+              { label: "Sequencing Data Storage Date", value: "sequencingDataStorageDate" },
+              { label: "Basecalling Data Storage Date", value: "basecallingDataStorageDate" },
+              { label: "Sample Sent to 3rd Party", value: "sampleSentToThirdPartyDate" },
+              { label: "Results Received from 3rd Party", value: "resultsRawDataReceivedFromThirdPartyDate" },
+              { label: "Modified At", value: "modifiedAt" },
+            ]}
+            totalItems={totalFiltered}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+            placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
+          >
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Analysis Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => {
-                    setStatusFilter(value);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Analysis Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="running">Running</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  value={reportStatusFilter}
-                  onValueChange={(value) => {
-                    setReportStatusFilter(value);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Report Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Reports</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="pageSize" className="text-sm whitespace-nowrap">Page size</Label>
-              <Select
-                value={String(pageSize)}
-                onValueChange={(value) => {
-                  setPageSize(parseInt(value, 10));
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[80px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            <Select
+              value={reportStatusFilter}
+              onValueChange={(value) => {
+                setReportStatusFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Report Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Reports</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
+                <SelectItem value="ready">Ready</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
 
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <div className="max-h-[60vh] overflow-y-auto">
               <Table className="leads-table">
-                <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-10 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                   {biTypeFilter === 'clinical' || biTypeFilter === 'discovery' ? (
                     <TableRow>
-                      <TableHead className="whitespace-nowrap font-semibold">Unique ID</TableHead>
+                      <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
                       <TableHead className="whitespace-nowrap font-semibold">Project ID</TableHead>
                       <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>
                       <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>
@@ -940,7 +945,7 @@ export default function Bioinformatics() {
                       if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
                         return (
                           <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            <TableCell className="font-medium">{r.uniqueId ?? '-'}</TableCell>
+                            <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.uniqueId ?? '-'}</TableCell>
                             <TableCell>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>
                             <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>
                             <TableCell>{(r as any).clientId ?? '-'}</TableCell>
@@ -988,8 +993,8 @@ export default function Bioinformatics() {
                                   variant="default"
                                   size="sm"
                                   className={`min-w-[48px] px-2 py-1 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-sm ${(r as any).alertToReportTeam
-                                      ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
-                                      : 'bg-green-500 hover:bg-green-600 text-white'
+                                    ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
+                                    : 'bg-green-500 hover:bg-green-600 text-white'
                                     } disabled:bg-gray-400 disabled:cursor-not-allowed`}
                                   onClick={() => { sendToReportsMutation.mutate(r); }}
                                   disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}

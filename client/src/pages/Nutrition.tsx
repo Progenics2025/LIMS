@@ -24,6 +24,7 @@ import { FileText, Search, Trash2, Edit, Users, Calendar, CheckCircle2, AlertCir
 import { useRecycle } from '@/contexts/RecycleContext';
 import { toast } from "@/hooks/use-toast";
 import { PDFViewer } from '@/components/PDFViewer';
+import { FilterBar } from "@/components/FilterBar";
 
 async function apiRequest(method: string, url: string, data?: any) {
   const response = await fetch(url, {
@@ -121,6 +122,8 @@ export default function Nutrition() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<NutritionRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [editFormValues, setEditFormValues] = useState<any>({});
@@ -163,9 +166,9 @@ export default function Nutrition() {
       const response = await apiRequest('PUT', `/api/nutrition/${id}`, data);
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/nutrition'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/nutrition'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'], refetchType: 'all' });
       setIsEditDialogOpen(false);
       setSelectedRecord(null);
       toast({ title: "Success", description: "Nutrition record updated successfully" });
@@ -231,13 +234,37 @@ export default function Nutrition() {
 
   // Filter records based on search query
   const filteredRecords = records.filter((record) => {
-    const searchStr = searchQuery.toLowerCase();
-    return (
-      (record.uniqueId?.toLowerCase() || '').includes(searchStr) ||
-      (record.projectId?.toLowerCase() || '').includes(searchStr) ||
-      (record.sampleId?.toLowerCase() || '').includes(searchStr) ||
-      (record.patientClientName?.toLowerCase() || '').includes(searchStr)
-    );
+    // 1. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = Object.values(record).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
+
+    // 2. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (record as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   // Pagination calculations
@@ -337,46 +364,31 @@ export default function Nutrition() {
         </CardHeader>
         <CardContent>
           {/* Search and filters */}
-          <div className="p-2 flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <Input
-                  placeholder="Search Unique ID / Project ID / Sample ID / Patient Name"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Label>Page size</Label>
-              <Select value={String(pageSize)} onValueChange={(v) => {
-                setPageSize(parseInt(v, 10));
-                setCurrentPage(1);
-              }}>
-                <SelectTrigger className="w-[70px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "createdAt" },
+              { label: "Counselling Session Date", value: "counsellingSessionDate" },
+              { label: "Modified At", value: "modifiedAt" },
+            ]}
+            totalItems={filteredRecords.length}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setCurrentPage}
+            placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
+          />
 
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
               <table className="leads-table w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-30">
                   <tr>
-                    <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Unique ID</th>
+                    <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold sticky left-0 z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</th>
                     <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Project ID</th>
                     <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Sample ID</th>
                     <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Service name</th>
@@ -413,7 +425,7 @@ export default function Nutrition() {
                   ) : (
                     paginatedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.uniqueId || '-'}</td>
+                        <td className="min-w-[120px] px-4 py-3 whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.uniqueId || '-'}</td>
                         <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.projectId || '-'}</td>
                         <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.sampleId || '-'}</td>
                         <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.serviceName || '-'}</td>
@@ -570,9 +582,9 @@ export default function Nutrition() {
                 <div className="space-y-2"><Label>Gender</Label><Input name="gender" defaultValue={selectedRecord.gender} disabled /></div>
                 <div className="space-y-2">
                   <Label>Progenics TRF</Label>
-                  <Input 
-                    name="progenicsTrf" 
-                    defaultValue={selectedRecord?.progenicsTrf || ''} 
+                  <Input
+                    name="progenicsTrf"
+                    defaultValue={selectedRecord?.progenicsTrf || ''}
                     disabled
                   />
                 </div>
@@ -584,10 +596,10 @@ export default function Nutrition() {
                 <div className="space-y-2"><Label>Counselling Session Date</Label><Input name="counsellingSessionDate" type="date" defaultValue={selectedRecord.counsellingSessionDate ? new Date(selectedRecord.counsellingSessionDate).toISOString().split('T')[0] : ''} /></div>
                 <div className="space-y-2">
                   <Label>Further Counselling Required</Label>
-                  <Select 
-                    name="furtherCounsellingRequired" 
+                  <Select
+                    name="furtherCounsellingRequired"
                     value={editFormValues.furtherCounsellingRequired || "false"}
-                    onValueChange={(val) => setEditFormValues({...editFormValues, furtherCounsellingRequired: val})}
+                    onValueChange={(val) => setEditFormValues({ ...editFormValues, furtherCounsellingRequired: val })}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -599,24 +611,24 @@ export default function Nutrition() {
                 <div className="space-y-2"><Label>Counselling Status</Label><Input name="counsellingStatus" defaultValue={selectedRecord.counsellingStatus} /></div>
                 <div className="space-y-2"><Label>Counselling Session Recording</Label><Input name="counsellingSessionRecording" defaultValue={selectedRecord.counsellingSessionRecording} /></div>
                 <div className="flex items-center space-x-2 pt-8">
-                  <input 
-                    type="checkbox" 
-                    id="edit_alertToTechnicalLead" 
-                    name="alertToTechnicalLead" 
+                  <input
+                    type="checkbox"
+                    id="edit_alertToTechnicalLead"
+                    name="alertToTechnicalLead"
                     checked={editFormValues.alertToTechnicalLead || false}
-                    onChange={(e) => setEditFormValues({...editFormValues, alertToTechnicalLead: e.target.checked})}
-                    className="h-4 w-4" 
+                    onChange={(e) => setEditFormValues({ ...editFormValues, alertToTechnicalLead: e.target.checked })}
+                    className="h-4 w-4"
                   />
                   <Label htmlFor="edit_alertToTechnicalLead">Alert to Technical Lead</Label>
                 </div>
                 <div className="flex items-center space-x-2 pt-8">
-                  <input 
-                    type="checkbox" 
-                    id="edit_alertToReportTeam" 
-                    name="alertToReportTeam" 
+                  <input
+                    type="checkbox"
+                    id="edit_alertToReportTeam"
+                    name="alertToReportTeam"
                     checked={editFormValues.alertToReportTeam || false}
-                    onChange={(e) => setEditFormValues({...editFormValues, alertToReportTeam: e.target.checked})}
-                    className="h-4 w-4" 
+                    onChange={(e) => setEditFormValues({ ...editFormValues, alertToReportTeam: e.target.checked })}
+                    className="h-4 w-4"
                   />
                   <Label htmlFor="edit_alertToReportTeam">Alert to Report Team</Label>
                 </div>

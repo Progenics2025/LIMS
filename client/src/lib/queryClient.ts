@@ -57,34 +57,34 @@ export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const { userId, userRole } = getUserContext();
-    const headers: Record<string, string> = {};
+    async ({ queryKey }) => {
+      const { userId, userRole } = getUserContext();
+      const headers: Record<string, string> = {};
 
-    // Add user context headers for role-based filtering
-    if (userId) headers['x-user-id'] = userId;
-    if (userRole) headers['x-user-role'] = userRole;
+      // Add user context headers for role-based filtering
+      if (userId) headers['x-user-id'] = userId;
+      if (userRole) headers['x-user-role'] = userRole;
 
-    const res = await fetch(queryKey.join("/") as string, {
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-      credentials: "include",
-    });
+      const res = await fetch(queryKey.join("/") as string, {
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        credentials: "include",
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
 
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
+      await throwIfResNotOk(res);
+      return await res.json();
+    };
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      refetchOnWindowFocus: true, // Refetch when window gains focus
+      staleTime: 30000, // Data becomes stale after 30 seconds (was Infinity - preventing refetches)
       retry: false,
     },
     mutations: {

@@ -402,15 +402,28 @@ export function restrictPhoneInput(
   // If we detected a country from the input, use that
   if (detectedNumericCode && detectedExpectedDigits) {
     const ccLength = detectedNumericCode.length;
-    const nationalDigits = allDigits.substring(ccLength);
-    const truncatedDigits = nationalDigits.substring(0, detectedExpectedDigits);
-    return '+' + detectedNumericCode + truncatedDigits;
+    // Make sure we have both country code and national digits
+    if (allDigits.length >= ccLength) {
+      const nationalDigits = allDigits.substring(ccLength);
+      const truncatedDigits = nationalDigits.substring(0, detectedExpectedDigits);
+      // Only return if we have the country code and at least some national digits
+      if (truncatedDigits.length > 0) {
+        return '+' + detectedNumericCode + truncatedDigits;
+      }
+    }
   }
   
   // Otherwise, use default country
-  const nationalDigits = allDigits.substring(numericCountryCode.length);
-  const truncatedDigits = nationalDigits.substring(0, expectedDigits);
+  // Make sure we have enough digits for the country code
+  if (allDigits.length >= numericCountryCode.length) {
+    const nationalDigits = allDigits.substring(numericCountryCode.length);
+    const truncatedDigits = nationalDigits.substring(0, expectedDigits);
+    // Only return if we have the country code and at least some national digits
+    if (truncatedDigits.length > 0) {
+      return '+' + numericCountryCode + truncatedDigits;
+    }
+  }
   
   // Return in E.164 format: +CCNNNNNNNNN (no spaces)
-  return '+' + numericCountryCode + truncatedDigits;
+  return '';
 }

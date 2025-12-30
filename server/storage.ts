@@ -1796,13 +1796,60 @@ export class DBStorage implements IStorage {
     }
 
     try {
-      const leadsRows = await db.select().from(leads).where(eq(leads.status, "cold"));
+      // Get ALL leads and filter for "active" (not converted) leads
+      // Active leads = any lead that is NOT in "converted" status
+      const allLeadsRows = await db.select().from(leads);
+      const activeLeads = allLeadsRows.filter((l: any) =>
+        !['converted'].includes(String(l.status ?? '').toLowerCase())
+      ).length;
+
+      // Get all samples from sample_tracking table
       const samplesRows = await db.select().from(samples);
-      const reportsRows = await db.select().from(reportsTable).where(eq(reportsTable.status, "awaiting_approval"));
-      const activeLeads = leadsRows.length;
-      const samplesProcessing = samplesRows.filter((s: any) => ["received", "lab_processing", "bioinformatics"].includes((s as any).status ?? "")).length;
-      const pendingRevenue = samplesRows.reduce((sum: number, s: any) => sum + Number(s.amount ?? 0) - Number(s.paidAmount ?? 0), 0);
-      const reportsPending = reportsRows.length;
+      // Count all samples as "processing" since they are in the tracking pipeline
+      const samplesProcessing = samplesRows.length;
+
+      // Get pending reports - count all reports that are NOT delivered yet
+      // This includes: in_progress, awaiting_approval, approved (pending reports before delivery)
+      const [pendingReportsRows]: any = await pool.execute(
+        `SELECT COUNT(*) as count FROM reports WHERE status IN ('in_progress', 'awaiting_approval', 'approved')`
+      );
+      const reportsPending = Number(pendingReportsRows?.[0]?.count ?? 0);
+
+      // Calculate pending revenue as CUMULATIVE SUM of all budget values
+      // Priority: 1. finance_sheet, 2. lead_management (converted), 3. sample_tracking
+      let pendingRevenue = 0;
+      try {
+        // First try: Sum of budget from finance_sheet where payment is not fully received
+        const [financeRows]: any = await pool.execute(
+          `SELECT COALESCE(SUM(COALESCE(budget, 0)), 0) as pending 
+           FROM finance_sheet 
+           WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL`
+        );
+        pendingRevenue = Number(financeRows?.[0]?.pending ?? 0);
+
+        // If no pending from finance_sheet, try from lead_management for converted leads
+        if (pendingRevenue === 0) {
+          const [leadBudgetRows]: any = await pool.execute(
+            `SELECT COALESCE(SUM(COALESCE(budget, 0)), 0) as pending 
+             FROM lead_management 
+             WHERE status = 'converted'`
+          );
+          pendingRevenue = Number(leadBudgetRows?.[0]?.pending ?? 0);
+        }
+
+        // If still no data, try sample_tracking table
+        if (pendingRevenue === 0) {
+          const [sampleRows]: any = await pool.execute(
+            `SELECT COALESCE(SUM(COALESCE(sample_shipment_amount, 0)), 0) as pending FROM sample_tracking`
+          );
+          pendingRevenue = Number(sampleRows?.[0]?.pending ?? 0);
+        }
+      } catch (err) {
+        console.error('Pending revenue query failed:', (err as Error).message);
+        // Final fallback using drizzle ORM with samples
+        pendingRevenue = samplesRows.reduce((sum: number, s: any) => sum + Number(s.sampleShipmentAmount ?? 0), 0);
+      }
+
       return { activeLeads, samplesProcessing, pendingRevenue, reportsPending };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -1817,12 +1864,32 @@ export class DBStorage implements IStorage {
   }
 
   async getFinanceStats(): Promise<{ totalRevenue: number; pendingPayments: number; pendingApprovals: number; }> {
-    const samplesRows = await db.select().from(samples);
-    const reportsRows = await db.select().from(reportsTable).where(eq(reportsTable.status, "awaiting_approval"));
-    const totalRevenue = samplesRows.reduce((sum: number, s: any) => sum + Number(s.paidAmount ?? 0), 0);
-    const pendingPayments = samplesRows.reduce((sum: number, s: any) => sum + (Number(s.amount ?? 0) - Number(s.paidAmount ?? 0)), 0);
-    const pendingApprovals = reportsRows.length;
-    return { totalRevenue, pendingPayments, pendingApprovals };
+    try {
+      // Total Revenue = SUM of payment_receipt_amount from finance_sheet
+      const [revenueRows]: any = await pool.execute(
+        `SELECT COALESCE(SUM(payment_receipt_amount), 0) as total FROM finance_sheet`
+      );
+      const totalRevenue = Number(revenueRows?.[0]?.total || 0);
+
+      // Pending Payments = SUM of (budget - payment_receipt_amount) for records where total_amount_received_status = 0
+      const [pendingRows]: any = await pool.execute(
+        `SELECT COALESCE(SUM(COALESCE(budget, 0) - COALESCE(payment_receipt_amount, 0)), 0) as pending 
+         FROM finance_sheet 
+         WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL`
+      );
+      const pendingPayments = Number(pendingRows?.[0]?.pending || 0);
+
+      // Pending Approvals = Count where total_amount_received_status is 0 or NULL
+      const [approvalsRows]: any = await pool.execute(
+        `SELECT COUNT(*) as count FROM finance_sheet WHERE total_amount_received_status = 0 OR total_amount_received_status IS NULL`
+      );
+      const pendingApprovals = Number(approvalsRows?.[0]?.count || 0);
+
+      return { totalRevenue, pendingPayments, pendingApprovals };
+    } catch (error) {
+      console.error('Failed to get finance stats:', (error as Error).message);
+      return { totalRevenue: 0, pendingPayments: 0, pendingApprovals: 0 };
+    }
   }
 
   async getPendingFinanceApprovals(): Promise<SampleWithLead[]> {
@@ -2025,6 +2092,162 @@ export class DBStorage implements IStorage {
     } catch (error) {
       console.error('Failed to get file upload by ID:', (error as Error).message);
       return undefined;
+    }
+  }
+
+  // ============================================================================
+  // NEW STATS METHODS FOR DASHBOARD TILES
+  // ============================================================================
+
+  /**
+   * Get Lead Management stats (Projected Revenue & Actual Revenue)
+   */
+  async getLeadsStats(): Promise<{
+    projectedRevenue: number;
+    actualRevenue: number;
+    totalLeads: number;
+    activeLeads: number;
+    convertedLeads: number;
+  }> {
+    try {
+      // Projected Revenue = SUM(amount_quoted) from lead_management
+      const [projectedRows]: any = await pool.execute(
+        `SELECT COALESCE(SUM(amount_quoted), 0) as projected FROM lead_management`
+      );
+      const projectedRevenue = Number(projectedRows?.[0]?.projected || 0);
+
+      // Actual Revenue = SUM(budget) from lead_management
+      const [actualRows]: any = await pool.execute(
+        `SELECT COALESCE(SUM(budget), 0) as actual FROM lead_management`
+      );
+      const actualRevenue = Number(actualRows?.[0]?.actual || 0);
+
+      // Total Leads
+      const [totalRows]: any = await pool.execute(
+        `SELECT COUNT(*) as total FROM lead_management`
+      );
+      const totalLeads = Number(totalRows?.[0]?.total || 0);
+
+      // Active Leads (not converted)
+      const [activeRows]: any = await pool.execute(
+        `SELECT COUNT(*) as active FROM lead_management WHERE status IN ('quoted', 'cold', 'hot', 'won')`
+      );
+      const activeLeads = Number(activeRows?.[0]?.active || 0);
+
+      // Converted Leads
+      const [convertedRows]: any = await pool.execute(
+        `SELECT COUNT(*) as converted FROM lead_management WHERE status = 'converted'`
+      );
+      const convertedLeads = Number(convertedRows?.[0]?.converted || 0);
+
+      return { projectedRevenue, actualRevenue, totalLeads, activeLeads, convertedLeads };
+    } catch (error) {
+      console.error('Failed to get leads stats:', (error as Error).message);
+      return { projectedRevenue: 0, actualRevenue: 0, totalLeads: 0, activeLeads: 0, convertedLeads: 0 };
+    }
+  }
+
+  /**
+   * Get Sample Tracking stats
+   */
+  async getSampleTrackingStats(): Promise<{
+    totalSamples: number;
+    samplesAwaitingPickup: number;
+    samplesInTransit: number;
+    samplesReceived: number;
+    samplesProcessing: number;
+  }> {
+    try {
+      const [totalRows]: any = await pool.execute(
+        `SELECT COUNT(*) as total FROM sample_tracking`
+      );
+      const totalSamples = Number(totalRows?.[0]?.total || 0);
+
+      // Samples awaiting pickup (where alert_to_labprocess_team is 0 or null)
+      const [awaitingRows]: any = await pool.execute(
+        `SELECT COUNT(*) as awaiting FROM sample_tracking WHERE alert_to_labprocess_team = 0 OR alert_to_labprocess_team IS NULL`
+      );
+      const samplesAwaitingPickup = Number(awaitingRows?.[0]?.awaiting || 0);
+
+      // Samples sent for processing (alert_to_labprocess_team = 1)
+      const [sentRows]: any = await pool.execute(
+        `SELECT COUNT(*) as sent FROM sample_tracking WHERE alert_to_labprocess_team = 1`
+      );
+      const samplesProcessing = Number(sentRows?.[0]?.sent || 0);
+
+      return {
+        totalSamples,
+        samplesAwaitingPickup,
+        samplesInTransit: 0, // Can be added later based on status field
+        samplesReceived: totalSamples, // All samples in tracking are received
+        samplesProcessing,
+      };
+    } catch (error) {
+      console.error('Failed to get sample tracking stats:', (error as Error).message);
+      return {
+        totalSamples: 0,
+        samplesAwaitingPickup: 0,
+        samplesInTransit: 0,
+        samplesReceived: 0,
+        samplesProcessing: 0,
+      };
+    }
+  }
+
+  /**
+   * Get Lab Processing stats (Samples Under Process & Processed/Sent to Bioinformatics)
+   */
+  async getLabProcessingStats(): Promise<{
+    totalInQueue: number;
+    sentToBioinformatics: number;
+    discoveryInQueue: number;
+    discoverySent: number;
+    clinicalInQueue: number;
+    clinicalSent: number;
+  }> {
+    try {
+      // Discovery samples in queue (total in labprocess_discovery_sheet)
+      const [discoveryQueueRows]: any = await pool.execute(
+        `SELECT COUNT(*) as total FROM labprocess_discovery_sheet`
+      );
+      const discoveryInQueue = Number(discoveryQueueRows?.[0]?.total || 0);
+
+      // Discovery samples sent to bioinformatics
+      const [discoverySentRows]: any = await pool.execute(
+        `SELECT COUNT(*) as sent FROM labprocess_discovery_sheet WHERE alert_to_bioinformatics_team = 1`
+      );
+      const discoverySent = Number(discoverySentRows?.[0]?.sent || 0);
+
+      // Clinical samples in queue
+      const [clinicalQueueRows]: any = await pool.execute(
+        `SELECT COUNT(*) as total FROM labprocess_clinical_sheet`
+      );
+      const clinicalInQueue = Number(clinicalQueueRows?.[0]?.total || 0);
+
+      // Clinical samples sent to bioinformatics
+      const [clinicalSentRows]: any = await pool.execute(
+        `SELECT COUNT(*) as sent FROM labprocess_clinical_sheet WHERE alert_to_bioinformatics_team = 1`
+      );
+      const clinicalSent = Number(clinicalSentRows?.[0]?.sent || 0);
+
+      return {
+        totalInQueue: discoveryInQueue + clinicalInQueue,
+        sentToBioinformatics: discoverySent + clinicalSent,
+        discoveryInQueue,
+        discoverySent,
+        clinicalInQueue,
+        clinicalSent,
+      };
+    } catch (error) {
+      console.error('Failed to get lab processing stats:', (error as Error).message);
+      return {
+        totalInQueue: 0,
+        sentToBioinformatics: 0,
+        discoveryInQueue: 0,
+        discoverySent: 0,
+        clinicalInQueue: 0,
+        clinicalSent: 0,
+      };
     }
   }
 

@@ -8,28 +8,28 @@ import { insertSampleSchema } from '@shared/schema';
 export class SampleTrackingModule extends AbstractModule {
   name = 'sample-tracking';
   version = '1.0.0';
-  
+
   constructor(storage: DBStorage) {
     super(storage);
   }
-  
+
   async validateSchema(): Promise<boolean> {
     try {
       const connection = await mysql.createConnection({
-        host: process.env.DB_HOST || '192.168.29.12',
+        host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'remote_user',
         password: decodeURIComponent(process.env.DB_PASSWORD || 'Prolab%2305'),
-        database: process.env.DB_NAME || 'leadlab_lims',
+        database: process.env.DB_NAME || 'lead_lims2',
       });
-      
+
       const [rows] = await connection.execute('DESCRIBE sample_tracking');
       await connection.end();
-      
+
       const columns = (rows as any[]).map(row => row.Field);
       const requiredColumns = ['id', 'unique_id', 'project_id', 'tracking_id', 'organisation_hospital'];
-      
+
       const hasAllColumns = requiredColumns.every(col => columns.includes(col));
-      
+
       console.log(`Sample Tracking Schema Check: ${hasAllColumns ? '✅' : '❌'}`);
       return hasAllColumns;
     } catch (error) {
@@ -37,17 +37,17 @@ export class SampleTrackingModule extends AbstractModule {
       return false;
     }
   }
-  
+
   registerRoutes(app: Express): void {
     console.log('🔗 Registering Sample Tracking routes...');
-    
+
     // Get all samples
     app.get('/api/samples', async (req, res) => {
       try {
         if (!this.enabled) {
           return res.status(503).json({ message: 'Sample Tracking module is disabled' });
         }
-        
+
         const samples = await this.storage.getSamples();
         res.json(samples);
       } catch (error) {
@@ -71,14 +71,14 @@ export class SampleTrackingModule extends AbstractModule {
         ]);
       }
     });
-    
+
     // Update sample
     app.put('/api/samples/:id', async (req, res) => {
       try {
         if (!this.enabled) {
           return res.status(503).json({ message: 'Sample Tracking module is disabled' });
         }
-        
+
         const { id } = req.params;
         let updates = req.body;
 
@@ -92,12 +92,12 @@ export class SampleTrackingModule extends AbstractModule {
 
           // date key pairs: [camelCase, snake_case]
           const datePairs: Array<[string, string]> = [
-            ['sampleCollectedDate','sample_collected_date'],
-            ['sampleShippedDate','sample_shipped_date'],
-            ['sampleDeliveryDate','sample_delivery_date'],
-            ['thirdPartySentDate','third_party_sent_date'],
-            ['thirdPartyReceivedDate','third_party_received_date'],
-            ['pickupDate','pickup_date'],
+            ['sampleCollectedDate', 'sample_collected_date'],
+            ['sampleShippedDate', 'sample_shipped_date'],
+            ['sampleDeliveryDate', 'sample_delivery_date'],
+            ['thirdPartySentDate', 'third_party_sent_date'],
+            ['thirdPartyReceivedDate', 'third_party_received_date'],
+            ['pickupDate', 'pickup_date'],
           ];
 
           for (const [camel, snake] of datePairs) {
@@ -265,14 +265,14 @@ export class SampleTrackingModule extends AbstractModule {
         if (!sample) {
           return res.status(404).json({ message: 'Sample not found' });
         }
-        
+
         res.json(sample);
       } catch (error) {
         console.error('Error updating sample:', error);
         res.status(500).json({ message: 'Failed to update sample' });
       }
     });
-    
+
     // Get sample by ID
     app.get('/api/samples/:id', async (req, res) => {
       try {
@@ -315,13 +315,13 @@ export class SampleTrackingModule extends AbstractModule {
         });
       }
     });
-    
+
     // Module health check
     app.get('/api/modules/samples/health', async (req, res) => {
       const health = await this.healthCheck();
       res.status(health.status === 'healthy' ? 200 : 503).json(health);
     });
-    
+
     console.log('✅ Sample Tracking routes registered');
   }
 }

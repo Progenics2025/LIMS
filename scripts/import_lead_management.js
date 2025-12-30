@@ -1,201 +1,211 @@
-#!/usr/bin/env node
-/*
-  Simple importer: reads an Excel file and inserts rows into `lead_management` table
-  - Requires: node, npm packages `xlsx` and `mysql2`
-  - DB config: via env vars DB_HOST (default localhost), DB_USER (default remote_user), DB_PASSWORD, DB_NAME (default lead_lims2)
-  - Usage: node scripts/import_lead_management.js /path/to/file.xlsx [--sheet "Sheet1"]
-*/
-
-const fs = require('fs');
-const path = require('path');
-const XLSX = require('xlsx');
+const xlsx = require('xlsx');
 const mysql = require('mysql2/promise');
+const { randomUUID } = require('crypto');
 
-function toSnake(s) {
-  if (!s && s !== 0) return s;
-  return String(s).trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+// Configuration - updated to use localhost and provided password
+const DB_CONFIG = {
+  host: 'localhost',
+  user: 'remote_user',
+  password: 'Prolab#05',
+  database: 'lead_lims2',
+};
+
+function normalizeValue(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (t.length === 0) return null;
+    if (/^nil$/i.test(t)) return null;
+  }
+  return v;
 }
 
+function parseBooleanLike(v) {
+  if (v === undefined || v === null) return 0;
+  if (typeof v === 'number') return v ? 1 : 0;
+  const s = String(v).trim().toLowerCase();
+  if (s === '' || s === '0' || s === 'no' || s === 'n' || s === 'false') return 0;
+  return 1;
+}
+
+function parseIntLike(v) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v === 'number') return Math.trunc(v);
+  const s = String(v).replace(/,/g, '').trim();
+  const n = parseInt(s, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseFloatLike(v) {
+  if (v === undefined || v === null || v === '') return null;
+  if (typeof v === 'number') return v;
+  const s = String(v).replace(/,/g, '').trim();
+  const n = parseFloat(s);
+  return Number.isNaN(n) ? null : n;
+}
+
+function formatDateForMySQL(v) {
+  if (!v) return null;
+  // If Excel gave a Date object
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    return v.toISOString().slice(0, 19).replace('T', ' ');
+  }
+  // Try to parse string
+  const d = new Date(v);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 19).replace('T', ' ');
+  return null;
+}
+
+function quoteIdent(name) {
+  return `\`` + String(name).replace(/`/g, '``') + `\``;
+}
+
+// Map Excel headers to DB columns
+const HEADER_TO_COLUMN = {
+  'Unique ID': 'unique_id',
+  'Unique Id': 'unique_id',
+  'Project ID': 'project_id',
+  'Lead type': 'lead_type',
+  'Status': 'status',
+  'Organisation / Hospital': 'organisation_hospital',
+  'Clinician / Researcher Name': 'clinician_researcher_name',
+  'Speciality': 'speciality',
+  'Clinician / Researcher Email': 'clinician_researcher_email',
+  'Clinician / Researcher Phone': 'clinician_researcher_phone',
+  'Clinician / Researcher Address': 'clinician_researcher_address',
+  'Patient / Client Name': 'patient_client_name',
+  'Age': 'age',
+  'Gender': 'gender',
+  'Patient / Client Email': 'patient_client_email',
+  'Patient / Client Phone': 'patient_client_phone',
+  'Patient / Client Address': 'patient_client_address',
+  'Genetic Counselling Required': 'genetic_counselor_required',
+  'Nutritional Counselling Required': 'nutritional_counselling_required',
+  'Service Name': 'service_name',
+  'Amount Quoted': 'amount_quoted',
+  'TAT(Days)': 'tat',
+  'Sample Type': 'sample_type',
+  'No of Samples': 'no_of_samples',
+  'Budget': 'budget',
+  'Sample Pick up from': 'sample_pick_up_from',
+  'Delivery upto': 'delivery_up_to',
+  'Sample Collection Date': 'sample_collection_date',
+  'Sample shipped date': 'sample_shipped_date',
+  'Sample shippment amount': 'sample_shipment_amount',
+  'Tracking ID': 'tracking_id',
+  'Courier Company': 'courier_company',
+  'Sample Received Date': 'sample_recevied_date',
+  'Phlebotomist Charges': 'phlebotomist_charges',
+  'Progenics TRF': 'progenics_trf',
+  'Follow up': 'follow_up',
+  'Lead Created By': 'lead_created_by',
+  'Sales or Responsible person': 'sales_responsible_person',
+  'Lead Created': 'lead_created',
+  'Lead Modified': 'lead_modified',
+  'Remark / Comment': 'Remark_Comment',
+};
+
+// Explicit DB columns we will insert (ensure id and unique_id present, avoid duplicates)
+const DB_COLUMNS = Array.from(new Set(['id', 'unique_id', ...Object.values(HEADER_TO_COLUMN)]));
+
 async function main() {
-  const argv = process.argv.slice(2);
-  if (argv.length < 1) {
-    console.error('Usage: node scripts/import_lead_management.js /path/to/file.xlsx [--sheet "Sheet1"]');
+  const filepath = process.argv[2];
+  if (!filepath) {
+    console.error('Usage: node scripts/import_lead_management.js <path-to-excel-file>');
     process.exit(2);
   }
 
-  const filePath = argv[0];
-  let sheetName = null;
-  for (let i = 1; i < argv.length; i++) {
-    if (argv[i] === '--sheet' && argv[i+1]) { sheetName = argv[i+1]; i++; }
+  const workbook = xlsx.readFile(filepath, { cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rawRows = xlsx.utils.sheet_to_json(sheet, { defval: null, raw: false });
+
+  if (!rawRows || rawRows.length === 0) {
+    console.log('No rows found in the first sheet.');
+    return;
   }
 
-  if (!fs.existsSync(filePath)) {
-    console.error('File not found:', filePath);
-    process.exit(2);
-  }
+  const insertColumns = DB_COLUMNS;
+  const placeholders = insertColumns.map(() => '?').join(',');
+  const insertSql = `INSERT INTO lead_management (${insertColumns.map(quoteIdent).join(',')}) VALUES (${placeholders})`;
 
-  const DB_HOST = process.env.DB_HOST || 'localhost';
-  const DB_USER = process.env.DB_USER || 'remote_user';
-  const DB_PASSWORD = process.env.DB_PASSWORD || 'Prolab#05';
-  const DB_NAME = process.env.DB_NAME || 'lead_lims2';
-
-  console.log(`Reading workbook: ${filePath}`);
-  const workbook = XLSX.readFile(filePath, {cellDates: true});
-  const firstSheet = workbook.SheetNames[0];
-  const useSheet = sheetName || firstSheet;
-  if (!workbook.Sheets[useSheet]) {
-    console.error('Sheet not found in workbook:', useSheet);
-    process.exit(2);
-  }
-
-  const sheet = workbook.Sheets[useSheet];
-  const rows = XLSX.utils.sheet_to_json(sheet, {defval: null});
-  if (!Array.isArray(rows) || rows.length === 0) {
-    console.error('No rows found in sheet:', useSheet);
-    process.exit(0);
-  }
-
-  // Map Excel headers to DB columns (explicit mapping provided)
-  const HEADER_TO_COLUMN = {
-    'Unique ID': 'unique_id',
-    'Project ID': 'project_id',
-    'Lead type': 'lead_type',
-    'Status': 'status',
-    'Organisation / Hospital': 'organisation_hospital',
-    'Clinician / Researcher Name': 'clinician_researcher_name',
-    'Speciality': 'speciality',
-    'Clinician / Researcher Email': 'clinician_researcher_email',
-    'Clinician / Researcher Phone': 'clinician_researcher_phone',
-    'Clinician / Researcher Address': 'clinician_researcher_address',
-    'Patient / Client Name': 'patient_client_name',
-    'Age': 'age',
-    'Gender': 'gender',
-    'Patient / Client Email': 'patient_client_email',
-    'Patient / Client Phone': 'patient_client_phone',
-    'Patient / Client Address': 'patient_client_address',
-    'Genetic Counselling Required': 'genetic_counselor_required',
-    'Nutritional Counselling Required': 'nutritional_counselling_required',
-    'Service Name': 'service_name',
-    'Amount Quoted': 'amount_quoted',
-    'TAT(Days)': 'tat',
-    'Sample Type': 'sample_type',
-    'No of Samples': 'no_of_samples',
-    'Budget': 'budget',
-    'Sample Pick up from': 'sample_pick_up_from',
-    'Delivery upto': 'delivery_up_to',
-    'Sample Collection Date': 'sample_collection_date',
-    'Sample shipped date': 'sample_shipped_date',
-    'Sample shippment amount': 'sample_shipment_amount',
-    'Tracking ID': 'tracking_id',
-    'Courier Company': 'courier_company',
-    'Sample Received Date': 'sample_recevied_date',
-    'Phlebotomist Charges': 'phlebotomist_charges',
-    'Progenics TRF': 'progenics_trf',
-    'Follow up': 'follow_up',
-    'Lead Created By': 'lead_created_by',
-    'Sales or Responsible person': 'sales_responsible_person',
-    'Lead Created': 'lead_created',
-    'Lead Modified': 'lead_modified',
-    'Remark / Comment': 'remark_comment'
-  };
-
-  // Derive DB column list from mapping and actual headers present
-  const sampleHeaders = Object.keys(rows[0]);
-  const mappedColumns = [];
-  const headerToOrig = [];
-  for (const h of sampleHeaders) {
-    const mapped = HEADER_TO_COLUMN[h] || toSnake(h);
-    mappedColumns.push(mapped);
-    headerToOrig.push({ orig: h, col: mapped });
-  }
-
-  console.log(`Found ${rows.length} rows. Mapping columns:`, mappedColumns.join(', '));
-
-  const conn = await mysql.createConnection({host: DB_HOST, user: DB_USER, password: DB_PASSWORD, database: DB_NAME});
-  try {
-    let inserted = 0;
-    let updated = 0;
-    // Determine starting numeric id: get max numeric id already present (ids may be varchar)
-    const [maxRows] = await conn.execute("SELECT MAX(CAST(id AS UNSIGNED)) AS maxId FROM `lead_management`");
-    const maxId = (maxRows && maxRows[0] && maxRows[0].maxId) ? Number(maxRows[0].maxId) : 0;
-    let nextId = maxId + 1;
-
-    const normalizeBoolean = (v) => {
-      if (v == null) return 0;
-      const s = String(v).trim().toLowerCase();
-      if (['1','true','yes','y'].includes(s)) return 1;
-      return 0;
-    };
-
-    for (const r of rows) {
-      // Build values in the mappedColumns order
-      const values = [];
-      for (const h of headerToOrig) {
-        let v = r[h.orig];
-        const col = h.col;
-
-        if (v == null) {
-          values.push(null);
-          continue;
-        }
-
-        // Type conversions based on target column
-        if (['age','no_of_samples'].includes(col)) {
-          const n = parseInt(String(v).replace(/[^0-9-]/g, ''), 10);
-          values.push(Number.isNaN(n) ? null : n);
-          continue;
-        }
-
-        if (['amount_quoted','budget','sample_shipment_amount','phlebotomist_charges'].includes(col)) {
-          const f = parseFloat(String(v).toString().replace(/[^0-9.\-]/g, ''));
-          values.push(Number.isNaN(f) ? null : f);
-          continue;
-        }
-
-        if (['genetic_counselor_required','nutritional_counselling_required'].includes(col)) {
-          values.push(normalizeBoolean(v));
-          continue;
-        }
-
-        if (['sample_collection_date','sample_shipped_date','sample_recevied_date','delivery_up_to','lead_created','lead_modified'].includes(col)) {
-          // Accept Date objects or strings
-          const d = (v instanceof Date) ? v : new Date(String(v));
-          if (isNaN(d.getTime())) values.push(null); else values.push(d);
-          continue;
-        }
-
-        // default: push raw string trimmed
-        values.push(v === '' ? null : v);
+  const valuesArray = rawRows.map((row) => {
+    // Check for a provided unique_id in the row (various header forms)
+    function extractProvidedUnique(r) {
+      for (const k of Object.keys(r)) {
+        const norm = k.toLowerCase().replace(/\s+|[-_]/g, '');
+        if (norm === 'uniqueid' || norm === 'unique_id') return normalizeValue(r[k]);
       }
+      return null;
+    }
 
-      // Prepend numeric sequential id as string
-      const idValue = String(nextId++);
-      const finalColumns = ['id', ...mappedColumns];
-      const finalValues = [idValue, ...values];
+    const providedUnique = extractProvidedUnique(row);
+    const id = randomUUID();
+    const unique_id = providedUnique || id;
 
-      const colsSql = finalColumns.map(c => `\`${c}\``).join(', ');
-      const placeholders = finalValues.map(_ => '?').join(', ');
+    const out = { id, unique_id };
 
-      // Build upsert SQL but do not attempt to update the `id` column on duplicate
-      const updateColumns = finalColumns.filter(c => c !== 'id');
-      const updateSql = updateColumns.map(c => `\`${c}\`=VALUES(\`${c}\`)`).join(', ');
-      const sql = `INSERT INTO \`lead_management\` (${colsSql}) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updateSql}`;
+    // Map and convert each header
+    for (const [header, dbCol] of Object.entries(HEADER_TO_COLUMN)) {
+      let raw = row[header];
+      raw = normalizeValue(raw);
 
-      try {
-        const [res] = await conn.execute(sql, finalValues);
-        if (res.affectedRows === 1) inserted++; else if (res.affectedRows >= 2) updated++;
-      } catch (err) {
-        console.error('Row insert failed, continuing. Error:', err.message);
+      switch (dbCol) {
+        case 'genetic_counselor_required':
+        case 'nutritional_counselling_required':
+          out[dbCol] = parseBooleanLike(raw);
+          break;
+        case 'age':
+        case 'no_of_samples':
+          out[dbCol] = parseIntLike(raw);
+          break;
+        case 'budget':
+        case 'amount_quoted':
+        case 'sample_shipment_amount':
+        case 'phlebotomist_charges':
+          out[dbCol] = parseFloatLike(raw);
+          break;
+        case 'sample_collection_date':
+        case 'sample_shipped_date':
+        case 'sample_recevied_date':
+        case 'delivery_up_to':
+        case 'lead_created':
+        case 'lead_modified':
+          out[dbCol] = formatDateForMySQL(raw);
+          break;
+        default:
+          out[dbCol] = raw;
       }
     }
 
-    console.log(`Done. Inserted: ${inserted}, Updated: ${updated}`);
+    return insertColumns.map((c) => (out[c] === undefined ? null : out[c]));
+  });
+
+  let connection;
+  try {
+    connection = await mysql.createConnection(DB_CONFIG);
+    await connection.beginTransaction();
+
+    for (let i = 0; i < valuesArray.length; i++) {
+      const vals = valuesArray[i];
+      await connection.execute(insertSql, vals);
+    }
+
+    await connection.commit();
+    console.log(`Inserted ${valuesArray.length} rows into lead_management.`);
+  } catch (err) {
+    if (connection) {
+      try { await connection.rollback(); } catch (e) {}
+    }
+    console.error('Error inserting rows:', err);
+    process.exitCode = 1;
   } finally {
-    await conn.end();
+    if (connection) await connection.end();
   }
 }
 
-main().catch(err => {
-  console.error('Import failed:', err);
-  process.exit(1);
-});
+if (require.main === module) main();
+
+// Notes:
+// - Install dependencies: `npm install xlsx mysql2`
+// - Run: `node scripts/import_lead_management.js path/to/leads.xlsx`

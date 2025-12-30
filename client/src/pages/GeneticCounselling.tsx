@@ -15,6 +15,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useForm } from 'react-hook-form';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { FilterBar } from "@/components/FilterBar";
 
 type GCRecord = {
   id: string;
@@ -66,15 +67,14 @@ export default function GeneticCounselling() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: serverRows = null } = useQuery<GCRecord[]>({ 
-    queryKey: ['/api/genetic-counselling-sheet'], 
+  const { data: serverRows = null } = useQuery<GCRecord[]>({
+    queryKey: ['/api/genetic-counselling-sheet'],
     queryFn: async () => {
       const r = await fetch('/api/genetic-counselling-sheet');
       if (!r.ok) throw new Error('Failed to fetch');
       return r.json();
-    }, 
-    staleTime: 1000 * 60 * 5, 
-    retry: 1 
+    },
+    retry: 1
   });
 
   // Keep local rows in sync with server query results when available.
@@ -164,9 +164,11 @@ export default function GeneticCounselling() {
   const [isOpen, setIsOpen] = useState(false);
   const [editing, setEditing] = useState<GCRecord | null>(null);
   const { add } = useRecycle();
-  
+
   // Search and pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('created_at');
   const [counsellingTypeFilter, setCounsellingTypeFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -174,7 +176,7 @@ export default function GeneticCounselling() {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const form = useForm<GCRecord>({ 
+  const form = useForm<GCRecord>({
     defaultValues: {
       approval_from_head: false,
       potential_patient_for_testing_in_future: false,
@@ -183,22 +185,44 @@ export default function GeneticCounselling() {
   });
 
   // Filter records based on search and filters
+  // Filter records based on search and filters
   const filteredRows = rows.filter((record) => {
-    // Apply counselling type filter
+    // 1. Counselling Type Filter
     if (counsellingTypeFilter !== 'all' && record.counseling_type !== counsellingTypeFilter) {
       return false;
     }
-    
-    // Apply search query
-    if (!searchQuery) return true;
-    
-    const query = searchQuery.toLowerCase();
-    return (
-      (String(record.unique_id || '')).toLowerCase().includes(query) ||
-      (String(record.project_id || '')).toLowerCase().includes(query) ||
-      (String(record.patient_client_name || '')).toLowerCase().includes(query) ||
-      (String(record.patient_client_phone || '')).toLowerCase().includes(query)
-    );
+
+    // 2. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = Object.values(record).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
+
+    // 3. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (record as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   }).filter((record, index, self) => self.findIndex(r => r.id === record.id) === index);
 
   // Pagination calculations
@@ -245,12 +269,12 @@ export default function GeneticCounselling() {
         const now = new Date();
         // Format it to match the display format used in RecycleBin.tsx
         const deletedAt = now.toISOString();
-        add({ 
-          entityType: 'genetic_counselling', 
-          entityId: id, 
+        add({
+          entityType: 'genetic_counselling',
+          entityId: id,
           name: `${item.id || id} - ${item.patient_client_name || 'No Name'}`,
-          originalPath: '/genetic-counselling', 
-          data: { 
+          originalPath: '/genetic-counselling',
+          data: {
             ...item,
             // Ensure we pass the exact deletion time
             deletedAt
@@ -351,14 +375,14 @@ export default function GeneticCounselling() {
           <p className="text-muted-foreground">Manage genetic counselling sessions and approvals</p>
         </div>
         <div>
-          <Button onClick={() => { 
-            setEditing(null); 
+          <Button onClick={() => {
+            setEditing(null);
             form.reset({
               approval_from_head: false,
               potential_patient_for_testing_in_future: false,
               extended_family_testing_requirement: false,
-            } as any); 
-            setIsOpen(true); 
+            } as any);
+            setIsOpen(true);
           }}>
             + Add New GC
           </Button>
@@ -397,69 +421,48 @@ export default function GeneticCounselling() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Search and Filter Controls */}
-          <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b">
-            <div className="flex flex-col md:flex-row md:items-center gap-3 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setPage(1); // Reset to first page when searching
-                  }}
-                  className="pl-10"
-                />
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Select 
-                  value={counsellingTypeFilter} 
-                  onValueChange={(value) => {
-                    setCounsellingTypeFilter(value);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="Pre-test">Pre-test</SelectItem>
-                    <SelectItem value="Post-test">Post-test</SelectItem>
-                    <SelectItem value="Follow-up">Follow-up</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="pageSize" className="text-sm whitespace-nowrap">Page size</Label>
-              <Select 
-                value={String(pageSize)} 
-                onValueChange={(value) => {
-                  setPageSize(parseInt(value, 10));
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-[80px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "created_at" },
+              { label: "Counselling Date", value: "counselling_date" },
+              { label: "Modified At", value: "modified_at" },
+            ]}
+            totalItems={filteredRows.length}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+            placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
+          >
+            <Select
+              value={counsellingTypeFilter}
+              onValueChange={(value) => {
+                setCounsellingTypeFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[150px] bg-white dark:bg-gray-900">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="Pre-test">Pre-test</SelectItem>
+                <SelectItem value="Post-test">Post-test</SelectItem>
+                <SelectItem value="Follow-up">Follow-up</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
 
           <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper process-table-wrapper">
             <Table className="leads-table">
-              <TableHeader className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b-2">
+              <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b-2">
                 <TableRow>
-                  <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('counselling_date'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling date{sortKey === 'counselling_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('gc_registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration start time{sortKey === 'gc_registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -512,7 +515,7 @@ export default function GeneticCounselling() {
                 ) : (
                   visibleRows.map((r) => (
                     <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                      <TableCell className="font-medium">{r.unique_id}</TableCell>
+                      <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.unique_id}</TableCell>
                       <TableCell>{r.project_id ?? '-'}</TableCell>
                       <TableCell className="text-sm">
                         {r.counselling_date ? (
@@ -586,11 +589,10 @@ export default function GeneticCounselling() {
                       <TableCell className="max-w-xs truncate">{r.action_required ?? '-'}</TableCell>
                       <TableCell>{r.potential_patient_for_testing_in_future ? 'Yes' : 'No'}</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          r.extended_family_testing_requirement 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-                        }`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${r.extended_family_testing_requirement
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                          }`}>
                           {r.extended_family_testing_requirement ? 'Yes' : 'No'}
                         </span>
                       </TableCell>
@@ -712,7 +714,7 @@ export default function GeneticCounselling() {
                 vals.approval_from_head = !!vals.approval_from_head;
                 vals.extended_family_testing_requirement = !!vals.extended_family_testing_requirement;
                 vals.potential_patient_for_testing_in_future = !!vals.potential_patient_for_testing_in_future;
-                
+
                 // Convert datetime values to MySQL-friendly format (YYYY-MM-DD HH:mm:ss)
                 // Handle three types of inputs safely:
                 //  - HTML datetime-local: 'YYYY-MM-DDTHH:MM' -> append ':00'
@@ -750,7 +752,7 @@ export default function GeneticCounselling() {
                     const parsed = Date.parse(dateValue);
                     if (!isNaN(parsed)) {
                       const d = new Date(parsed);
-                      const converted = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                      const converted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
                       (vals as any)[field] = converted;
                       return;
                     }
@@ -761,7 +763,7 @@ export default function GeneticCounselling() {
 
                   // Otherwise assume it's already in DB-friendly 'YYYY-MM-DD HH:MM:SS' format and leave it
                 });
-                
+
                 // Convert empty strings to null for numeric fields (age cannot be empty string)
                 const numericFields = ['age'];
                 numericFields.forEach(field => {
@@ -773,7 +775,7 @@ export default function GeneticCounselling() {
                     (vals as any)[field] = isNaN(numValue) ? null : numValue;
                   }
                 });
-                
+
                 console.log('[GC Form] Submitting form data:', vals);
                 onSave(vals as GCRecord);
               },
@@ -802,7 +804,7 @@ export default function GeneticCounselling() {
               <Label>Project ID</Label>
               <Input {...form.register('project_id')} placeholder="e.g., PG251202001" disabled={!!editing} />
             </div>
-            
+
             <div>
               <Label>Counselling date</Label>
               <Input {...form.register('counselling_date')} type="datetime-local" />
@@ -881,8 +883,8 @@ export default function GeneticCounselling() {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="approval_from_head" 
+              <Checkbox
+                id="approval_from_head"
                 checked={!!form.watch('approval_from_head')}
                 onCheckedChange={(checked) => form.setValue('approval_from_head', checked as boolean)}
               />
@@ -969,8 +971,8 @@ export default function GeneticCounselling() {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="potential_patient" 
+              <Checkbox
+                id="potential_patient"
                 checked={!!form.watch('potential_patient_for_testing_in_future')}
                 onCheckedChange={(checked) => form.setValue('potential_patient_for_testing_in_future', checked as boolean)}
               />
@@ -978,8 +980,8 @@ export default function GeneticCounselling() {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="extended_family" 
+              <Checkbox
+                id="extended_family"
                 checked={!!form.watch('extended_family_testing_requirement')}
                 onCheckedChange={(checked) => form.setValue('extended_family_testing_requirement', checked as boolean)}
               />

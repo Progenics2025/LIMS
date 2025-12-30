@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { FilterBar } from "@/components/FilterBar";
 
 export default function ReportManagement() {
   // Helper: remove common honorifics from a name to avoid duplicated prefixes
@@ -34,6 +35,9 @@ export default function ReportManagement() {
   const [autoPopulatedData, setAutoPopulatedData] = useState<any>(null);
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('created_at');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -62,7 +66,7 @@ export default function ReportManagement() {
       const res = await apiRequest('GET', '/api/report_management');
       const json = await res.json();
       toast({ title: 'report_management API', description: `Connected — ${Array.isArray(json) ? json.length : 1} records` });
-      console.debug('report_management sample rows:', json?.slice?.(0,3) || json);
+      console.debug('report_management sample rows:', json?.slice?.(0, 3) || json);
     } catch (e: any) {
       toast({ title: 'report_management API', description: `Connection failed: ${e?.message || String(e)}` });
     }
@@ -198,7 +202,7 @@ export default function ReportManagement() {
       console.log('Update onSuccess called');
       try {
         // Refresh the list
-        await queryClient.invalidateQueries({ queryKey: ['/api/report_management'] });
+        await queryClient.invalidateQueries({ queryKey: ['/api/report_management'], refetchType: 'all' });
         // Fetch the updated record so the modal shows the latest data
         const uniqueId = variables.uniqueId;
         const res = await apiRequest('GET', `/api/report_management/${uniqueId}`);
@@ -254,7 +258,7 @@ export default function ReportManagement() {
       return res.json();
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['/api/report_management'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/report_management'], refetchType: 'all' });
       toast({ title: 'Deleted', description: 'Record deleted' });
     },
     onError: (err: any) => {
@@ -339,15 +343,15 @@ export default function ReportManagement() {
       const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
       const diffMs = deadline.getTime() - currentTime.getTime();
       const diffHrs = diffMs / (1000 * 60 * 60);
-      
+
       let urgency = 'normal';
       if (tatHours === 0) {
         urgency = 'normal';
       } else if (diffHrs < 0) {
         urgency = 'overdue';
-      } else if (diffHrs < 2) { 
+      } else if (diffHrs < 2) {
         urgency = 'critical';
-      } else if (diffHrs < 4) { 
+      } else if (diffHrs < 4) {
         urgency = 'warning';
       }
 
@@ -362,10 +366,49 @@ export default function ReportManagement() {
   }, [reports, currentTime]);
 
   const filteredReports = processedReports.filter(r => {
-    if (filter === 'all') return true;
-    if (filter === 'critical') return ['overdue', 'critical'].includes(r.urgency);
-    if (filter === 'warning') return r.urgency === 'warning';
-    return true;
+    // 1. Status/Urgency Filter
+    if (filter !== 'all') {
+      if (filter === 'critical') {
+        if (!['overdue', 'critical'].includes(r.urgency)) return false;
+      } else if (filter === 'warning') {
+        if (r.urgency !== 'warning') return false;
+      } else {
+        // Filter by status for other values
+        if (r.status !== filter) return false;
+      }
+    }
+
+    // 2. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = Object.values(r).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
+
+    // 3. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (r as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   // Pagination calculations
@@ -533,128 +576,128 @@ export default function ReportManagement() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Project ID</label>
-              <Input value={editForm.project_id} onChange={(e:any)=>setEditForm((s:any)=>({...s, project_id: e.target.value}))} />
+              <Input value={editForm.project_id} onChange={(e: any) => setEditForm((s: any) => ({ ...s, project_id: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Report URL</label>
-              <Input value={editForm.report_url} onChange={(e:any)=>setEditForm((s:any)=>({...s, report_url: e.target.value}))} />
+              <Input value={editForm.report_url} onChange={(e: any) => setEditForm((s: any) => ({ ...s, report_url: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Report Release Date</label>
-              <Input type="date" value={editForm.report_release_date} onChange={(e:any)=>setEditForm((s:any)=>({...s, report_release_date: e.target.value}))} />
+              <Input type="date" value={editForm.report_release_date} onChange={(e: any) => setEditForm((s: any) => ({ ...s, report_release_date: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Organisation / Hospital</label>
-              <Input value={editForm.organisation_hospital} onChange={(e:any)=>setEditForm((s:any)=>({...s, organisation_hospital: e.target.value}))} />
+              <Input value={editForm.organisation_hospital} onChange={(e: any) => setEditForm((s: any) => ({ ...s, organisation_hospital: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Clinician / Researcher Name</label>
-              <Input value={editForm.clinician_researcher_name} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_name: e.target.value}))} />
+              <Input value={editForm.clinician_researcher_name} onChange={(e: any) => setEditForm((s: any) => ({ ...s, clinician_researcher_name: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Clinician Email</label>
-              <Input value={editForm.clinician_researcher_email} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_email: e.target.value}))} />
+              <Input value={editForm.clinician_researcher_email} onChange={(e: any) => setEditForm((s: any) => ({ ...s, clinician_researcher_email: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Clinician Phone</label>
-              <Input value={editForm.clinician_researcher_phone} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_phone: e.target.value}))} />
+              <Input value={editForm.clinician_researcher_phone} onChange={(e: any) => setEditForm((s: any) => ({ ...s, clinician_researcher_phone: e.target.value }))} />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Clinician Address</label>
-              <Textarea value={editForm.clinician_researcher_address} onChange={(e:any)=>setEditForm((s:any)=>({...s, clinician_researcher_address: e.target.value}))} />
+              <Textarea value={editForm.clinician_researcher_address} onChange={(e: any) => setEditForm((s: any) => ({ ...s, clinician_researcher_address: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Patient / Client Name</label>
-              <Input value={editForm.patient_client_name} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_name: e.target.value}))} />
+              <Input value={editForm.patient_client_name} onChange={(e: any) => setEditForm((s: any) => ({ ...s, patient_client_name: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Age</label>
-              <Input type="number" value={editForm.age} onChange={(e:any)=>setEditForm((s:any)=>({...s, age: e.target.value}))} />
+              <Input type="number" value={editForm.age} onChange={(e: any) => setEditForm((s: any) => ({ ...s, age: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Gender</label>
-              <Input value={editForm.gender} onChange={(e:any)=>setEditForm((s:any)=>({...s, gender: e.target.value}))} />
+              <Input value={editForm.gender} onChange={(e: any) => setEditForm((s: any) => ({ ...s, gender: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Patient Email</label>
-              <Input value={editForm.patient_client_email} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_email: e.target.value}))} />
+              <Input value={editForm.patient_client_email} onChange={(e: any) => setEditForm((s: any) => ({ ...s, patient_client_email: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Patient Phone</label>
-              <Input value={editForm.patient_client_phone} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_phone: e.target.value}))} />
+              <Input value={editForm.patient_client_phone} onChange={(e: any) => setEditForm((s: any) => ({ ...s, patient_client_phone: e.target.value }))} />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Patient Address</label>
-              <Textarea value={editForm.patient_client_address} onChange={(e:any)=>setEditForm((s:any)=>({...s, patient_client_address: e.target.value}))} />
+              <Textarea value={editForm.patient_client_address} onChange={(e: any) => setEditForm((s: any) => ({ ...s, patient_client_address: e.target.value }))} />
             </div>
 
             <div className="flex items-center">
               <label className="inline-flex items-center">
-                <input type="checkbox" checked={!!editForm.genetic_counselor_required} onChange={(e:any)=>setEditForm((s:any)=>({...s, genetic_counselor_required: e.target.checked}))} className="mr-2" />
+                <input type="checkbox" checked={!!editForm.genetic_counselor_required} onChange={(e: any) => setEditForm((s: any) => ({ ...s, genetic_counselor_required: e.target.checked }))} className="mr-2" />
                 Genetic Counselling Required
               </label>
             </div>
             <div className="flex items-center">
               <label className="inline-flex items-center">
-                <input type="checkbox" checked={!!editForm.nutritional_counselling_required} onChange={(e:any)=>setEditForm((s:any)=>({...s, nutritional_counselling_required: e.target.checked}))} className="mr-2" />
+                <input type="checkbox" checked={!!editForm.nutritional_counselling_required} onChange={(e: any) => setEditForm((s: any) => ({ ...s, nutritional_counselling_required: e.target.checked }))} className="mr-2" />
                 Nutritional Counselling Required
               </label>
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Service Name</label>
-              <Input value={editForm.service_name} onChange={(e:any)=>setEditForm((s:any)=>({...s, service_name: e.target.value}))} />
+              <Input value={editForm.service_name} onChange={(e: any) => setEditForm((s: any) => ({ ...s, service_name: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">TAT (Days)</label>
-              <Input type="number" value={editForm.tat} onChange={(e:any)=>setEditForm((s:any)=>({...s, tat: e.target.value}))} />
+              <Input type="number" value={editForm.tat} onChange={(e: any) => setEditForm((s: any) => ({ ...s, tat: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Sample Type</label>
-              <Input value={editForm.sample_type} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_type: e.target.value}))} />
+              <Input value={editForm.sample_type} onChange={(e: any) => setEditForm((s: any) => ({ ...s, sample_type: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">No of Samples</label>
-              <Input type="number" value={editForm.no_of_samples} onChange={(e:any)=>setEditForm((s:any)=>({...s, no_of_samples: e.target.value}))} />
+              <Input type="number" value={editForm.no_of_samples} onChange={(e: any) => setEditForm((s: any) => ({ ...s, no_of_samples: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Sample ID</label>
-              <Input value={editForm.sample_id} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_id: e.target.value}))} />
+              <Input value={editForm.sample_id} onChange={(e: any) => setEditForm((s: any) => ({ ...s, sample_id: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Sample Received Date</label>
-              <Input type="date" value={editForm.sample_received_date} onChange={(e:any)=>setEditForm((s:any)=>({...s, sample_received_date: e.target.value}))} />
+              <Input type="date" value={editForm.sample_received_date} onChange={(e: any) => setEditForm((s: any) => ({ ...s, sample_received_date: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Progenics TRF</label>
-              <Input value={editForm.progenics_trf} onChange={(e:any)=>setEditForm((s:any)=>({...s, progenics_trf: e.target.value}))} />
+              <Input value={editForm.progenics_trf} onChange={(e: any) => setEditForm((s: any) => ({ ...s, progenics_trf: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Approval from Finance</label>
               <div className="flex items-center">
-                <input type="checkbox" checked={!!editForm.approval_from_finance} onChange={(e:any)=>setEditForm((s:any)=>({...s, approval_from_finance: e.target.checked}))} className="mr-2" />
+                <input type="checkbox" checked={!!editForm.approval_from_finance} onChange={(e: any) => setEditForm((s: any) => ({ ...s, approval_from_finance: e.target.checked }))} className="mr-2" />
                 <span>{editForm.approval_from_finance ? 'Approved' : 'Not approved'}</span>
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Sales / Responsible Person</label>
-              <Input value={editForm.sales_responsible_person} onChange={(e:any)=>setEditForm((s:any)=>({...s, sales_responsible_person: e.target.value}))} />
+              <Input value={editForm.sales_responsible_person} onChange={(e: any) => setEditForm((s: any) => ({ ...s, sales_responsible_person: e.target.value }))} />
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">Lead Created By</label>
-              <Input value={editForm.lead_created_by} onChange={(e:any)=>setEditForm((s:any)=>({...s, lead_created_by: e.target.value}))} />
+              <Input value={editForm.lead_created_by} onChange={(e: any) => setEditForm((s: any) => ({ ...s, lead_created_by: e.target.value }))} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Lead Modified</label>
@@ -663,12 +706,12 @@ export default function ReportManagement() {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Remark / Comment</label>
-              <Textarea value={editForm.remark_comment} onChange={(e:any) => setEditForm((s:any)=>({...s, remark_comment: e.target.value}))} />
+              <Textarea value={editForm.remark_comment} onChange={(e: any) => setEditForm((s: any) => ({ ...s, remark_comment: e.target.value }))} />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">GC Case Summary</label>
-              <Textarea value={editForm.gc_case_summary} onChange={(e:any) => setEditForm((s:any)=>({...s, gc_case_summary: e.target.value}))} />
+              <Textarea value={editForm.gc_case_summary} onChange={(e: any) => setEditForm((s: any) => ({ ...s, gc_case_summary: e.target.value }))} />
             </div>
           </div>
 
@@ -684,39 +727,39 @@ export default function ReportManagement() {
       {/* Reports Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-4">
-            <CardTitle>Report Queue</CardTitle>
-            <div className="flex bg-slate-100/80 p-1 rounded-xl">
-              {['all', 'critical', 'warning'].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition-all ${
-                    filter === f 
-                    ? 'bg-white text-[#0085CA] shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600 dark:text-gray-400">Page size</label>
-              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(parseInt(v, 10)); setCurrentPage(1); }}>
-                <SelectTrigger className="w-[70px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "created_at" },
+              { label: "Report Release Date", value: "report_release_date" },
+              { label: "Sample Received Date", value: "sample_received_date" },
+              { label: "Modified At", value: "lead_modified" },
+            ]}
+            totalItems={filteredReports.length}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setCurrentPage}
+            placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
+          >
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger className="w-[180px] bg-white dark:bg-gray-900">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Reports</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="awaiting_approval">Awaiting Approval</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="critical">Critical Urgency</SelectItem>
+                <SelectItem value="warning">Warning Urgency</SelectItem>
+              </SelectContent>
+            </Select>
             <Button onClick={() => window.open('/wes-report.html', '_blank')}>
               <FileText className="mr-2 h-4 w-4" />
               WES Report
@@ -725,7 +768,7 @@ export default function ReportManagement() {
               <FilePlus className="mr-2 h-4 w-4" />
               Generate Report
             </Button>
-          </div>
+          </FilterBar>
         </CardHeader>
         <CardContent className="pt-0">
         </CardContent>
@@ -739,8 +782,9 @@ export default function ReportManagement() {
           ) : (
             <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
               <Table className="leads-table w-full text-sm">
-                <TableHeader>
+                <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
                   <TableRow>
+                    <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
                     <TableHead>Project ID</TableHead>
                     <TableHead>Report URL</TableHead>
                     <TableHead>Report release Date</TableHead>
@@ -776,6 +820,7 @@ export default function ReportManagement() {
                 <TableBody>
                   {paginatedReports.map((report) => (
                     <TableRow key={report.unique_id}>
+                      <TableCell className="min-w-[120px] font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.unique_id ?? '-'}</TableCell>
                       <TableCell>{report.project_id ?? '-'}</TableCell>
                       <TableCell>{report.report_url ?? '-'}</TableCell>
                       <TableCell>{report.report_release_date ? new Date(report.report_release_date).toLocaleDateString() : '-'}</TableCell>

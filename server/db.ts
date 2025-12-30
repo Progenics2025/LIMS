@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/mysql2';
 function getDbConfig() {
   // Use explicit config to avoid URL parsing issues
   const config = {
-    host: process.env.DB_HOST || '192.168.29.11',
+    host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '3306'),
     user: process.env.DB_USER || 'remote_user',
     // allow percent-encoded passwords in env (e.g. Prolab%2305) and decode them

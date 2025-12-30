@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateRoleId } from "@/lib/generateRoleId";
 import { validatePhoneDigitCount, getNationalDigits, restrictPhoneInput, formatToE164, getDetectedCountryCode, getExpectedDigitCount, canAddMoreDigits } from "@/utils/phoneValidation";
 import { z } from "zod";
+import { FilterBar } from "@/components/FilterBar";
 
 const leadFormSchema = insertLeadSchema.extend({
   // Organization & Clinician fields are optional for lead creation
@@ -51,16 +52,16 @@ const leadFormSchema = insertLeadSchema.extend({
     if (!phone || phone.trim() === '') return true; // allow empty
     return isValidPhoneNumber(phone as string);
   }, { message: "Please enter a valid international phone number" })
-  .superRefine((phone, ctx) => {
-    if (!phone || (typeof phone === 'string' && phone.trim() === '')) return; // skip when empty
-    const validation = validatePhoneDigitCount(phone as string);
-    if (!validation.isValid) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: validation.message || "Invalid phone number digit count for the country"
-      });
-    }
-  }),
+    .superRefine((phone, ctx) => {
+      if (!phone || (typeof phone === 'string' && phone.trim() === '')) return; // skip when empty
+      const validation = validatePhoneDigitCount(phone as string);
+      if (!validation.isValid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.message || "Invalid phone number digit count for the country"
+        });
+      }
+    }),
 
   // Lead type validation
   leadType: z.string()
@@ -163,7 +164,7 @@ function handlePhoneInputChange(
   // Restrict to max digits for the detected country code
   // This is the KEY change - restrictPhoneInput now auto-detects country from phone value
   const restrictedValue = restrictPhoneInput(value);
-  
+
   // Validate phone number
   if (!isValidPhoneNumber(restrictedValue)) {
     // Let it pass for now, validation will happen on form submission
@@ -669,6 +670,22 @@ export default function LeadManagement() {
     queryKey: ['/api/users'],
   });
 
+  // Fetch leads stats for revenue tiles
+  const { data: leadsStats } = useQuery<{
+    projectedRevenue: number;
+    actualRevenue: number;
+    totalLeads: number;
+    activeLeads: number;
+    convertedLeads: number;
+  }>({
+    queryKey: ['/api/leads/stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/leads/stats');
+      if (!res.ok) throw new Error('Failed to fetch leads stats');
+      return res.json();
+    },
+  });
+
   // Helper function to get user name by ID
   const getUserNameById = (userId: string | undefined): string => {
     if (!userId) return '-';
@@ -685,6 +702,8 @@ export default function LeadManagement() {
 
   // Client-side search & pagination state
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('leadCreated');
   // use a non-empty value for the Select; Radix Select does not accept empty-string items
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
@@ -696,17 +715,42 @@ export default function LeadManagement() {
   const roleFilteredLeads = filterLeadsByRole(normalizedLeads);
 
   // Derived filtered leads (apply role filter + search + status)
-  const filteredLeads = roleFilteredLeads.filter((l) => {
-    // if statusFilter is 'all' or falsy, don't filter by status
-    if (statusFilter && statusFilter !== 'all' && String(l.status) !== String(statusFilter)) return false;
-    if (!searchQuery) return true;
-    const s = searchQuery.toLowerCase();
-    return (
-      (String(l.uniqueId || '')).toLowerCase().includes(s) ||
-      (String(l.projectId || '')).toLowerCase().includes(s) ||
-      (String(l.patientClientName || '')).toLowerCase().includes(s) ||
-      (String(l.patientClientPhone || '')).toLowerCase().includes(s)
-    );
+  const filteredLeads = roleFilteredLeads.filter((lead) => {
+    // 1. Status Filter
+    if (statusFilter && statusFilter !== 'all' && String(lead.status) !== String(statusFilter)) {
+      return false;
+    }
+
+    // 2. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = (
+        (String(lead.uniqueId || '')).toLowerCase().includes(q) ||
+        (String(lead.projectId || '')).toLowerCase().includes(q) ||
+        (String(lead.patientClientName || '')).toLowerCase().includes(q) ||
+        (String(lead.patientClientPhone || '')).toLowerCase().includes(q)
+      );
+    }
+
+    // 3. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (lead as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        // Normalize 'from' date to start of day
+        const fromTime = new Date(dateRange.from).setHours(0, 0, 0, 0);
+        // Normalize 'to' date to end of day, or if no 'to' date, use 'from' date's end of day
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : new Date(dateRange.from).setHours(23, 59, 59, 999);
+
+        matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   const totalFiltered = filteredLeads.length;
@@ -819,11 +863,12 @@ export default function LeadManagement() {
       return response.json();
     },
     onSuccess: async (updatedLead: any, variables?: { id: string; data: Partial<LeadFormData> }) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      // Force immediate refetch of queries to show updated data
+      await queryClient.invalidateQueries({ queryKey: ['/api/leads'], refetchType: 'all' });
       // Invalidate dashboard stats when lead is updated
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       setIsEditDialogOpen(false);
       setSelectedLead(null);
       editForm.reset();
@@ -1101,6 +1146,60 @@ export default function LeadManagement() {
       projectId: '',
     },
   });
+
+  // Auto-correct phone numbers if they exceed max digits (for paste handling)
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      // Check patientClientPhone
+      if (value.patientClientPhone) {
+        const { actualDigits, expectedDigits, countryCode } = validatePhoneDigitCount(value.patientClientPhone);
+        if (expectedDigits && actualDigits > expectedDigits) {
+          const corrected = restrictPhoneInput(value.patientClientPhone, 'IN');
+          if (corrected !== value.patientClientPhone) {
+            form.setValue('patientClientPhone', corrected);
+          }
+        }
+      }
+      // Check clinicianResearcherPhone
+      if (value.clinicianResearcherPhone) {
+        const { actualDigits, expectedDigits } = validatePhoneDigitCount(value.clinicianResearcherPhone);
+        if (expectedDigits && actualDigits > expectedDigits) {
+          const corrected = restrictPhoneInput(value.clinicianResearcherPhone, 'IN');
+          if (corrected !== value.clinicianResearcherPhone) {
+            form.setValue('clinicianResearcherPhone', corrected);
+          }
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Auto-correct phone numbers in edit form as well
+  useEffect(() => {
+    const subscription = editForm.watch((value) => {
+      // Check patientClientPhone
+      if (value.patientClientPhone) {
+        const { actualDigits, expectedDigits } = validatePhoneDigitCount(value.patientClientPhone);
+        if (expectedDigits && actualDigits > expectedDigits) {
+          const corrected = restrictPhoneInput(value.patientClientPhone, 'IN');
+          if (corrected !== value.patientClientPhone) {
+            editForm.setValue('patientClientPhone', corrected);
+          }
+        }
+      }
+      // Check clinicianResearcherPhone
+      if (value.clinicianResearcherPhone) {
+        const { actualDigits, expectedDigits } = validatePhoneDigitCount(value.clinicianResearcherPhone);
+        if (expectedDigits && actualDigits > expectedDigits) {
+          const corrected = restrictPhoneInput(value.clinicianResearcherPhone, 'IN');
+          if (corrected !== value.clinicianResearcherPhone) {
+            editForm.setValue('clinicianResearcherPhone', corrected);
+          }
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [editForm]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -1388,7 +1487,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>TAT (Days)</Label>
-                      <Input type="number" {...form.register('tat')} placeholder="e.g., 14" />
+                      <Input {...form.register('tat')} placeholder="e.g., 14" />
                     </div>
                   </div>
                 </div>              {/* Section 2: Organization / Clinician */}
@@ -1456,17 +1555,27 @@ export default function LeadManagement() {
                           value={form.watch('clinicianResearcherPhone') || ''}
                           onChange={(value) => {
                             const phoneValue = value || '';
-                            
+
                             // Get the national digits (without country code)
                             const nationalDigits = getNationalDigits(phoneValue);
                             const countryCode = getDetectedCountryCode(phoneValue) || 'IN';
                             const maxDigits = getExpectedDigitCount(countryCode) || 10;
-                            
+
                             // Restrict and format
                             const restrictedValue = restrictPhoneInput(phoneValue, 'IN');
                             form.setValue('clinicianResearcherPhone', restrictedValue);
-                            
+
                             // Trigger validation
+                            if (restrictedValue) {
+                              form.trigger('clinicianResearcherPhone');
+                            }
+                          }}
+                          onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                            // Handle paste events to ensure value is immediately truncated
+                            e.preventDefault();
+                            const pastedText = e.clipboardData.getData('text');
+                            const restrictedValue = restrictPhoneInput(pastedText, 'IN');
+                            form.setValue('clinicianResearcherPhone', restrictedValue);
                             if (restrictedValue) {
                               form.trigger('clinicianResearcherPhone');
                             }
@@ -1536,17 +1645,37 @@ export default function LeadManagement() {
                           value={form.watch('patientClientPhone') || ''}
                           onChange={(value) => {
                             const phoneValue = value || '';
-                            
+
                             // Get the national digits (without country code)
                             const nationalDigits = getNationalDigits(phoneValue);
                             const countryCode = getDetectedCountryCode(phoneValue) || 'IN';
                             const maxDigits = getExpectedDigitCount(countryCode) || 10;
-                            
+
                             // Restrict and format
                             const restrictedValue = restrictPhoneInput(phoneValue, 'IN');
                             form.setValue('patientClientPhone', restrictedValue);
-                            
+
                             // Trigger validation
+                            if (restrictedValue) {
+                              form.trigger('patientClientPhone');
+                            }
+                          }}
+                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                            // Prevent adding more digits if max reached
+                            if (/\d/.test(e.key)) {
+                              const currentValue = form.watch('patientClientPhone') || '';
+                              const { canAdd } = canAddMoreDigits(currentValue, e.key);
+                              if (!canAdd) {
+                                e.preventDefault();
+                              }
+                            }
+                          }}
+                          onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                            // Handle paste events to ensure value is immediately truncated
+                            e.preventDefault();
+                            const pastedText = e.clipboardData.getData('text');
+                            const restrictedValue = restrictPhoneInput(pastedText, 'IN');
+                            form.setValue('patientClientPhone', restrictedValue);
                             if (restrictedValue) {
                               form.trigger('patientClientPhone');
                             }
@@ -1697,9 +1826,9 @@ export default function LeadManagement() {
                             fd.append('file', f);
                             try {
                               // Use the new categorized upload API
-                              const res = await fetch('/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=' + (form.getValues('id') || 'new'), { 
-                                method: 'POST', 
-                                body: fd 
+                              const res = await fetch('/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=new', {
+                                method: 'POST',
+                                body: fd
                               });
                               if (res.ok) {
                                 const data = await res.json();
@@ -1711,9 +1840,9 @@ export default function LeadManagement() {
                                   category: data.category,
                                   fileSize: data.fileSize
                                 });
-                                toast({ 
-                                  title: 'Success', 
-                                  description: `TRF uploaded successfully to ${data.category} folder` 
+                                toast({
+                                  title: 'Success',
+                                  description: `TRF uploaded successfully to ${data.category} folder`
                                 });
                               } else {
                                 const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
@@ -1936,7 +2065,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>TAT (Days)</Label>
-                      <Input type="number" {...editForm.register('tat')} />
+                      <Input {...editForm.register('tat')} />
                     </div>
                   </div>
                 </div>
@@ -2015,6 +2144,17 @@ export default function LeadManagement() {
                               editForm.trigger('clinicianResearcherPhone');
                             }
                           }}
+                          onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                            // Handle paste events to ensure value is immediately truncated
+                            e.preventDefault();
+                            const pastedText = e.clipboardData.getData('text');
+                            const restrictedValue = restrictPhoneInput(pastedText, 'IN');
+                            const formattedValue = formatToE164(restrictedValue);
+                            editForm.setValue('clinicianResearcherPhone', formattedValue);
+                            if (formattedValue) {
+                              editForm.trigger('clinicianResearcherPhone');
+                            }
+                          }}
                           placeholder="Enter phone number"
                         />
                       </div>
@@ -2079,6 +2219,27 @@ export default function LeadManagement() {
                             const formattedValue = formatToE164(restrictedValue);
                             editForm.setValue('patientClientPhone', formattedValue);
                             // Trigger validation
+                            if (formattedValue) {
+                              editForm.trigger('patientClientPhone');
+                            }
+                          }}
+                          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                            // Prevent adding more digits if max reached
+                            if (/\d/.test(e.key)) {
+                              const currentValue = editForm.watch('patientClientPhone') || '';
+                              const { canAdd } = canAddMoreDigits(currentValue, e.key);
+                              if (!canAdd) {
+                                e.preventDefault();
+                              }
+                            }
+                          }}
+                          onPaste={(e: React.ClipboardEvent<HTMLInputElement>) => {
+                            // Handle paste events to ensure value is immediately truncated
+                            e.preventDefault();
+                            const pastedText = e.clipboardData.getData('text');
+                            const restrictedValue = restrictPhoneInput(pastedText, 'IN');
+                            const formattedValue = formatToE164(restrictedValue);
+                            editForm.setValue('patientClientPhone', formattedValue);
                             if (formattedValue) {
                               editForm.trigger('patientClientPhone');
                             }
@@ -2332,9 +2493,9 @@ export default function LeadManagement() {
       {/* Top stat tiles: Hot leads and Converted leads (compact style per reference image) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {(() => {
-          const hotCount = normalizedLeads.filter((l) => String(l.status) === 'hot').length;
-          const convertedCount = normalizedLeads.filter((l) => String(l.status) === 'converted' || !!l.convertedAt).length;
-          const totalCount = normalizedLeads.length;
+          const hotCount = roleFilteredLeads.filter((l) => String(l.status) === 'hot').length;
+          const convertedCount = roleFilteredLeads.filter((l) => String(l.status) === 'converted' || !!l.convertedAt).length;
+          const totalCount = roleFilteredLeads.length;
           return (
             <>
               <Card className="rounded-lg border border-gray-100 shadow-sm">
@@ -2682,46 +2843,72 @@ export default function LeadManagement() {
           </Card>
         );
       })()}
+      {/* Revenue Stats Tiles */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center">
+              <div className="flex p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center">Projected Revenue</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white text-center break-words w-full mt-1">
+                ₹{formatINR(leadsStats?.projectedRevenue ?? 0)}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-1">Sum of Amount Quoted</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center">
+              <div className="flex p-3 rounded-lg bg-green-50 dark:bg-green-900/20 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center">Actual Revenue</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white text-center break-words w-full mt-1">
+                ₹{formatINR(leadsStats?.actualRevenue ?? 0)}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-1">Sum of Budget</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Simple Leads Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <Input placeholder="Search Unique ID / Project ID / Patient Name / Phone " value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} />
-              <Select onValueChange={(v) => { setStatusFilter(v); setPage(1); }} value={statusFilter}>
-                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="quoted">Quoted</SelectItem>
-                  <SelectItem value="cold">Cold</SelectItem>
-                  <SelectItem value="hot">Hot</SelectItem>
-                  <SelectItem value="won">Won</SelectItem>
-                  <SelectItem value="converted">Converted</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Label>Page size</Label>
-              <Select onValueChange={(v) => { setPageSize(parseInt(v || '25', 10)); setPage(1); }} value={String(pageSize)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-
-            </div>
-          </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Lead Created", value: "leadCreated" },
+              { label: "Lead Modified", value: "leadModified" },
+              { label: "Sample Collection Date", value: "sampleCollectionDate" },
+              { label: "Sample Received Date", value: "sampleReceivedDate" },
+              { label: "Sample Shipped Date", value: "sampleShippedDate" },
+              { label: "Delivery Up To", value: "deliveryUpTo" },
+            ]}
+            totalItems={totalFiltered}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+            placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
+          />
 
           <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper">
             <Table className="leads-table w-full">
-              <TableHeader className="sticky top-0 bg-white dark:bg-gray-900 z-20 border-b-2">
+              <TableHeader className="sticky top-0 bg-white dark:bg-gray-900 z-30 border-b-2">
                 <TableRow>
-                  <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                  <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px] sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('leadType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Type{sortKey === 'leadType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                   <TableHead onClick={() => { setSortKey('status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Status{sortKey === 'status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -2776,7 +2963,7 @@ export default function LeadManagement() {
                 ) : (
                   visibleLeads.map((lead) => (
                     <TableRow key={lead.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                      <TableCell className="whitespace-nowrap">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge className={lead.leadType === 'project' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>

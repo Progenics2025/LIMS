@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatINR } from "@/components/ui/currency-input";
 import { Eye, IndianRupee, Clock, FileText, Edit as EditIcon, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { FilterBar } from "@/components/FilterBar";
 import type { SampleWithLead } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +29,8 @@ export default function FinanceManagement() {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [financeQuery, setFinanceQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -131,7 +135,7 @@ export default function FinanceManagement() {
 
   // Editable fields per user rule (Finance edit modal only)
   const financeEditable = new Set<string>([
-    'uniqueId','projectId','invoiceNumber','invoiceAmount','invoiceDate','paymentReceiptAmount','modeOfPayment','utrDetails','balanceAmountReceivedDate','totalAmountReceivedStatus','sampleShipmentAmount','thirdPartyCharges','otherCharges','thirdPartyName','thirdPartyPhone','thirdPartyPaymentStatus','balanceAmount','paymentReceiptDate','transactionalNumber','otherChargesReason','thirdPartyPaymentDate','alertToLabprocessTeam','alertToReportTeam','alertToTechnicalLead','remarkComment'
+    'uniqueId', 'projectId', 'invoiceNumber', 'invoiceAmount', 'invoiceDate', 'paymentReceiptAmount', 'modeOfPayment', 'utrDetails', 'balanceAmountReceivedDate', 'totalAmountReceivedStatus', 'sampleShipmentAmount', 'thirdPartyCharges', 'otherCharges', 'thirdPartyName', 'thirdPartyPhone', 'thirdPartyPaymentStatus', 'balanceAmount', 'paymentReceiptDate', 'transactionalNumber', 'otherChargesReason', 'thirdPartyPaymentDate', 'alertToLabprocessTeam', 'alertToReportTeam', 'alertToTechnicalLead', 'remarkComment'
   ]);
 
   const updateFinanceMutation = useMutation({
@@ -152,12 +156,12 @@ export default function FinanceManagement() {
         throw e;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       setIsEditDialogOpen(false);
       setSelectedRecord(null);
       toast({ title: 'Finance record updated', description: 'Record updated successfully' });
@@ -186,12 +190,12 @@ export default function FinanceManagement() {
         throw e;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       toast({ title: 'Finance record deleted', description: 'Record has been deleted' });
       // Notify recycle UI to refresh (server creates snapshot for deleted finance)
       window.dispatchEvent(new Event('ll:recycle:update'));
@@ -222,7 +226,6 @@ export default function FinanceManagement() {
         return { totalRevenue: 0, pendingPayments: 0, pendingApprovals: 0 };
       }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
 
@@ -245,7 +248,6 @@ export default function FinanceManagement() {
         throw e;
       }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
 
@@ -271,33 +273,40 @@ export default function FinanceManagement() {
         throw e;
       }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
 
-  const stats = [
-    {
-      title: "Total Revenue",
-      value: `₹${formatINR(financeStats?.totalRevenue || 0)}`,
-      icon: IndianRupee,
-      color: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-50 dark:bg-green-900/20",
-    },
-    {
-      title: "Pending Payments",
-      value: `₹${formatINR(financeStats?.pendingPayments || 0)}`,
-      icon: Clock,
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
-    },
-    {
-      title: "Pending Approvals",
-      value: financeStats?.pendingApprovals || 0,
-      icon: FileText,
-      color: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-900/20",
-    },
-  ];
+  const stats = (() => {
+    // Use API stats if available, otherwise calculate from client data
+    const totalRevenue = financeStats?.totalRevenue ??
+      (Array.isArray(financeData) ? financeData.reduce((sum, f) => sum + Number(f.paymentReceivedAmount || f.payment_received_amount || 0), 0) : 0);
+    const pendingPayments = financeStats?.pendingPayments ?? 0;
+    const pendingApprovalsCount = financeStats?.pendingApprovals ?? (Array.isArray(pendingApprovals) ? pendingApprovals.length : 0);
+
+    return [
+      {
+        title: "Total Revenue",
+        value: `₹${formatINR(totalRevenue)}`,
+        icon: IndianRupee,
+        color: "text-green-600 dark:text-green-400",
+        bgColor: "bg-green-50 dark:bg-green-900/20",
+      },
+      {
+        title: "Pending Payments",
+        value: `₹${formatINR(pendingPayments)}`,
+        icon: Clock,
+        color: "text-yellow-600 dark:text-yellow-400",
+        bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
+      },
+      {
+        title: "Pending Approvals",
+        value: pendingApprovalsCount,
+        icon: FileText,
+        color: "text-blue-600 dark:text-blue-400",
+        bgColor: "bg-blue-50 dark:bg-blue-900/20",
+      },
+    ];
+  })();
 
   // Column counts for empty-state spanning cells (keeps header visible when no rows)
   // Column counts for empty-state spanning cells (keeps header visible when no rows)
@@ -403,15 +412,49 @@ export default function FinanceManagement() {
   const combinedFinanceRows = allFinanceRows;
 
   const filteredFinanceRows = combinedFinanceRows.filter((r) => {
-    if (!financeQuery) return true;
-    const q = String(financeQuery).toLowerCase().trim();
-    
-    return (
-      (String(r.uniqueId || '')).toLowerCase().includes(q) ||
-      (String(r.projectId || r.sample?.projectId || r.sample?.project_id || r.sample?.lead?.projectId || r.sample?.lead?.project_id || '')).toLowerCase().includes(q) ||
-      (String(r.patientClientName || r.sample?.lead?.patientClientName || '')).toLowerCase().includes(q) ||
-      (String(r.patientClientPhone || r.sample?.lead?.patientClientPhone || '')).toLowerCase().includes(q)
-    );
+    // 1. Search Query (Global)
+    let matchesSearch = true;
+    if (financeQuery) {
+      const q = financeQuery.toLowerCase().trim();
+      // Check all values in the record recursively or just top-level
+      matchesSearch = Object.values(r).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') {
+          // simple check for nested objects (like sample, lead)
+          return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        }
+        return String(val).toLowerCase().includes(q);
+      });
+    }
+
+    // 2. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = r[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        // Reset time part for comparison if needed, or just compare timestamps
+        // Here we assume dateRange.from is start of day, dateRange.to is end of day
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime; // if no 'to', assume single day? or open ended?
+        // Calendar usually sets 'to' as undefined if only one date picked.
+        // If 'to' is undefined, it means "on or after 'from'". Or exact match?
+        // Usually range picker: from is start, to is end.
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          // If only from date is selected, maybe show everything after? Or just that day?
+          // Let's assume "on or after" for now, or exact day if user wants single day.
+          // But standard range picker behavior: click once = start.
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   // Pagination calculations for finance records (client-side)
@@ -431,7 +474,7 @@ export default function FinanceManagement() {
       // Use new categorized API endpoint
       fd.append('file', file);
       console.log('[Finance Upload] Uploading screenshot/document for id', id, file.name);
-      
+
       const res = await fetch(`/api/uploads/categorized?category=Finance_Screenshot_Document&entityType=finance&entityId=${id}`, {
         method: 'POST',
         body: fd,
@@ -440,7 +483,7 @@ export default function FinanceManagement() {
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
       }
-      
+
       const data = await res.json();
       console.log('✅ Screenshot/Document uploaded successfully:', {
         filePath: data.filePath,
@@ -448,10 +491,10 @@ export default function FinanceManagement() {
         category: data.category,
         fileSize: data.fileSize
       });
-      
+
       // Update the form field with the new file path
       editForm.setValue('screenshotDocument', data.filePath);
-      
+
       toast({ title: 'Upload successful', description: `File uploaded to ${data.category} folder` });
       queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
     } catch (e: any) {
@@ -487,16 +530,14 @@ export default function FinanceManagement() {
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index}>
+            <Card key={index} className="overflow-hidden">
               <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className={`flex-shrink-0 p-3 rounded-lg ${stat.bgColor}`}>
+                <div className="flex flex-col items-center">
+                  <div className={`flex p-3 rounded-lg ${stat.bgColor} mb-4`}>
                     <Icon className={`h-6 w-6 ${stat.color}`} />
                   </div>
-                  <div className="ml-5">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.title}</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                  </div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center">{stat.title}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white text-center break-words w-full mt-1">{stat.value}</p>
                 </div>
               </CardContent>
             </Card>
@@ -557,12 +598,12 @@ export default function FinanceManagement() {
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Alert to Labprocess Team</TableHead>
                       <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Report Team</TableHead>
                       <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Technical Lead</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created At</TableHead>
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created By</TableHead>
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
                       <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
                       <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>
                       <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -616,14 +657,14 @@ export default function FinanceManagement() {
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.approveToLabProcess ? 'Yes' : ((lead as any).approveToLabProcess ? 'Yes' : 'No')}</TableCell>
                             <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.approveToReportProcess ? 'Yes' : ((lead as any).approveToReportProcess ? 'Yes' : 'No')}</TableCell>
                             <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.approveToTechnicalLead ? 'Yes' : ((lead as any).approveToTechnicalLead ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
-                              {renderAttachmentLink(s.screenshotDocument ?? s.screenshot_document)}
-                            </TableCell>
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.createdAt ? new Date(s.createdAt).toLocaleString() : '-'}</TableCell>
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.createdBy ?? (lead as any).createdBy ?? '-'}</TableCell>
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.modifiedAt ? new Date(s.modifiedAt).toLocaleString() : '-'}</TableCell>
                             <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.modifiedBy ?? (lead as any).modifiedBy ?? '-'}</TableCell>
                             <TableCell className="min-w-[220px] text-gray-900 dark:text-white">{s.remark_comment ?? s.comments ?? s.notes ?? s.remarks ?? (lead as any).comments ?? (lead as any).remarks ?? '-'}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
+                              {renderAttachmentLink(s.screenshotDocument ?? s.screenshot_document)}
+                            </TableCell>
                             <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
                               <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
                                 <Button variant="ghost" size="sm" onClick={() => {
@@ -717,7 +758,7 @@ export default function FinanceManagement() {
               if (financeEditable.has(k)) updates[k] = vals[k];
             });
             // normalize numeric fields that are editable
-            ['invoiceAmount','paymentReceiptAmount','phlebotomistCharges','sampleShipmentAmount','thirdPartyCharges','otherCharges'].forEach(k => {
+            ['invoiceAmount', 'paymentReceiptAmount', 'phlebotomistCharges', 'sampleShipmentAmount', 'thirdPartyCharges', 'otherCharges'].forEach(k => {
               if (updates[k] != null) updates[k] = String(updates[k]);
             });
 
@@ -753,7 +794,7 @@ export default function FinanceManagement() {
                 const parsed = Date.parse(raw);
                 if (!isNaN(parsed)) {
                   const d = new Date(parsed);
-                  updates[field] = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+                  updates[field] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
                   return;
                 }
                 delete updates[field];
@@ -773,7 +814,7 @@ export default function FinanceManagement() {
                 const parsed = Date.parse(raw);
                 if (!isNaN(parsed)) {
                   const d = new Date(parsed);
-                  updates[field] = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                  updates[field] = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
                   return;
                 }
                 delete updates[field];
@@ -984,28 +1025,27 @@ export default function FinanceManagement() {
           <CardTitle>Finance Records</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Search and page size controls */}
-          <div className="p-2 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <Input 
-                placeholder="Search Unique ID / Project ID / Patient Name / Phone" 
-                value={financeQuery} 
-                onChange={(e) => { setFinanceQuery(e.target.value); setPage(1); }} 
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Label>Page size</Label>
-              <Select onValueChange={(v) => { setPageSize(parseInt(v || '25', 10)); setPage(1); }} value={String(pageSize)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Advanced Filter Bar */}
+          <FilterBar
+            searchQuery={financeQuery}
+            setSearchQuery={setFinanceQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created Date", value: "createdAt" },
+              { label: "Sample Collection Date", value: "sampleCollectionDate" },
+              { label: "Invoice Date", value: "invoiceDate" },
+              { label: "Payment Receipt Date", value: "paymentReceiptDate" },
+              { label: "Balance Received Date", value: "balanceAmountReceivedDate" },
+              { label: "3rd Party Payment Date", value: "thirdPartyPaymentDate" },
+            ]}
+            totalItems={totalFiltered}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+          />
 
           {isLoadingRecords ? (
             <div className="text-center py-8">Loading finance records...</div>
@@ -1016,186 +1056,187 @@ export default function FinanceManagement() {
                 <div className="max-h-[60vh] overflow-y-auto">
                   <Table className="leads-table">
                     <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                    <TableRow>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Unique ID</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Project ID</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Sample Collection Date</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Organisation / Hospital</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Name</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Email</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Phone</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Clinician / Researcher Address</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Name</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Email</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Patient / Client Phone</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Patient / Client Address</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Service Name</TableHead>
-                      <TableHead className="min-w-[120px] whitespace-nowrap font-semibold">Budget</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Phlebotomist Charges</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Sales / Responsible Person</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Sample Shipment Amount</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Invoice Number</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Amount</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Date</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Amount</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Balance Amount</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Date</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Mode of Payment</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Transactional Number</TableHead>
-                      <TableHead className="min-w-[170px] whitespace-nowrap font-semibold">Balance Amount Received Date</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Total Amount Received Status</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">UTR Details</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Charges</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Other Charges</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Other Charges Reason</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Name</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Third Party Phone</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Date</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Status</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Alert to Labprocess Team</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Report Team</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Technical Lead</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created At</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created By</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
-                      <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                <TableBody>
-                  {filteredFinanceRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={FINANCE_HEADER_COUNT} className="text-center py-8 text-gray-500 dark:text-gray-400">No finance records match your search</TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleRows.map((record: any) => {
-                      const projectIdDisplay = record.projectId ?? record.project_id ?? record.sample?.projectId ?? record.sample?.project_id ?? record.sample?.lead?.projectId ?? record.sample?.lead?.project_id ?? record.sample?.lead?.id ?? 'N/A';
-                      const uniqueIdDisplay = record.uniqueId ?? (record as any).unique_id ?? record.sample?.lead?.id ?? '-';
-                      return (
-                      <TableRow key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                        <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white">{uniqueIdDisplay}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{projectIdDisplay}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>
-                        <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherEmail ?? record.sample?.lead?.clinicianResearcherEmail ?? '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherPhone ?? record.sample?.lead?.clinicianResearcherPhone ?? record.sample?.lead?.phone ?? '-'}</TableCell>
-                        <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.clinicianResearcherAddress ?? record.sample?.lead?.clinicianResearcherAddress ?? record.sample?.lead?.location ?? '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientName ?? record.sample?.lead?.patientClientName ?? '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientEmail ?? record.sample?.lead?.patientClientEmail ?? '-'}</TableCell>
-                        <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.patientClientPhone ?? record.sample?.lead?.patientClientPhone ?? '-'}</TableCell>
-                        <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.patientClientAddress ?? record.sample?.lead?.patientClientAddress ?? '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.serviceName ?? record.sample?.lead?.serviceName ?? '-'}</TableCell>
-                        <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{record.budget != null ? `₹${formatINR(Number(record.budget))}` : (record.sample?.lead?.budget != null ? `₹${formatINR(Number(record.sample.lead.budget))}` : '-')}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.phlebotomistCharges != null ? `₹${formatINR(Number(record.phlebotomistCharges))}` : (record.sample?.lead?.phlebotomistCharges != null ? `₹${formatINR(Number(record.sample.lead.phlebotomistCharges))}` : '-')}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.salesResponsiblePerson ?? record.sample?.lead?.salesResponsiblePerson ?? '-'}</TableCell>
-                        <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sampleShipmentAmount))}` : (record.sample?.lead?.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sample.lead.sampleShipmentAmount))}` : '-')}</TableCell>
-                        <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.invoiceNumber ?? '-'}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceAmount != null ? `₹${formatINR(Number(record.invoiceAmount))}` : '-'}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceDate ? new Date(record.invoiceDate).toLocaleDateString() : '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptAmount != null ? `₹${formatINR(Number(record.paymentReceiptAmount))}` : '-'}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.balanceAmount != null ? `₹${formatINR(Number(record.balanceAmount))}` : '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptDate ? new Date(record.paymentReceiptDate).toLocaleDateString() : '-'}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.modeOfPayment || '-'}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.utrDetails ?? '-'}</TableCell>
-                        <TableCell className="min-w-[170px] text-gray-900 dark:text-white">{record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toLocaleDateString() : '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.totalAmountReceivedStatus ? 'Yes' : 'No'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyCharges != null ? `₹${formatINR(Number(record.thirdPartyCharges))}` : '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.otherCharges != null ? `₹${formatINR(Number(record.otherCharges))}` : '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.otherChargesReason ?? '-'}</TableCell>
-                        <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.thirdPartyName ?? '-'}</TableCell>
-                        <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.thirdPartyPhone ?? '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentDate ? new Date(record.thirdPartyPaymentDate).toLocaleDateString() : '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentStatus ? 'Yes' : 'No'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.alertToLabprocessTeam ? 'Yes' : 'No'}</TableCell>
-                        <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToReportTeam ? 'Yes' : 'No'}</TableCell>
-                        <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToTechnicalLead ? 'Yes' : 'No'}</TableCell>
-                        <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
-                          {renderAttachmentLink(record.screenshotDocument ?? record.screenshot_document)}
-                        </TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.createdAt ?? record.created_at) ? new Date(record.createdAt ?? record.created_at).toLocaleString() : '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.createdBy ?? record.created_by ?? '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>
-                        <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>
-                        <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>
-                        <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
-                          <div className="action-buttons flex space-x-1 items-center justify-center h-full bg-white dark:bg-gray-900 px-2 py-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 rounded-lg flex items-center justify-center"
-                            aria-label="Edit finance record"
-                            onClick={() => {
-                            setSelectedRecord(record);
-                            editForm.reset({
-                              uniqueId: record.uniqueId ?? '',
-                              projectId: record.projectId ?? '',
-                              sampleCollectionDate: record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toISOString().slice(0,10) : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toISOString().slice(0,10) : undefined),
-                              organisationHospital: record.organisationHospital ?? record.sample?.lead?.organisationHospital ?? '',
-                              clinicianResearcherName: record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? '',
-                              clinicianResearcherEmail: record.clinicianResearcherEmail ?? record.sample?.lead?.clinicianResearcherEmail ?? '',
-                              clinicianResearcherPhone: record.clinicianResearcherPhone ?? record.sample?.lead?.clinicianResearcherPhone ?? '',
-                              clinicianResearcherAddress: record.clinicianResearcherAddress ?? record.sample?.lead?.clinicianResearcherAddress ?? '',
-                              patientClientName: record.patientClientName ?? record.sample?.lead?.patientClientName ?? '',
-                              patientClientEmail: record.patientClientEmail ?? record.sample?.lead?.patientClientEmail ?? '',
-                              patientClientPhone: record.patientClientPhone ?? record.sample?.lead?.patientClientPhone ?? '',
-                              patientClientAddress: record.patientClientAddress ?? record.sample?.lead?.patientClientAddress ?? '',
-                              serviceName: record.serviceName ?? record.sample?.lead?.serviceName ?? '',
-                              budget: record.budget ?? record.sample?.lead?.budget ?? '',
-                              salesResponsiblePerson: record.salesResponsiblePerson ?? record.sample?.lead?.salesResponsiblePerson ?? '',
-                              invoiceNumber: record.invoiceNumber ?? '',
-                              invoiceAmount: record.invoiceAmount ?? '',
-                              invoiceDate: record.invoiceDate ? new Date(record.invoiceDate).toISOString().slice(0,10) : undefined,
-                              paymentReceiptAmount: record.paymentReceiptAmount ?? '',
-                              modeOfPayment: record.modeOfPayment ?? '',
-                              utrDetails: record.utrDetails ?? '',
-                              balanceAmountReceivedDate: record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toISOString().slice(0,10) : undefined,
-                              totalAmountReceivedStatus: record.totalAmountReceivedStatus ?? false,
-                              phlebotomistCharges: record.phlebotomistCharges ?? record.sample?.lead?.phlebotomistCharges ?? '',
-                              sampleShipmentAmount: record.sampleShipmentAmount ?? record.sample?.lead?.sampleShipmentAmount ?? '',
-                              thirdPartyCharges: record.thirdPartyCharges ?? '',
-                              otherCharges: record.otherCharges ?? '',
-                              thirdPartyName: record.thirdPartyName ?? '',
-                              thirdPartyPhone: record.thirdPartyPhone ?? '',
-                              thirdPartyPaymentStatus: record.thirdPartyPaymentStatus ?? false,
-                              balanceAmount: record.balanceAmount ?? '',
-                              paymentReceiptDate: record.paymentReceiptDate ? new Date(record.paymentReceiptDate).toISOString().slice(0,10) : undefined,
-                              transactionalNumber: record.transactionalNumber ?? record.transactionNumber ?? '',
-                              otherChargesReason: record.otherChargesReason ?? '',
-                              thirdPartyPaymentDate: record.thirdPartyPaymentDate ? new Date(record.thirdPartyPaymentDate).toISOString().slice(0,10) : undefined,
-                              alertToLabprocessTeam: record.alertToLabprocessTeam ?? false,
-                              alertToReportTeam: record.alertToReportTeam ?? false,
-                              alertToTechnicalLead: record.alertToTechnicalLead ?? false,
-                              remarkComment: record.remarkComment ?? '',
-                              createdAt: record.createdAt ? new Date(record.createdAt).toISOString().slice(0, 16) : '',
-                              createdBy: record.createdBy ?? '',
-                              modifiedAt: record.modifiedAt ? new Date(record.modifiedAt).toISOString().slice(0, 16) : '',
-                              modifiedBy: record.modifiedBy ?? '',
-                            });
-                            setIsEditDialogOpen(true);
-                          }}>
-                            <EditIcon className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Delete finance record" onClick={() => {
-                            if (!confirm('Delete this finance record? This action cannot be undone.')) return;
-                            // Server snapshots finance deletes; don't create local duplicate
-                            deleteFinanceMutation.mutate({ id: record.id });
-                          }}>
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                  })
-                  )}
-                </TableBody>
-                </Table>
+                      <TableRow>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Project ID</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Sample Collection Date</TableHead>
+                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Organisation / Hospital</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Name</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Email</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Phone</TableHead>
+                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Clinician / Researcher Address</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Name</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Email</TableHead>
+                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Patient / Client Phone</TableHead>
+                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Patient / Client Address</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Service Name</TableHead>
+                        <TableHead className="min-w-[120px] whitespace-nowrap font-semibold">Budget</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Phlebotomist Charges</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Sales / Responsible Person</TableHead>
+                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Sample Shipment Amount</TableHead>
+                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Invoice Number</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Amount</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Date</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Amount</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Balance Amount</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Date</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Mode of Payment</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Transactional Number</TableHead>
+                        <TableHead className="min-w-[170px] whitespace-nowrap font-semibold">Balance Amount Received Date</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Total Amount Received Status</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">UTR Details</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Charges</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Other Charges</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Other Charges Reason</TableHead>
+                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Name</TableHead>
+                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Third Party Phone</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Date</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Status</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Alert to Labprocess Team</TableHead>
+                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Report Team</TableHead>
+                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Technical Lead</TableHead>
+                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created At</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created By</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
+                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
+                        <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
+                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredFinanceRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={FINANCE_HEADER_COUNT} className="text-center py-8 text-gray-500 dark:text-gray-400">No finance records match your search</TableCell>
+                        </TableRow>
+                      ) : (
+                        visibleRows.map((record: any) => {
+                          const projectIdDisplay = record.projectId ?? record.project_id ?? record.sample?.projectId ?? record.sample?.project_id ?? record.sample?.lead?.projectId ?? record.sample?.lead?.project_id ?? record.sample?.lead?.id ?? 'N/A';
+                          const uniqueIdDisplay = record.uniqueId ?? (record as any).unique_id ?? record.sample?.lead?.id ?? '-';
+                          return (
+                            <TableRow key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                              <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{uniqueIdDisplay}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{projectIdDisplay}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>
+                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherEmail ?? record.sample?.lead?.clinicianResearcherEmail ?? '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherPhone ?? record.sample?.lead?.clinicianResearcherPhone ?? record.sample?.lead?.phone ?? '-'}</TableCell>
+                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.clinicianResearcherAddress ?? record.sample?.lead?.clinicianResearcherAddress ?? record.sample?.lead?.location ?? '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientName ?? record.sample?.lead?.patientClientName ?? '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientEmail ?? record.sample?.lead?.patientClientEmail ?? '-'}</TableCell>
+                              <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.patientClientPhone ?? record.sample?.lead?.patientClientPhone ?? '-'}</TableCell>
+                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.patientClientAddress ?? record.sample?.lead?.patientClientAddress ?? '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.serviceName ?? record.sample?.lead?.serviceName ?? '-'}</TableCell>
+                              <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{record.budget != null ? `₹${formatINR(Number(record.budget))}` : (record.sample?.lead?.budget != null ? `₹${formatINR(Number(record.sample.lead.budget))}` : '-')}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.phlebotomistCharges != null ? `₹${formatINR(Number(record.phlebotomistCharges))}` : (record.sample?.lead?.phlebotomistCharges != null ? `₹${formatINR(Number(record.sample.lead.phlebotomistCharges))}` : '-')}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.salesResponsiblePerson ?? record.sample?.lead?.salesResponsiblePerson ?? '-'}</TableCell>
+                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sampleShipmentAmount))}` : (record.sample?.lead?.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sample.lead.sampleShipmentAmount))}` : '-')}</TableCell>
+                              <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.invoiceNumber ?? '-'}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceAmount != null ? `₹${formatINR(Number(record.invoiceAmount))}` : '-'}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceDate ? new Date(record.invoiceDate).toLocaleDateString() : '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptAmount != null ? `₹${formatINR(Number(record.paymentReceiptAmount))}` : '-'}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.balanceAmount != null ? `₹${formatINR(Number(record.balanceAmount))}` : '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptDate ? new Date(record.paymentReceiptDate).toLocaleDateString() : '-'}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.modeOfPayment || '-'}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.transactionalNumber ?? record.transactionNumber ?? '-'}</TableCell>
+                              <TableCell className="min-w-[170px] text-gray-900 dark:text-white">{record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toLocaleDateString() : '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.totalAmountReceivedStatus ? 'Yes' : 'No'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.utrDetails ?? '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyCharges != null ? `₹${formatINR(Number(record.thirdPartyCharges))}` : '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.otherCharges != null ? `₹${formatINR(Number(record.otherCharges))}` : '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.otherChargesReason ?? '-'}</TableCell>
+                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.thirdPartyName ?? '-'}</TableCell>
+                              <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.thirdPartyPhone ?? '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentDate ? new Date(record.thirdPartyPaymentDate).toLocaleDateString() : '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentStatus ? 'Yes' : 'No'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.alertToLabprocessTeam ? 'Yes' : 'No'}</TableCell>
+                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToReportTeam ? 'Yes' : 'No'}</TableCell>
+                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToTechnicalLead ? 'Yes' : 'No'}</TableCell>
+                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
+                                {renderAttachmentLink(record.screenshotDocument ?? record.screenshot_document)}
+                              </TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.createdAt ?? record.created_at) ? new Date(record.createdAt ?? record.created_at).toLocaleString() : '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.createdBy ?? record.created_by ?? '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>
+                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>
+                              <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>
+                              <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
+                                <div className="action-buttons flex space-x-1 items-center justify-center h-full bg-white dark:bg-gray-900 px-2 py-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 rounded-lg flex items-center justify-center"
+                                    aria-label="Edit finance record"
+                                    onClick={() => {
+                                      setSelectedRecord(record);
+                                      editForm.reset({
+                                        uniqueId: record.uniqueId ?? '',
+                                        projectId: record.projectId ?? '',
+                                        sampleCollectionDate: record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toISOString().slice(0, 10) : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toISOString().slice(0, 10) : undefined),
+                                        organisationHospital: record.organisationHospital ?? record.sample?.lead?.organisationHospital ?? '',
+                                        clinicianResearcherName: record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? '',
+                                        clinicianResearcherEmail: record.clinicianResearcherEmail ?? record.sample?.lead?.clinicianResearcherEmail ?? '',
+                                        clinicianResearcherPhone: record.clinicianResearcherPhone ?? record.sample?.lead?.clinicianResearcherPhone ?? '',
+                                        clinicianResearcherAddress: record.clinicianResearcherAddress ?? record.sample?.lead?.clinicianResearcherAddress ?? '',
+                                        patientClientName: record.patientClientName ?? record.sample?.lead?.patientClientName ?? '',
+                                        patientClientEmail: record.patientClientEmail ?? record.sample?.lead?.patientClientEmail ?? '',
+                                        patientClientPhone: record.patientClientPhone ?? record.sample?.lead?.patientClientPhone ?? '',
+                                        patientClientAddress: record.patientClientAddress ?? record.sample?.lead?.patientClientAddress ?? '',
+                                        serviceName: record.serviceName ?? record.sample?.lead?.serviceName ?? '',
+                                        budget: record.budget ?? record.sample?.lead?.budget ?? '',
+                                        salesResponsiblePerson: record.salesResponsiblePerson ?? record.sample?.lead?.salesResponsiblePerson ?? '',
+                                        invoiceNumber: record.invoiceNumber ?? '',
+                                        invoiceAmount: record.invoiceAmount ?? '',
+                                        invoiceDate: record.invoiceDate ? new Date(record.invoiceDate).toISOString().slice(0, 10) : undefined,
+                                        paymentReceiptAmount: record.paymentReceiptAmount ?? '',
+                                        modeOfPayment: record.modeOfPayment ?? '',
+                                        utrDetails: record.utrDetails ?? '',
+                                        balanceAmountReceivedDate: record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toISOString().slice(0, 10) : undefined,
+                                        totalAmountReceivedStatus: record.totalAmountReceivedStatus ?? false,
+                                        phlebotomistCharges: record.phlebotomistCharges ?? record.sample?.lead?.phlebotomistCharges ?? '',
+                                        sampleShipmentAmount: record.sampleShipmentAmount ?? record.sample?.lead?.sampleShipmentAmount ?? '',
+                                        thirdPartyCharges: record.thirdPartyCharges ?? '',
+                                        otherCharges: record.otherCharges ?? '',
+                                        thirdPartyName: record.thirdPartyName ?? '',
+                                        thirdPartyPhone: record.thirdPartyPhone ?? '',
+                                        thirdPartyPaymentStatus: record.thirdPartyPaymentStatus ?? false,
+                                        balanceAmount: record.balanceAmount ?? '',
+                                        paymentReceiptDate: record.paymentReceiptDate ? new Date(record.paymentReceiptDate).toISOString().slice(0, 10) : undefined,
+                                        transactionalNumber: record.transactionalNumber ?? record.transactionNumber ?? '',
+                                        otherChargesReason: record.otherChargesReason ?? '',
+                                        thirdPartyPaymentDate: record.thirdPartyPaymentDate ? new Date(record.thirdPartyPaymentDate).toISOString().slice(0, 10) : undefined,
+                                        alertToLabprocessTeam: record.alertToLabprocessTeam ?? false,
+                                        alertToReportTeam: record.alertToReportTeam ?? false,
+                                        alertToTechnicalLead: record.alertToTechnicalLead ?? false,
+                                        remarkComment: record.remarkComment ?? '',
+                                        createdAt: record.createdAt ? new Date(record.createdAt).toISOString().slice(0, 16) : '',
+                                        createdBy: record.createdBy ?? '',
+                                        modifiedAt: record.modifiedAt ? new Date(record.modifiedAt).toISOString().slice(0, 16) : '',
+                                        modifiedBy: record.modifiedBy ?? '',
+                                      });
+                                      setIsEditDialogOpen(true);
+                                    }}>
+                                    <EditIcon className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Delete finance record" onClick={() => {
+                                    if (!confirm('Delete this finance record? This action cannot be undone.')) return;
+                                    // Server snapshots finance deletes; don't create local duplicate
+                                    deleteFinanceMutation.mutate({ id: record.id });
+                                  }}>
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
-              
+
               {/* Pagination Controls */}
               {totalFiltered > 0 && (
                 <div className="p-4 border-t">

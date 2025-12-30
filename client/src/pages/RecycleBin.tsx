@@ -93,31 +93,31 @@ export default function RecycleBin() {
         if (entityType) {
           switch (entityType) {
             case 'leads':
-              queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/leads'], refetchType: 'all' });
               break;
             case 'samples':
-              queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/samples'], refetchType: 'all' });
               break;
             case 'finance_records':
             case 'finance':
-              queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/finance-sheet'], refetchType: 'all' });
+              queryClient.invalidateQueries({ queryKey: ['/api/finance/stats'], refetchType: 'all' });
               break;
             case 'lab_processing':
-              queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/lab-processing'], refetchType: 'all' });
               break;
             case 'users':
-              queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/users'], refetchType: 'all' });
               break;
             case 'genetic_counselling':
-              queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'] });
+              await queryClient.invalidateQueries({ queryKey: ['/api/gc-registration'], refetchType: 'all' });
               break;
             default:
               // generic invalidation for unknown types
-              queryClient.invalidateQueries();
+              await queryClient.invalidateQueries({ refetchType: 'all' });
           }
         } else {
-          queryClient.invalidateQueries();
+          await queryClient.invalidateQueries({ refetchType: 'all' });
         }
         // notify any other listeners that recycle state changed
         window.dispatchEvent(new Event('ll:recycle:update'));
@@ -164,7 +164,7 @@ export default function RecycleBin() {
               </div>
               <div className="space-y-2">
                 {grouped[entityType].map((it) => (
-                    <div key={it.uid} className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div key={it.uid} className="flex items-center justify-between gap-4 p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
                     <div className="flex-1">
                       <div className="font-medium">{it.name ?? `${it.entityType} — ${it.entityId}`}</div>
                       <div className="text-xs text-muted-foreground space-y-1">

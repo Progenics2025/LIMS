@@ -18,10 +18,10 @@ export class AuthenticationModule extends AbstractModule {
   async validateSchema(): Promise<boolean> {
     try {
       const connection = await mysql.createConnection({
-        host: process.env.DB_HOST || '192.168.29.12',
+        host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'remote_user',
         password: decodeURIComponent(process.env.DB_PASSWORD || 'Prolab%2305'),
-        database: process.env.DB_NAME || 'leadlab_lims',
+        database: process.env.DB_NAME || 'lead_lims2',
       });
 
       const [rows] = await connection.execute('DESCRIBE users');

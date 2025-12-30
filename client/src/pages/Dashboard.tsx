@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "@/components/ui/currency-input";
-import { 
-  UserPlus, 
-  TestTube, 
-  IndianRupee, 
+import {
+  UserPlus,
+  TestTube,
+  IndianRupee,
   FileText,
   TrendingUp,
   Activity,
@@ -41,7 +41,7 @@ import {
   ComposedChart
 } from 'recharts';
 
-  // Type definitions
+// Type definitions
 interface Activity {
   id: string;
   action: string;
@@ -86,15 +86,15 @@ interface PerformanceMetrics {
       const deadline = new Date(regDate.getTime() + tatHours * 60 * 60 * 1000);
       const diffMs = deadline.getTime() - currentTime.getTime();
       const diffHrs = diffMs / (1000 * 60 * 60);
-      
+
       let urgency = 'normal';
       if (report.status === 'delivered' || report.status === 'approved') {
         urgency = 'completed';
       } else if (diffHrs < 0) {
         urgency = 'overdue';
-      } else if (diffHrs < 2) { 
+      } else if (diffHrs < 2) {
         urgency = 'critical';
-      } else if (diffHrs < 4) { 
+      } else if (diffHrs < 4) {
         urgency = 'warning';
       }
 
@@ -114,7 +114,7 @@ interface PerformanceMetrics {
     warning: processedReports.filter(r => r.urgency === 'warning').length,
     totalPending: processedReports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_approval').length
   };
-  
+
   const { data: stats } = useQuery({
     queryKey: ['/api/dashboard/stats'],
     refetchInterval: 30000, // Refresh every 30 seconds for real-time updates
@@ -132,13 +132,18 @@ interface PerformanceMetrics {
     refetchInterval: 60000, // Refresh every minute
   });
 
-  const weeklyRevenueData: any[] = [];
+  // Query for revenue analytics
+  const { data: revenueAnalytics } = useQuery({
+    queryKey: ['/api/dashboard/revenue-analytics'],
+    refetchInterval: 60000, // Refresh every minute
+  });
 
-  const monthlyRevenueData: any[] = [];
-
-  const yearlyRevenueData: any[] = [];
-
-  const revenueBreakdownData: any[] = [];
+  // Use revenue data from API or fallback to empty arrays
+  const weeklyRevenueData = (revenueAnalytics as any)?.weekly || [];
+  const monthlyRevenueData = (revenueAnalytics as any)?.monthly || [];
+  const yearlyRevenueData = (revenueAnalytics as any)?.yearly || [];
+  const revenueBreakdownData = (revenueAnalytics as any)?.breakdown || [];
+  const revenueSummary = (revenueAnalytics as any)?.summary || { totalRevenue: 0, thisMonth: 0, lastMonth: 0, monthlyGrowth: 0 };
 
   const statsCards = [
     {
@@ -149,22 +154,22 @@ interface PerformanceMetrics {
       bgColor: "bg-blue-50 dark:bg-blue-900/20",
     },
     {
-  title: "Samples Processing",
-  value: (stats as any)?.samplesProcessing || 0,
+      title: "Samples Processing",
+      value: (stats as any)?.samplesProcessing || 0,
       icon: TestTube,
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-50 dark:bg-green-900/20",
     },
     {
-  title: "Pending Revenue",
-  value: `₹${formatINR((stats as any)?.pendingRevenue || 0)}`,
+      title: "Pending Revenue",
+      value: `₹${formatINR((stats as any)?.pendingRevenue || 0)}`,
       icon: IndianRupee,
       color: "text-yellow-600 dark:text-yellow-400",
       bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
     },
     {
-  title: "Reports Pending",
-  value: (stats as any)?.reportsPending || 0,
+      title: "Reports Pending",
+      value: (stats as any)?.reportsPending || 0,
       icon: FileText,
       color: "text-red-600 dark:text-red-400",
       bgColor: "bg-red-50 dark:bg-red-900/20",
@@ -182,7 +187,7 @@ interface PerformanceMetrics {
   // Helper function to format time ago
   const formatTimeAgo = (dateString: string) => {
     if (!dateString) return 'Unknown time';
-    
+
     try {
       const date = new Date(dateString);
       const now = new Date();
@@ -271,36 +276,36 @@ interface PerformanceMetrics {
 
       {/* TAT Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <TATStatCard 
-          title="Critical Overdue" 
-          count={tatStats.overdue} 
+        <TATStatCard
+          title="Critical Overdue"
+          count={tatStats.overdue}
           icon={AlertTriangle}
           colorClass="text-red-600"
           bgClass="bg-red-100"
           borderClass="bg-red-500"
           subText="Requires Validation"
         />
-        <TATStatCard 
-          title="High Risk (<2h)" 
-          count={tatStats.critical} 
+        <TATStatCard
+          title="High Risk (<2h)"
+          count={tatStats.critical}
           icon={Timer}
           colorClass="text-orange-500"
           bgClass="bg-orange-100"
           borderClass="bg-orange-500"
           subText="Expiring Soon"
         />
-        <TATStatCard 
-          title="Approaching (<4h)" 
-          count={tatStats.warning} 
+        <TATStatCard
+          title="Approaching (<4h)"
+          count={tatStats.warning}
           icon={Clock}
           colorClass="text-yellow-600"
           bgClass="bg-yellow-100"
           borderClass="bg-yellow-500"
           subText="Keep Monitor"
         />
-        <TATStatCard 
-          title="Active Workload" 
-          count={tatStats.totalPending} 
+        <TATStatCard
+          title="Active Workload"
+          count={tatStats.totalPending}
           icon={Activity}
           colorClass="text-[#0085CA]"
           bgClass="bg-[#E6F6FD]"
@@ -330,11 +335,10 @@ interface PerformanceMetrics {
               .map(report => (
                 <div key={report.id} className="p-4 hover:bg-blue-50/30 transition-colors flex items-center justify-between group cursor-pointer">
                   <div className="flex items-start gap-4">
-                    <div className={`w-1 h-12 rounded-full ${
-                      report.urgency === 'overdue' ? 'bg-red-500' : 
-                      report.urgency === 'critical' ? 'bg-orange-500' : 
-                      report.urgency === 'warning' ? 'bg-yellow-500' : 'bg-emerald-500'
-                    }`}></div>
+                    <div className={`w-1 h-12 rounded-full ${report.urgency === 'overdue' ? 'bg-red-500' :
+                      report.urgency === 'critical' ? 'bg-orange-500' :
+                        report.urgency === 'warning' ? 'bg-yellow-500' : 'bg-emerald-500'
+                      }`}></div>
                     <div>
                       <h4 className="font-bold text-slate-700 group-hover:text-[#0085CA] transition-colors">{report.sample?.lead?.serviceName || 'Unknown Test'}</h4>
                       <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
@@ -348,7 +352,7 @@ interface PerformanceMetrics {
                     <p className="text-xs text-slate-400 mt-1 font-mono">Target: {report.tatHours}h</p>
                   </div>
                 </div>
-            ))}
+              ))}
             {processedReports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_approval').length === 0 && (
               <div className="p-8 text-center text-slate-500">
                 No pending reports
@@ -430,19 +434,19 @@ interface PerformanceMetrics {
               </p>
             </div>
             <div className="space-x-2">
-              <Button 
+              <Button
                 variant={selectedPeriod === 'weekly' ? 'default' : 'outline'}
                 onClick={() => setSelectedPeriod('weekly')}
               >
                 Weekly
               </Button>
-              <Button 
+              <Button
                 variant={selectedPeriod === 'monthly' ? 'default' : 'outline'}
                 onClick={() => setSelectedPeriod('monthly')}
               >
                 Monthly
               </Button>
-              <Button 
+              <Button
                 variant={selectedPeriod === 'yearly' ? 'default' : 'outline'}
                 onClick={() => setSelectedPeriod('yearly')}
               >
@@ -463,10 +467,10 @@ interface PerformanceMetrics {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      YTD Revenue
+                      Total Revenue
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹0
+                      ₹{(revenueSummary.totalRevenue || 0).toLocaleString('en-IN')}
                     </dd>
                   </dl>
                 </div>
@@ -483,10 +487,10 @@ interface PerformanceMetrics {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      Annual Target
+                      Last Month
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹0
+                      ₹{(revenueSummary.lastMonth || 0).toLocaleString('en-IN')}
                     </dd>
                   </dl>
                 </div>
@@ -503,10 +507,10 @@ interface PerformanceMetrics {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      Projected YE
+                      Monthly Growth
                     </dt>
-                    <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹0
+                    <dd className={`text-2xl font-bold ${revenueSummary.monthlyGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {revenueSummary.monthlyGrowth >= 0 ? '+' : ''}{revenueSummary.monthlyGrowth || 0}%
                     </dd>
                   </dl>
                 </div>
@@ -526,7 +530,7 @@ interface PerformanceMetrics {
                       This Month
                     </dt>
                     <dd className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ₹0
+                      ₹{(revenueSummary.thisMonth || 0).toLocaleString('en-IN')}
                     </dd>
                   </dl>
                 </div>
@@ -548,38 +552,39 @@ interface PerformanceMetrics {
             <CardContent>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart 
-                    data={selectedPeriod === 'weekly' 
-                      ? weeklyRevenueData 
-                      : selectedPeriod === 'yearly' 
-                        ? yearlyRevenueData 
+                  <ComposedChart
+                    data={selectedPeriod === 'weekly'
+                      ? weeklyRevenueData
+                      : selectedPeriod === 'yearly'
+                        ? yearlyRevenueData
                         : monthlyRevenueData}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
+                    <XAxis
                       dataKey={
-                        selectedPeriod === 'weekly' 
-                          ? 'week' 
-                          : selectedPeriod === 'yearly' 
-                            ? 'year' 
+                        selectedPeriod === 'weekly'
+                          ? 'week'
+                          : selectedPeriod === 'yearly'
+                            ? 'year'
                             : 'month'
-                      } 
+                      }
                     />
                     <YAxis tickFormatter={formatCurrency} />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number, name: string) => [
-                        formatTooltipCurrency(value), 
+                        formatTooltipCurrency(value),
                         name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
                       ]}
                     />
                     <Legend />
-                    <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" />
-                    <Line 
-                      type="monotone" 
-                      dataKey="target" 
-                      stroke="#f59e0b" 
-                      strokeWidth={2} 
-                      name="Target Revenue" 
+                    <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" barSize={60} />
+                    <Line
+                      type="monotone"
+                      dataKey="target"
+                      stroke="#f59e0b"
+                      strokeWidth={3}
+                      dot={{ fill: '#f59e0b', r: 8 }}
+                      name="Target Revenue"
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -602,9 +607,9 @@ interface PerformanceMetrics {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="year" />
                     <YAxis tickFormatter={formatCurrency} />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number, name: string) => [
-                        formatTooltipCurrency(value), 
+                        formatTooltipCurrency(value),
                         name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
                       ]}
                     />
@@ -627,15 +632,15 @@ interface PerformanceMetrics {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {revenueBreakdownData.map((item, index) => (
+                {revenueBreakdownData.map((item: any, index: number) => (
                   <div key={index} className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div 
+                      <div
                         className="w-4 h-4 rounded-full"
-                        style={{ 
+                        style={{
                           backgroundColor: [
                             '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'
-                          ][index] 
+                          ][index]
                         }}
                       />
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -661,12 +666,12 @@ interface PerformanceMetrics {
                       <XAxis dataKey="category" />
                       <YAxis tickFormatter={formatCurrency} />
                       <Tooltip formatter={(value: number) => formatTooltipCurrency(value)} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="revenue" 
-                        stroke="#10b981" 
-                        fill="#10b981" 
-                        fillOpacity={0.6} 
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#10b981"
+                        fill="#10b981"
+                        fillOpacity={0.6}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -695,8 +700,8 @@ interface PerformanceMetrics {
           <CardContent>
             <div className="space-y-4 h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {activities.map((activity: Activity, index: number) => (
-                <div 
-                  key={activity.id || index} 
+                <div
+                  key={activity.id || index}
                   className={`flex items-start space-x-3 p-3 rounded-lg border ${getActivityColor(activity.type)}`}
                 >
                   <div className="flex-shrink-0 mt-0.5">
@@ -753,8 +758,8 @@ interface PerformanceMetrics {
                   <span className="text-sm font-semibold text-green-600">{metrics.leadConversionRate}%</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                  <div 
-                    className="bg-green-600 h-3 rounded-full transition-all duration-300" 
+                  <div
+                    className="bg-green-600 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${metrics.leadConversionRate}%` }}
                   ></div>
                 </div>

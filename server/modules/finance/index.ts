@@ -7,7 +7,7 @@ import mysql from 'mysql2/promise';
 export class FinanceModule extends AbstractModule {
   name = 'finance';
   version = '1.0.0';
-  
+
   constructor(storage: DBStorage) {
     super(storage);
   }
@@ -35,7 +35,7 @@ export class FinanceModule extends AbstractModule {
     const whereClauses = searchCols.map(col => `${col} LIKE ?`);
     const whereClause = `WHERE ${whereClauses.join(' OR ')}`;
 
-    const orderClause = sortBy 
+    const orderClause = sortBy
       ? `ORDER BY ${sortBy} ${sortDir.toUpperCase()}`
       : 'ORDER BY fr.created_at DESC';
 
@@ -74,10 +74,10 @@ export class FinanceModule extends AbstractModule {
 
       // Execute queries using module's connection pool
       const connection = await mysql.createConnection({
-        host: process.env.DB_HOST || '192.168.29.12',
+        host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'remote_user',
         password: decodeURIComponent(process.env.DB_PASSWORD || 'Prolab%2305'),
-        database: process.env.DB_NAME || 'leadlab_lims',
+        database: process.env.DB_NAME || 'lead_lims2',
       });
 
       const [rows] = await connection.execute(sql, queryBindings);
@@ -86,31 +86,31 @@ export class FinanceModule extends AbstractModule {
 
       const total = (countResult as any)[0]?.cnt || 0;
       console.log(`Found ${(rows as any[]).length} records out of ${total} total matches`);
-      
+
       return { rows, total };
     } catch (error) {
       console.error('Finance search error:', error);
       throw error;
     }
   }
-  
+
   async validateSchema(): Promise<boolean> {
     try {
       const connection = await mysql.createConnection({
-        host: process.env.DB_HOST || '192.168.29.12',
+        host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'remote_user',
         password: decodeURIComponent(process.env.DB_PASSWORD || 'Prolab%2305'),
-        database: process.env.DB_NAME || 'leadlab_lims',
+        database: process.env.DB_NAME || 'lead_lims2',
       });
-      
+
       const [rows] = await connection.execute('DESCRIBE finance_sheet');
       await connection.end();
-      
+
       const columns = (rows as any[]).map(row => row.Field);
       const requiredColumns = ['id', 'unique_id', 'project_id', 'invoice_number', 'organisation_hospital'];
-      
+
       const hasAllColumns = requiredColumns.every(col => columns.includes(col));
-      
+
       console.log(`Finance Schema Check: ${hasAllColumns ? '✅' : '❌'}`);
       return hasAllColumns;
     } catch (error) {
@@ -118,17 +118,17 @@ export class FinanceModule extends AbstractModule {
       return false;
     }
   }
-  
+
   registerRoutes(app: Express): void {
     console.log('🔗 Registering Finance routes...');
-    
+
     // Get finance stats
     app.get('/api/finance/stats', async (req, res) => {
       try {
         if (!this.enabled) {
           return res.status(503).json({ message: 'Finance module is disabled' });
         }
-        
+
         const stats = await this.storage.getFinanceStats();
         res.json(stats);
       } catch (error) {
@@ -141,14 +141,14 @@ export class FinanceModule extends AbstractModule {
         });
       }
     });
-    
+
     // Get pending approvals
     app.get('/api/finance/pending-approvals', async (req, res) => {
       try {
         if (!this.enabled) {
           return res.status(503).json({ message: 'Finance module is disabled' });
         }
-        
+
         const approvals = await this.storage.getPendingFinanceApprovals();
         res.json(approvals);
       } catch (error) {
@@ -156,7 +156,7 @@ export class FinanceModule extends AbstractModule {
         res.json([]);
       }
     });
-    
+
     // Get all finance records (supports pagination, sorting and simple search)
     app.get('/api/finance/records', async (req, res) => {
       try {
@@ -178,23 +178,23 @@ export class FinanceModule extends AbstractModule {
           } catch (searchError) {
             console.error('Error in finance search:', searchError);
             // Fall back to standard method on search error
-            const result = await this.storage.getFinanceRecords({ 
-              page, 
-              pageSize, 
-              sortBy, 
+            const result = await this.storage.getFinanceRecords({
+              page,
+              pageSize,
+              sortBy,
               sortDir: sortDir as any,
-              query: null 
+              query: null
             });
             return res.json(result);
           }
         } else {
           // Use standard method for no-search case
-          const result = await this.storage.getFinanceRecords({ 
-            page, 
-            pageSize, 
-            sortBy, 
+          const result = await this.storage.getFinanceRecords({
+            page,
+            pageSize,
+            sortBy,
             sortDir: sortDir as any,
-            query: null 
+            query: null
           });
           return res.json(result);
         }
@@ -203,7 +203,7 @@ export class FinanceModule extends AbstractModule {
         res.json({ rows: [], total: 0 });
       }
     });
-    
+
     // Update finance record
     // Update finance record
     app.put('/api/finance/records/:id', async (req, res) => {
@@ -265,9 +265,9 @@ export class FinanceModule extends AbstractModule {
         let normalized: any = normalizeDateFields(req.body);
         // Coerce money/decimal fields that may come as numeric strings into Numbers
         const moneyKeys = [
-          'amount','totalAmount','taxAmount','discountAmount','lateFees','refundAmount',
-          'invoiceAmount','paymentReceivedAmount','phlebotomistCharges','sampleShipmentAmount',
-          'thirdPartyCharges','otherCharges','budget'
+          'amount', 'totalAmount', 'taxAmount', 'discountAmount', 'lateFees', 'refundAmount',
+          'invoiceAmount', 'paymentReceivedAmount', 'phlebotomistCharges', 'sampleShipmentAmount',
+          'thirdPartyCharges', 'otherCharges', 'budget'
         ];
         for (const k of moneyKeys) {
           if (!Object.prototype.hasOwnProperty.call(normalized, k)) continue;
@@ -366,13 +366,13 @@ export class FinanceModule extends AbstractModule {
         res.status(500).json({ message: 'Failed to update finance record' });
       }
     });
-    
+
     // Module health check
     app.get('/api/modules/finance/health', async (req, res) => {
       const health = await this.healthCheck();
       res.status(health.status === 'healthy' ? 200 : 503).json(health);
     });
-    
+
     console.log('✅ Finance routes registered');
   }
 }

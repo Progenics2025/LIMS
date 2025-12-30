@@ -16,6 +16,7 @@ import type { SampleWithLead } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useMemo } from "react";
+import { FilterBar } from "@/components/FilterBar";
 
 export default function SampleTracking() {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
@@ -29,6 +30,8 @@ export default function SampleTracking() {
   const queryClient = useQueryClient();
   // Client-side search & pagination for samples table
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
@@ -90,6 +93,7 @@ export default function SampleTracking() {
       id: get('id', 'id'),
       uniqueId: get('unique_id', 'uniqueId'),
       projectId: get('project_id', 'projectId'),
+      status: get('status', 'status'),
       sampleCollectionDate: get('sample_collection_date', 'sampleCollectionDate') || lead?.sampleCollectionDate,
       sampleShippedDate: get('sample_shipped_date', 'sampleShippedDate') || lead?.sampleShippedDate,
       sampleDeliveryDate: get('sample_delivery_date', 'sampleDeliveryDate') || lead?.sampleDeliveryDate,
@@ -128,15 +132,40 @@ export default function SampleTracking() {
 
   // derived filtering & pagination for samples (computed in component scope)
   const filteredSamples = normalizedSamples.filter((s) => {
+    // 1. Status Filter
     if (statusFilter && statusFilter !== 'all' && String(s.status) !== String(statusFilter)) return false;
-    if (!searchQuery) return true;
-    const sq = searchQuery.toLowerCase();
-    return (
-      (String(s.uniqueId || '')).toLowerCase().includes(sq) ||
-      (String(s.projectId || '')).toLowerCase().includes(sq) ||
-      (String(s.patientClientName || '')).toLowerCase().includes(sq) ||
-      (String(s.patientClientPhone || '')).toLowerCase().includes(sq)
-    );
+
+    // 2. Search Query (Global)
+    let matchesSearch = true;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      matchesSearch = Object.values(s).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
+
+    // 3. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = (s as any)[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   const totalFiltered = filteredSamples.length;
@@ -171,12 +200,13 @@ export default function SampleTracking() {
       const response = await apiRequest('PUT', `/api/sample-tracking/${sampleId}`, updates);
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/samples'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking/stats'], refetchType: 'all' });
       setIsUpdateDialogOpen(false);
       toast({
         title: "Sample updated",
@@ -197,12 +227,12 @@ export default function SampleTracking() {
       const response = await apiRequest('DELETE', `/api/sample-tracking/${sampleId}`);
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/samples'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       toast({ title: 'Sample deleted', description: 'Sample has been deleted' });
       // Notify recycle UI to refresh (server snapshots deleted samples)
       window.dispatchEvent(new Event('ll:recycle:update'));
@@ -244,16 +274,16 @@ export default function SampleTracking() {
       });
       return response.json();
     },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'] });
+    onSuccess: async (data: any) => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/sample-tracking'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/samples'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical-sheet'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-discovery'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/labprocess-clinical'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       toast({
         title: "Alert Sent",
         description: `Lab process record created. Sample has been alerted to Lab Process team.`,
@@ -278,7 +308,7 @@ export default function SampleTracking() {
       // Map file type to API category
       const category = type === 'report' ? 'Thirdparty_Report' : 'Thirdparty_TRF';
       const sampleId = selectedSample?.id || 'new';
-      
+
       // Use the new categorized API endpoint
       const res = await fetch(`/api/uploads/categorized?category=${category}&entityType=sample&entityId=${sampleId}`, {
         method: 'POST',
@@ -286,24 +316,24 @@ export default function SampleTracking() {
       });
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
-      
+
       // Store the file path from the new API response
       if (type === 'report') {
         setUploadedThirdPartyReport(data.filePath);
       } else {
         setUploadedThirdPartyTrf(data.filePath);
       }
-      
+
       console.log('✅ File uploaded successfully:', {
         filePath: data.filePath,
         uploadId: data.uploadId,
         category: data.category,
         fileSize: data.fileSize
       });
-      
-      toast({ 
-        title: 'Success', 
-        description: `File uploaded successfully to ${data.category} folder` 
+
+      toast({
+        title: 'Success',
+        description: `File uploaded successfully to ${data.category} folder`
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
@@ -313,45 +343,69 @@ export default function SampleTracking() {
 
   const { add } = useRecycle();
 
-  const getStatusCounts = () => {
+  // Fetch sample tracking stats from API
+  const { data: sampleStats } = useQuery<{
+    totalSamples: number;
+    samplesAwaitingPickup: number;
+    samplesInTransit: number;
+    samplesReceived: number;
+    samplesProcessing: number;
+  }>({
+    queryKey: ['/api/sample-tracking/stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/sample-tracking/stats');
+      if (!res.ok) throw new Error('Failed to fetch sample tracking stats');
+      return res.json();
+    },
+  });
+
+  // Calculate status counts based on actual data fields
+  const getStatusCounts = (samplesToCount: any[] = normalizedSamples) => {
+    // Pending samples: not yet sent to lab processing (alertToLabprocessTeam is false/null)
+    const pendingSamples = samplesToCount.filter(s =>
+      !s.alertToLabprocessTeam
+    ).length;
+
+    // Sent for processing samples
+    const sentForProcessing = samplesToCount.filter(s =>
+      s.alertToLabprocessTeam === true
+    ).length;
+
     return {
-      pickup_scheduled: samples.filter(s => s.status === 'pickup_scheduled').length,
-      in_transit: samples.filter(s => s.status === 'in_transit').length,
-      received: samples.filter(s => s.status === 'received').length,
-      lab_processing: samples.filter(s => s.status === 'lab_processing').length,
-      bioinformatics: samples.filter(s => s.status === 'bioinformatics').length,
-      reporting: samples.filter(s => s.status === 'reporting').length,
-      completed: samples.filter(s => s.status === 'completed').length,
+      total: samplesToCount.length,
+      pending: pendingSamples,
+      sent_for_processing: sentForProcessing,
+      received: samplesToCount.length, // All in tracking are received
     };
   };
 
-  const statusCounts = getStatusCounts();
+  const statusCounts = getStatusCounts(normalizedSamples);
 
   const statusCards = [
     {
-      title: "Pickup Scheduled",
-      value: statusCounts.pickup_scheduled,
+      title: "Total Samples",
+      value: sampleStats?.totalSamples ?? statusCounts.total,
       icon: Package,
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
-    },
-    {
-      title: "In Transit",
-      value: statusCounts.in_transit,
-      icon: Truck,
       color: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-50 dark:bg-blue-900/20",
     },
     {
-      title: "Received",
-      value: statusCounts.received,
+      title: "Awaiting Processing",
+      value: sampleStats?.samplesAwaitingPickup ?? statusCounts.pending,
+      icon: Truck,
+      color: "text-yellow-600 dark:text-yellow-400",
+      bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
+    },
+    {
+      title: "Sent For Processing",
+      value: sampleStats?.samplesProcessing ?? statusCounts.sent_for_processing,
       icon: Activity,
       color: "text-green-600 dark:text-green-400",
       bgColor: "bg-green-50 dark:bg-green-900/20",
     },
     {
-      title: "In Processing",
-      value: statusCounts.lab_processing + statusCounts.bioinformatics + statusCounts.reporting,
+      title: "Samples Received",
+      value: sampleStats?.samplesReceived ?? statusCounts.received,
       icon: Activity,
       color: "text-purple-600 dark:text-purple-400",
       bgColor: "bg-purple-50 dark:bg-purple-900/20",
@@ -406,13 +460,15 @@ export default function SampleTracking() {
         {statusCards.map((card, index) => {
           const Icon = card.icon;
           return (
-            <Card key={index}>
-              <CardContent className="p-6 text-center">
-                <div className={`inline-flex p-3 rounded-lg ${card.bgColor} mb-3`}>
-                  <Icon className={`h-6 w-6 ${card.color}`} />
+            <Card key={index} className="overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center">
+                  <div className={`flex p-3 rounded-lg ${card.bgColor} mb-4`}>
+                    <Icon className={`h-6 w-6 ${card.color}`} />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white text-center break-words w-full">{card.value}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2 leading-tight">{card.title}</p>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{card.value}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{card.title}</p>
               </CardContent>
             </Card>
           );
@@ -426,43 +482,36 @@ export default function SampleTracking() {
         </CardHeader>
         <CardContent>
           {/* Search, status filter and page size controls */}
-          <div className="p-2 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <Input placeholder="Search Unique ID / Project ID / Patient Name / Phone" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} />
-              <Select onValueChange={(v) => { setStatusFilter(v); setPage(1); }} value={statusFilter}>
-                <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pickup_scheduled">Pickup Scheduled</SelectItem>
-                  <SelectItem value="in_transit">In Transit</SelectItem>
-                  <SelectItem value="received">Received</SelectItem>
-                  <SelectItem value="lab_processing">Lab Processing</SelectItem>
-                  <SelectItem value="bioinformatics">Bioinformatics</SelectItem>
-                  <SelectItem value="reporting">Reporting</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Label>Page size</Label>
-              <Select onValueChange={(v) => { setPageSize(parseInt(v || '25', 10)); setPage(1); }} value={String(pageSize)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="25">25</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "createdAt" },
+              { label: "Sample Collection Date", value: "sampleCollectionDate" },
+              { label: "Sample Shipped Date", value: "sampleShippedDate" },
+              { label: "Sample Delivery Date", value: "sampleDeliveryDate" },
+              { label: "Delivery Up To", value: "deliveryUpTo" },
+              { label: "Sample Received Date", value: "sampleReceivedDate" },
+              { label: "Sent to 3rd Party", value: "sampleSentToThirdPartyDate" },
+              { label: "Received from 3rd Party", value: "sampleReceivedToThirdPartyDate" },
+            ]}
+            totalItems={totalFiltered}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+            placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
+          />
 
           <div>
             <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper process-table-wrapper">
               <Table className="leads-table">
-                <TableHeader className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b-2">
+                <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b-2">
                   <TableRow>
-                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
+                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                     <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                     <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleCollectionDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Collection Date{sortKey === 'sampleCollectionDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
                     <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShippedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipped Date{sortKey === 'sampleShippedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
@@ -508,7 +557,7 @@ export default function SampleTracking() {
                     visibleSamples.map((sample) => {
                       return (
                         <TableRow key={sample.id} className={`${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                          <TableCell className="min-w-[120px] font-medium text-gray-900 dark:text-white">{sample.uniqueId ?? sample.id ?? '-'}</TableCell>
+                          <TableCell className="min-w-[120px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{sample.uniqueId ?? sample.id ?? '-'}</TableCell>
                           <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.projectId ?? '-'}</TableCell>
                           <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleCollectionDate ? new Date(sample.sampleCollectionDate).toLocaleDateString() : sample.lead?.sampleCollectionDate ? new Date(sample.lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>
                           <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleShippedDate ? new Date(sample.sampleShippedDate).toLocaleDateString() : sample.lead?.sampleShippedDate ? new Date(sample.lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>

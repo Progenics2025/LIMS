@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { notificationService } from "./services/NotificationService";
+import { emailAlertService } from "./services/EmailAlertService";
 import {
   insertUserSchema,
   insertLeadSchema,
@@ -1791,7 +1792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'SELECT id FROM report_management WHERE unique_id = ? LIMIT 1',
           [uniqueId]
         );
-        
+
         if ((existingReport as any[]).length > 0) {
           // Report already exists - return success with existing flag
           console.log('Report already exists for unique_id:', uniqueId);
@@ -1898,6 +1899,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the request if notification fails
       }
 
+      // Send email notification to Report team
+      try {
+        await emailAlertService.sendReportTeamAlert({
+          alertType: 'report',
+          uniqueId: uniqueId,
+          projectId: projectId,
+          sampleId: sampleId,
+          patientName: patientClientName || '',
+          serviceName: serviceName || '',
+          organisationHospital: organisationHospital || '',
+          clinicianName: clinicianResearcherName || '',
+          triggeredBy: createdBy || 'system'
+        });
+        console.log('📧 Report Team alert email sent successfully');
+      } catch (emailError) {
+        console.error('Warning: Failed to send Report Team alert email', (emailError as Error).message);
+        // Don't fail the request if email fails
+      }
+
       res.json({
         success: true,
         recordId: uniqueId,
@@ -1907,7 +1927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error in send-to-reports:', error);
-      
+
       // 🔍 Handle duplicate key error specifically
       if ((error as any).code === 'ER_DUP_ENTRY' || (error as any).sqlState === '23000') {
         console.log('Duplicate entry error - report already exists');
@@ -1918,7 +1938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: (error as Error).message,
         });
       }
-      
+
       res.status(500).json({
         message: 'Failed to send bioinformatics record to Reports',
         error: (error as Error).message,
@@ -2826,6 +2846,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recordId = result.insertId || data.id;
       console.log('Inserted bioinformatics_sheet_discovery with ID:', recordId);
 
+      // Send email notification to Bioinformatics team
+      try {
+        await emailAlertService.sendBioinformaticsAlert({
+          alertType: 'bioinformatics',
+          uniqueId: data.unique_id || '',
+          projectId: data.project_id || '',
+          sampleId: data.sample_id || '',
+          patientName: data.patient_client_name || '',
+          serviceName: data.service_name || '',
+          organisationHospital: data.organisation_hospital || '',
+          clinicianName: data.clinician_researcher_name || '',
+          triggeredBy: data.created_by || 'system'
+        });
+        console.log('📧 Bioinformatics alert email sent successfully (Discovery)');
+      } catch (emailError) {
+        console.error('Warning: Failed to send Bioinformatics alert email', (emailError as Error).message);
+        // Don't fail the request if email fails
+      }
+
       // Fetch and return the record by sample_id (most specific identifier)
       if (data.sample_id) {
         const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE sample_id = ? ORDER BY id DESC LIMIT 1', [data.sample_id]);
@@ -2913,13 +2952,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔍 Inserting bioinformatics_sheet_clinical record with columns:', keys);
       console.log('🔍 Request body data:', JSON.stringify(data, null, 2));
       console.log('🔍 Parsed values for INSERT:', values.map((v, i) => ({ column: keys[i], value: v })));
-      
+
       const [result]: any = await pool.execute(insertQuery, values);
 
       // Get the inserted row ID
       const recordId = result.insertId || data.id;
       console.log('✅ Inserted bioinformatics_sheet_clinical with ID:', recordId);
       console.log('✅ Insert result affectedRows:', result.affectedRows);
+
+      // Send email notification to Bioinformatics team
+      try {
+        await emailAlertService.sendBioinformaticsAlert({
+          alertType: 'bioinformatics',
+          uniqueId: data.unique_id || '',
+          projectId: data.project_id || '',
+          sampleId: data.sample_id || '',
+          patientName: data.patient_client_name || '',
+          serviceName: data.service_name || '',
+          organisationHospital: data.organisation_hospital || '',
+          clinicianName: data.clinician_researcher_name || '',
+          triggeredBy: data.created_by || 'system'
+        });
+        console.log('📧 Bioinformatics alert email sent successfully (Clinical)');
+      } catch (emailError) {
+        console.error('Warning: Failed to send Bioinformatics alert email', (emailError as Error).message);
+        // Don't fail the request if email fails
+      }
 
       // Fetch and return the record by sample_id (most specific identifier)
       if (data.sample_id) {
@@ -3109,6 +3167,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (updateError) {
         console.error('Warning: Failed to update sample_tracking flag', (updateError as Error).message);
         // Don't fail the entire request if sample update fails
+      }
+
+      // Send email notification to Lab Process team
+      try {
+        // Fetch patient name and clinician info from sample tracking or lead
+        let patientName = '';
+        let clinicianName = '';
+        let organisationHospital = '';
+        try {
+          const [sampleRows]: any = await pool.execute(
+            'SELECT patient_client_name, clinician_researcher_name, organisation_hospital FROM sample_tracking WHERE unique_id = ? LIMIT 1',
+            [uniqueId]
+          );
+          if (sampleRows && sampleRows.length > 0) {
+            patientName = sampleRows[0].patient_client_name || '';
+            clinicianName = sampleRows[0].clinician_researcher_name || '';
+            organisationHospital = sampleRows[0].organisation_hospital || '';
+          }
+        } catch (fetchErr) {
+          console.log('Warning: Could not fetch sample details for email');
+        }
+
+        await emailAlertService.sendLabProcessAlert({
+          alertType: 'lab_process',
+          uniqueId: uniqueId,
+          projectId: projectId,
+          sampleId: sampleId,
+          patientName: patientName,
+          serviceName: leadData.service_name || serviceName,
+          organisationHospital: organisationHospital,
+          clinicianName: clinicianName,
+          tableName: tableName,
+          triggeredBy: createdBy || 'system'
+        });
+        console.log('📧 Lab Process alert email sent successfully');
+      } catch (emailError) {
+        console.error('Warning: Failed to send Lab Process alert email', (emailError as Error).message);
+        // Don't fail the entire request if email fails
       }
 
       res.json({
@@ -3919,6 +4015,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Revenue Analytics API
+  app.get("/api/dashboard/revenue-analytics", async (req, res) => {
+    try {
+      // Get all finance records with date and amount data
+      const [financeRows]: any = await pool.execute(`
+        SELECT 
+          id,
+          created_at,
+          budget,
+          payment_receipt_amount,
+          invoice_amount,
+          service_name,
+          organisation_hospital
+        FROM finance_sheet
+        ORDER BY created_at DESC
+      `);
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      // Weekly data (last 12 weeks)
+      const weeklyData: { week: string; actual: number; target: number }[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - (i * 7 + weekStart.getDay()));
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+
+        let actual = 0;
+        for (const row of financeRows) {
+          const createdAt = new Date(row.created_at);
+          if (createdAt >= weekStart && createdAt < weekEnd) {
+            actual += parseFloat(row.payment_receipt_amount || row.budget || 0);
+          }
+        }
+
+        const weekLabel = `Week ${12 - i}`;
+        weeklyData.push({
+          week: weekLabel,
+          actual: Math.round(actual),
+          target: 50000 // Default weekly target
+        });
+      }
+
+      // Monthly data (last 12 months)
+      const monthlyData: { month: string; actual: number; target: number }[] = [];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      for (let i = 11; i >= 0; i--) {
+        const targetMonth = (currentMonth - i + 12) % 12;
+        const targetYear = currentMonth - i < 0 ? currentYear - 1 : currentYear;
+
+        let actual = 0;
+        for (const row of financeRows) {
+          const createdAt = new Date(row.created_at);
+          if (createdAt.getMonth() === targetMonth && createdAt.getFullYear() === targetYear) {
+            actual += parseFloat(row.payment_receipt_amount || row.budget || 0);
+          }
+        }
+
+        monthlyData.push({
+          month: `${monthNames[targetMonth]} ${targetYear}`,
+          actual: Math.round(actual),
+          target: 200000 // Default monthly target
+        });
+      }
+
+      // Yearly data (last 5 years)
+      const yearlyData: { year: string; actual: number; target: number }[] = [];
+      for (let i = 4; i >= 0; i--) {
+        const targetYear = currentYear - i;
+
+        let actual = 0;
+        for (const row of financeRows) {
+          const createdAt = new Date(row.created_at);
+          if (createdAt.getFullYear() === targetYear) {
+            actual += parseFloat(row.payment_receipt_amount || row.budget || 0);
+          }
+        }
+
+        yearlyData.push({
+          year: targetYear.toString(),
+          actual: Math.round(actual),
+          target: 2400000 // Default yearly target
+        });
+      }
+
+      // Revenue breakdown by service
+      const serviceBreakdown: { [key: string]: number } = {};
+      for (const row of financeRows) {
+        const service = row.service_name || 'Other';
+        const amount = parseFloat(row.payment_receipt_amount || row.budget || 0);
+        serviceBreakdown[service] = (serviceBreakdown[service] || 0) + amount;
+      }
+
+      const breakdownData = Object.entries(serviceBreakdown)
+        .filter(([_, value]) => value > 0)
+        .map(([name, value]) => ({
+          name: name || 'Other',
+          value: Math.round(value),
+          color: getRandomColor(name)
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10); // Top 10 services
+
+      // Summary stats
+      const totalRecords = financeRows.length;
+      const totalRevenue = financeRows.reduce((sum: number, row: any) =>
+        sum + parseFloat(row.payment_receipt_amount || row.budget || 0), 0
+      );
+      const thisMonthRevenue = monthlyData[monthlyData.length - 1]?.actual || 0;
+      const lastMonthRevenue = monthlyData[monthlyData.length - 2]?.actual || 0;
+      const monthlyGrowth = lastMonthRevenue > 0
+        ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1)
+        : '0';
+
+      res.json({
+        weekly: weeklyData,
+        monthly: monthlyData,
+        yearly: yearlyData,
+        breakdown: breakdownData,
+        summary: {
+          totalRecords,
+          totalRevenue: Math.round(totalRevenue),
+          thisMonth: Math.round(thisMonthRevenue),
+          lastMonth: Math.round(lastMonthRevenue),
+          monthlyGrowth: parseFloat(monthlyGrowth)
+        }
+      });
+    } catch (error) {
+      console.error('Failed to fetch revenue analytics:', (error as Error).message);
+      res.status(500).json({ message: "Failed to fetch revenue analytics" });
+    }
+  });
+
+  // Helper function for chart colors
+  function getRandomColor(seed: string): string {
+    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
   // Finance routes
   app.get("/api/finance/stats", async (req, res) => {
     try {
@@ -3926,6 +4168,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch finance stats" });
+    }
+  });
+
+  // ============================================================================
+  // NEW STATS API ENDPOINTS
+  // ============================================================================
+
+  // Lead Management Stats (Projected Revenue & Actual Revenue)
+  app.get("/api/leads/stats", async (req, res) => {
+    try {
+      const stats = await storage.getLeadsStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Failed to fetch leads stats:', error);
+      res.status(500).json({ message: "Failed to fetch leads stats" });
+    }
+  });
+
+  // Sample Tracking Stats
+  app.get("/api/sample-tracking/stats", async (req, res) => {
+    try {
+      const stats = await storage.getSampleTrackingStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Failed to fetch sample tracking stats:', error);
+      res.status(500).json({ message: "Failed to fetch sample tracking stats" });
+    }
+  });
+
+  // Lab Processing Stats
+  app.get("/api/lab-processing/stats", async (req, res) => {
+    try {
+      const stats = await storage.getLabProcessingStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Failed to fetch lab processing stats:', error);
+      res.status(500).json({ message: "Failed to fetch lab processing stats" });
     }
   });
 
@@ -4442,11 +4721,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updates = req.body || {};
       const keys = Object.keys(updates);
       if (keys.length === 0) return res.status(400).json({ message: 'No updates provided' });
-      
+
       // Filter out undefined/null keys and build safe SQL
       const safeKeys = keys.filter(k => updates[k] !== undefined);
       if (safeKeys.length === 0) return res.status(400).json({ message: 'No valid updates provided' });
-      
+
       const set = safeKeys.map(k => `\`${k}\` = ?`).join(', ');
       const values = safeKeys.map(k => {
         const v = updates[k];

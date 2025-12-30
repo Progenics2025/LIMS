@@ -16,6 +16,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatINR } from '@/components/ui/currency-input';
 import { PDFViewer } from '@/components/PDFViewer';
+import { FilterBar } from "@/components/FilterBar";
 
 function normalizeLead(l: any) {
   if (!l) return l;
@@ -153,6 +154,8 @@ export default function ProcessMaster() {
   const queryClient = useQueryClient();
   const { add } = useRecycle();
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [filterType, setFilterType] = useState<'clinical' | 'discovery' | 'combined'>('combined');
   const [editingLead, setEditingLead] = useState<any>(null);
   const [editSelectedTitle, setEditSelectedTitle] = useState('Dr');
@@ -264,15 +267,37 @@ export default function ProcessMaster() {
       if (!idToCheck.startsWith('DG')) return false;
     }
 
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (String(lead.uniqueId || '')).toLowerCase().includes(searchLower) ||
-      (String(lead.projectId || '')).toLowerCase().includes(searchLower) ||
-      (String(lead.sampleId || '')).toLowerCase().includes(searchLower) ||
-      (String(lead.clientId || '')).toLowerCase().includes(searchLower) ||
-      (String(lead.patientClientName || '')).toLowerCase().includes(searchLower) ||
-      (String(lead.patientClientPhone || '')).toLowerCase().includes(searchLower)
-    );
+    // 1. Search Query (Global)
+    let matchesSearch = true;
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase().trim();
+      matchesSearch = Object.values(lead).some(val => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') return Object.values(val).some(v => String(v ?? '').toLowerCase().includes(q));
+        return String(val).toLowerCase().includes(q);
+      });
+    }
+
+    // 2. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.from) {
+      const dateVal = lead[dateFilterField];
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const fromTime = dateRange.from.getTime();
+        const toTime = dateRange.to ? new Date(dateRange.to).setHours(23, 59, 59, 999) : fromTime;
+
+        if (dateRange.to) {
+          matchesDate = d.getTime() >= fromTime && d.getTime() <= toTime;
+        } else {
+          matchesDate = d.getTime() >= fromTime;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   // Pagination logic
@@ -284,12 +309,12 @@ export default function ProcessMaster() {
 
   const handleEdit = (lead: any) => {
     setEditingLead({ ...lead });
-    
+
     // Parse clinicianResearcherName into title and name for edit state
     const clinicianName = lead.clinicianResearcherName || '';
     const nameParts = clinicianName.split(' ');
     const titlePrefixes = ['Dr', 'Mr', 'Ms', 'Prof'];
-    
+
     if (titlePrefixes.includes(nameParts[0]) && nameParts.length > 1) {
       setEditSelectedTitle(nameParts[0]);
       setEditClinicianName(nameParts.slice(1).join(' '));
@@ -297,7 +322,7 @@ export default function ProcessMaster() {
       setEditSelectedTitle('Dr');
       setEditClinicianName(clinicianName);
     }
-    
+
     setIsEditDialogOpen(true);
   };
 
@@ -324,7 +349,7 @@ export default function ProcessMaster() {
       };
       const category = categoryMap[field] || field;
       const leadId = editingLead?.id || 'new';
-      
+
       // Use the new categorized API endpoint
       const res = await fetch(`/api/uploads/categorized?category=${category}&entityType=lead&entityId=${leadId}`, {
         method: 'POST',
@@ -335,10 +360,10 @@ export default function ProcessMaster() {
         throw new Error(errorData.message || 'Upload failed');
       }
       const data = await res.json();
-      
+
       // Store the file path from the new API response
       setEditingLead((prev: any) => ({ ...prev, [field]: data.filePath }));
-      
+
       console.log('✅ File uploaded successfully:', {
         field,
         filePath: data.filePath,
@@ -346,10 +371,10 @@ export default function ProcessMaster() {
         category: data.category,
         fileSize: data.fileSize
       });
-      
-      toast({ 
-        title: 'Success', 
-        description: `File uploaded successfully to ${data.category} folder` 
+
+      toast({
+        title: 'Success',
+        description: `File uploaded successfully to ${data.category} folder`
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
@@ -422,7 +447,7 @@ export default function ProcessMaster() {
         for (const [camel, snake] of Object.entries(fieldMapping)) {
           if (obj[camel] !== undefined && obj[camel] !== null) {
             let value = obj[camel];
-            
+
             // Format date fields to YYYY-MM-DD
             if (dateFields.includes(camel) && value) {
               if (value instanceof Date) {
@@ -432,7 +457,7 @@ export default function ProcessMaster() {
                 value = value.split('T')[0];
               }
             }
-            
+
             dbObj[snake] = value;
           }
         }
@@ -469,7 +494,7 @@ export default function ProcessMaster() {
       setEditingLead(null);
       setEditSelectedTitle('Dr');
       setEditClinicianName('');
-      queryClient.invalidateQueries({ queryKey: ['/api/process-master'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/process-master'], refetchType: 'all' });
     } catch (error: any) {
       console.error('[ProcessMaster] Save error:', error);
       toast({ title: 'Error', description: error?.message || 'Failed to update record', variant: 'destructive' });
@@ -498,7 +523,7 @@ export default function ProcessMaster() {
       await apiRequest('DELETE', `/api/process-master/${id}`);
 
       toast({ title: 'Success', description: 'Record moved to recycle bin' });
-      queryClient.invalidateQueries({ queryKey: ['/api/process-master'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/process-master'], refetchType: 'all' });
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to delete record', variant: 'destructive' });
     }
@@ -513,22 +538,36 @@ export default function ProcessMaster() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800">Process Master</h1>
         <div className="flex gap-4">
-          <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="combined">Combined</SelectItem>
-              <SelectItem value="clinical">Clinical (PG)</SelectItem>
-              <SelectItem value="discovery">Discovery (DG)</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            placeholder="Search Unique ID / Project ID / Sample ID / Client ID / Patient Name / Phone "
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-64"
-          />
+          <FilterBar
+            searchQuery={searchTerm}
+            setSearchQuery={setSearchTerm}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            dateFilterField={dateFilterField}
+            setDateFilterField={setDateFilterField}
+            dateFieldOptions={[
+              { label: "Created At", value: "createdAt" },
+              { label: "Sample Collection Date", value: "sampleCollectionDate" },
+              { label: "Sample Received Date", value: "sampleReceivedDate" },
+              { label: "Modified At", value: "modifiedAt" },
+            ]}
+            totalItems={filteredLeads.length}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPage={setPage}
+            placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
+          >
+            <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
+              <SelectTrigger className="w-[180px] bg-white dark:bg-gray-900">
+                <SelectValue placeholder="Filter Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="combined">Combined</SelectItem>
+                <SelectItem value="clinical">Clinical (PG)</SelectItem>
+                <SelectItem value="discovery">Discovery (DG)</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
         </div>
       </div>
 
@@ -536,105 +575,105 @@ export default function ProcessMaster() {
         <CardContent className="p-0">
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <Table className="leads-table w-full">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap">Unique ID</TableHead>
-                <TableHead className="whitespace-nowrap">Project ID</TableHead>
-                <TableHead className="whitespace-nowrap">Sample ID</TableHead>
-                <TableHead className="whitespace-nowrap">Client ID</TableHead>
-                <TableHead className="whitespace-nowrap">Organisation/Hospital</TableHead>
-                <TableHead className="whitespace-nowrap">Clinician/Researcher name</TableHead>
-                <TableHead className="whitespace-nowrap">Speciality</TableHead>
-                <TableHead className="whitespace-nowrap">Clinician/Researcher Email</TableHead>
-                <TableHead className="whitespace-nowrap">Clinician/Researcher Phone</TableHead>
-                <TableHead className="whitespace-nowrap">Clinician/Researcher address</TableHead>
-                <TableHead className="whitespace-nowrap">Patient/Client name</TableHead>
-                <TableHead className="whitespace-nowrap">Age</TableHead>
-                <TableHead className="whitespace-nowrap">Gender</TableHead>
-                <TableHead className="whitespace-nowrap">Patient/Client email</TableHead>
-                <TableHead className="whitespace-nowrap">Patient/Client phone</TableHead>
-                <TableHead className="whitespace-nowrap">Patient/Client address</TableHead>
-                <TableHead className="whitespace-nowrap">Sample collection date</TableHead>
-                <TableHead className="whitespace-nowrap">Sample recevied date</TableHead>
-                <TableHead className="whitespace-nowrap">Service name</TableHead>
-                <TableHead className="whitespace-nowrap">Sample Type</TableHead>
-                <TableHead className="whitespace-nowrap">No of Samples</TableHead>
-                <TableHead className="whitespace-nowrap">TAT</TableHead>
-                <TableHead className="whitespace-nowrap">Sales/Responsible person</TableHead>
-                <TableHead className="whitespace-nowrap">Progenics TRF</TableHead>
-                <TableHead className="whitespace-nowrap">Third Party TRF</TableHead>
-                <TableHead className="whitespace-nowrap">Progenics Report</TableHead>
-                <TableHead className="whitespace-nowrap">Sample Sent To Third Party Date</TableHead>
-                <TableHead className="whitespace-nowrap">Third Party Name</TableHead>
-                <TableHead className="whitespace-nowrap">Third Party Report</TableHead>
-                <TableHead className="whitespace-nowrap">Results/Raw Data Received From Third Party Date</TableHead>
-                <TableHead className="whitespace-nowrap">Logistic Status</TableHead>
-                <TableHead className="whitespace-nowrap">Finance Status</TableHead>
-                <TableHead className="whitespace-nowrap">Lab Process Status</TableHead>
-                <TableHead className="whitespace-nowrap">Bioinformatics Status</TableHead>
-                <TableHead className="whitespace-nowrap">Nutritional Management Status</TableHead>
-                <TableHead className="whitespace-nowrap">Progenics Report Release Date</TableHead>
-                <TableHead className="whitespace-nowrap">Remark/Comment</TableHead>
-                <TableHead className="whitespace-nowrap">Modified By</TableHead>
-                <TableHead className="whitespace-nowrap">Modified At</TableHead>
-                <TableHead className="actions-column whitespace-nowrap">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleLeads.map((lead: any, i: any) => (
-                <TableRow key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                  <TableCell className="whitespace-nowrap">{lead.uniqueId || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.projectId || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.sampleId || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.clientId || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.organisationHospital || lead.organization || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.clinicianResearcherName || lead.referredDoctor || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.specialty || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.clinicianResearcherEmail || lead.email || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.clinicianResearcherPhone || lead.phone || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.clinicianResearcherAddress || lead.clinicianAddress || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.patientClientName || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.age || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.gender || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.patientClientEmail || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.patientClientPhone || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.patientClientAddress || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.serviceName || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.sampleType || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.noOfSamples || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.tat || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.progenicsTrf ? <PDFViewer pdfUrl={lead.progenicsTrf} fileName="Progenics_TRF.pdf" /> : '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.thirdPartyTrf || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.progenicsReport || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.sampleSentToThirdPartyDate ? new Date(lead.sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.thirdPartyName || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.thirdPartyReport || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.resultsRawDataReceivedFromThirdPartyDate ? new Date(lead.resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.logisticStatus || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.financeStatus || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.labProcessStatus || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.bioinformaticsStatus || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.nutritionalManagementStatus || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.progenicsReportReleaseDate ? new Date(lead.progenicsReportReleaseDate).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.remarkComment || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.modifiedBy || '-'}</TableCell>
-                  <TableCell className="whitespace-nowrap">{lead.modifiedAt ? new Date(lead.modifiedAt).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell className="actions-column">
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
+              <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
+                <TableRow>
+                  <TableHead className="whitespace-nowrap sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
+                  <TableHead className="whitespace-nowrap">Project ID</TableHead>
+                  <TableHead className="whitespace-nowrap">Sample ID</TableHead>
+                  <TableHead className="whitespace-nowrap">Client ID</TableHead>
+                  <TableHead className="whitespace-nowrap">Organisation/Hospital</TableHead>
+                  <TableHead className="whitespace-nowrap">Clinician/Researcher name</TableHead>
+                  <TableHead className="whitespace-nowrap">Speciality</TableHead>
+                  <TableHead className="whitespace-nowrap">Clinician/Researcher Email</TableHead>
+                  <TableHead className="whitespace-nowrap">Clinician/Researcher Phone</TableHead>
+                  <TableHead className="whitespace-nowrap">Clinician/Researcher address</TableHead>
+                  <TableHead className="whitespace-nowrap">Patient/Client name</TableHead>
+                  <TableHead className="whitespace-nowrap">Age</TableHead>
+                  <TableHead className="whitespace-nowrap">Gender</TableHead>
+                  <TableHead className="whitespace-nowrap">Patient/Client email</TableHead>
+                  <TableHead className="whitespace-nowrap">Patient/Client phone</TableHead>
+                  <TableHead className="whitespace-nowrap">Patient/Client address</TableHead>
+                  <TableHead className="whitespace-nowrap">Sample collection date</TableHead>
+                  <TableHead className="whitespace-nowrap">Sample recevied date</TableHead>
+                  <TableHead className="whitespace-nowrap">Service name</TableHead>
+                  <TableHead className="whitespace-nowrap">Sample Type</TableHead>
+                  <TableHead className="whitespace-nowrap">No of Samples</TableHead>
+                  <TableHead className="whitespace-nowrap">TAT</TableHead>
+                  <TableHead className="whitespace-nowrap">Sales/Responsible person</TableHead>
+                  <TableHead className="whitespace-nowrap">Progenics TRF</TableHead>
+                  <TableHead className="whitespace-nowrap">Third Party TRF</TableHead>
+                  <TableHead className="whitespace-nowrap">Progenics Report</TableHead>
+                  <TableHead className="whitespace-nowrap">Sample Sent To Third Party Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Third Party Name</TableHead>
+                  <TableHead className="whitespace-nowrap">Third Party Report</TableHead>
+                  <TableHead className="whitespace-nowrap">Results/Raw Data Received From Third Party Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Logistic Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Finance Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Lab Process Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Bioinformatics Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Nutritional Management Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Progenics Report Release Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Remark/Comment</TableHead>
+                  <TableHead className="whitespace-nowrap">Modified By</TableHead>
+                  <TableHead className="whitespace-nowrap">Modified At</TableHead>
+                  <TableHead className="actions-column whitespace-nowrap">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
+              </TableHeader>
+              <TableBody>
+                {visibleLeads.map((lead: any, i: any) => (
+                  <TableRow key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                    <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.projectId || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.sampleId || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.clientId || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.organisationHospital || lead.organization || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherName || lead.referredDoctor || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.specialty || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherEmail || lead.email || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherPhone || lead.phone || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherAddress || lead.clinicianAddress || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.patientClientName || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.age || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.gender || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.patientClientEmail || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.patientClientPhone || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.patientClientAddress || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.serviceName || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.sampleType || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.noOfSamples || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.tat || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.progenicsTrf ? <PDFViewer pdfUrl={lead.progenicsTrf} fileName="Progenics_TRF.pdf" /> : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.thirdPartyTrf || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.progenicsReport || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.sampleSentToThirdPartyDate ? new Date(lead.sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.thirdPartyName || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.thirdPartyReport || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.resultsRawDataReceivedFromThirdPartyDate ? new Date(lead.resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.logisticStatus || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.financeStatus || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.labProcessStatus || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.bioinformaticsStatus || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.nutritionalManagementStatus || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.progenicsReportReleaseDate ? new Date(lead.progenicsReportReleaseDate).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.remarkComment || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.modifiedBy || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{lead.modifiedAt ? new Date(lead.modifiedAt).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell className="actions-column">
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
             </Table>
           </div>
         </CardContent>
