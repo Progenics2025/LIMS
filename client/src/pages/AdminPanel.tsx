@@ -466,18 +466,18 @@ export default function AdminPanel() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {adminColumnPrefs.isColumnVisible('name') && <TableHead>Name</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('email') && <TableHead>Email</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('role') && <TableHead>Role</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('status') && <TableHead>Status</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('lastLogin') && <TableHead>Last Login</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('actions') && <TableHead>Actions</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('name') && <TableHead className="py-1">Name</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('email') && <TableHead className="py-1">Email</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('role') && <TableHead className="py-1">Role</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('status') && <TableHead className="py-1">Status</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('lastLogin') && <TableHead className="py-1">Last Login</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('actions') && <TableHead className="py-1">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id}>
-                      {adminColumnPrefs.isColumnVisible('name') && <TableCell>
+                      {adminColumnPrefs.isColumnVisible('name') && <TableCell className="py-1">
                         <div className="flex items-center">
                           <Avatar className="h-10 w-10 mr-3">
                             <AvatarFallback className="bg-primary-500 text-white text-sm">
@@ -491,10 +491,10 @@ export default function AdminPanel() {
                           </div>
                         </div>
                       </TableCell>}
-                      {adminColumnPrefs.isColumnVisible('email') && <TableCell className="text-gray-900 dark:text-white">
+                      {adminColumnPrefs.isColumnVisible('email') && <TableCell className="text-gray-900 dark:text-white py-1">
                         {user.email}
                       </TableCell>}
-                      {adminColumnPrefs.isColumnVisible('role') && <TableCell>
+                      {adminColumnPrefs.isColumnVisible('role') && <TableCell className="py-1">
                         <div className="flex items-center space-x-2">
                           <Select value={user.role} onValueChange={(val) => roleChangeMutation.mutate({ id: user.id, role: val })}>
                             <SelectTrigger className="w-48">
@@ -517,17 +517,17 @@ export default function AdminPanel() {
                           </Badge>
                         </div>
                       </TableCell>}
-                      {adminColumnPrefs.isColumnVisible('status') && <TableCell>
+                      {adminColumnPrefs.isColumnVisible('status') && <TableCell className="py-1">
                         <Badge className={getStatusBadge(!!user.isActive)}>
                           {user.isActive !== false ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>}
-                      {adminColumnPrefs.isColumnVisible('lastLogin') && <TableCell className="text-gray-900 dark:text-white">
+                      {adminColumnPrefs.isColumnVisible('lastLogin') && <TableCell className="text-gray-900 dark:text-white py-1">
                         {formatLastLogin(user.lastLogin?.toString() || null)}
                       </TableCell>}
-                      {adminColumnPrefs.isColumnVisible('actions') && <TableCell>
+                      {adminColumnPrefs.isColumnVisible('actions') && <TableCell className="py-1">
                         <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleOpenEdit(user)}>
+                          <Button variant="outline" size="sm" className="h-7 w-7 p-1" onClick={() => handleOpenEdit(user)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
@@ -546,7 +546,7 @@ export default function AdminPanel() {
                               });
                             }}
                             className={cn(
-                              'flex items-center justify-center',
+                              'flex items-center justify-center h-7 w-7 p-1',
                               user.isActive ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'
                             )}
                           >
@@ -556,7 +556,7 @@ export default function AdminPanel() {
                               <Lock className="h-4 w-4" />
                             )}
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(user.id)}>
+                          <Button variant="destructive" size="sm" className="h-7 w-7 p-1" onClick={() => handleDeleteUser(user.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -629,6 +629,6 @@ export default function AdminPanel() {
         type={confirmation.type}
         isLoading={confirmation.isLoading}
       />
-    </div>
+    </div >
   );
 }

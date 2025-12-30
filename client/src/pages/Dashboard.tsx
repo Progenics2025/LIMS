@@ -615,7 +615,7 @@ interface PerformanceMetrics {
                     />
                     <Legend 
                       wrapperStyle={{ paddingTop: '5px', fontSize: '12px' }} 
-                      iconSize={10}
+                      iconSize={1}
                     />
                     <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" />
                     <Bar dataKey="target" fill="#fbbf24" name="Target Revenue" />

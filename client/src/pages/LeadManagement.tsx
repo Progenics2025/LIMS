@@ -2997,38 +2997,38 @@ export default function LeadManagement() {
                   {leadColumnPrefs.isColumnVisible('speciality') && <TableHead onClick={() => { setSortKey('speciality'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Speciality{sortKey === 'speciality' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead onClick={() => { setSortKey('clinicianResearcherEmail'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Clinician / Researcher Email{sortKey === 'clinicianResearcherEmail' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead onClick={() => { setSortKey('clinicianResearcherPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Clinician / Researcher Phone{sortKey === 'clinicianResearcherPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead onClick={() => { setSortKey('clinicianResearcherAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[140px]">Clinician / Researcher Address{sortKey === 'clinicianResearcherAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Patient / Client Name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap font-semibold min-w-[200px]">Age</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Gender</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="whitespace-nowrap font-semibold min-w-[80px]">Patient / Client Email</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="whitespace-nowrap font-semibold min-w-[100px]">Patient / Client Phone</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Patient / Client Address</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('geneticCounsellorRequired') && <TableHead onClick={() => { setSortKey('geneticCounsellorRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Genetic Counselling Required{sortKey === 'geneticCounsellorRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableHead className="whitespace-nowrap font-semibold min-w-[200px]">Nutritional Counselling Required</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Service Name</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('amountQuoted') && <TableHead onClick={() => { setSortKey('amountQuoted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Amount Quoted{sortKey === 'amountQuoted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">TAT(Days){sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('sampleType') && <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('noOfSamples') && <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('budget') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Budget</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Sample Pick up from</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('deliveryUpto') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Delivery upto</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('dateSampleCollected') && <TableHead onClick={() => { setSortKey('dateSampleCollected'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[160px]">Sample Collection Date{sortKey === 'dateSampleCollected' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('sampleShippedDate') && <TableHead className="whitespace-nowrap font-semibold min-w-[140px]">Sample Shipped Date</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Sample Shipment Amount</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('trackingId') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Tracking ID</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('courierCompany') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Courier Company</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('phlebotomistCharges') && <TableHead className="whitespace-nowrap font-semibold min-w-[140px]">Phlebotomist Charges</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Progenics TRF</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('followUp') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px]">Follow up</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('leadCreatedBy') && <TableHead onClick={() => { setSortKey('leadCreatedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px]">Lead Created By{sortKey === 'leadCreatedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px]">Sales / Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('leadCreated') && <TableHead onClick={() => { setSortKey('leadCreated'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Created{sortKey === 'leadCreated' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('leadModified') && <TableHead onClick={() => { setSortKey('leadModified'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px]">Lead Modified{sortKey === 'leadModified' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px]">Remark / Comment</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap font-semibold min-w-[200px]">Actions</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead onClick={() => { setSortKey('clinicianResearcherAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[140px] py-1">Clinician / Researcher Address{sortKey === 'clinicianResearcherAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Patient / Client Name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap font-semibold min-w-[200px] py-1">Age</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Gender</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="whitespace-nowrap font-semibold min-w-[80px] py-1">Patient / Client Email</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="whitespace-nowrap font-semibold min-w-[100px] py-1">Patient / Client Phone</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Patient / Client Address</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('geneticCounsellorRequired') && <TableHead onClick={() => { setSortKey('geneticCounsellorRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Genetic Counselling Required{sortKey === 'geneticCounsellorRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableHead className="whitespace-nowrap font-semibold min-w-[200px] py-1">Nutritional Counselling Required</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Service Name</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('amountQuoted') && <TableHead onClick={() => { setSortKey('amountQuoted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Amount Quoted{sortKey === 'amountQuoted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">TAT(Days){sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('sampleType') && <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px] py-1">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('noOfSamples') && <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px] py-1">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('budget') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Budget</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Sample Pick up from</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('deliveryUpto') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Delivery upto</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('dateSampleCollected') && <TableHead onClick={() => { setSortKey('dateSampleCollected'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[160px] py-1">Sample Collection Date{sortKey === 'dateSampleCollected' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('sampleShippedDate') && <TableHead className="whitespace-nowrap font-semibold min-w-[140px] py-1">Sample Shipped Date</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Sample Shipment Amount</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('trackingId') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Tracking ID</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('courierCompany') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Courier Company</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('phlebotomistCharges') && <TableHead className="whitespace-nowrap font-semibold min-w-[140px] py-1">Phlebotomist Charges</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Progenics TRF</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('followUp') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Follow up</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('leadCreatedBy') && <TableHead onClick={() => { setSortKey('leadCreatedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px] py-1">Lead Created By{sortKey === 'leadCreatedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Sales / Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('leadCreated') && <TableHead onClick={() => { setSortKey('leadCreated'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">Lead Created{sortKey === 'leadCreated' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('leadModified') && <TableHead onClick={() => { setSortKey('leadModified'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">Lead Modified{sortKey === 'leadModified' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Remark / Comment</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap font-semibold min-w-[200px] py-1">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -3043,61 +3043,61 @@ export default function LeadManagement() {
                 ) : (
                   visibleLeads.map((lead) => (
                     <TableRow key={lead.id} className={`${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                      {leadColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('leadType') && <TableCell className="whitespace-nowrap">
+                      {leadColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('leadType') && <TableCell className="whitespace-nowrap py-1">
                         <Badge className={lead.leadType === 'project' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                           {lead.leadType || 'Individual'}
                         </Badge>
                       </TableCell>}
-                      {leadColumnPrefs.isColumnVisible('status') && <TableCell className="whitespace-nowrap">
+                      {leadColumnPrefs.isColumnVisible('status') && <TableCell className="whitespace-nowrap py-1">
                         <Badge className={getStatusBadgeColor(lead.status || 'quoted')}>
                           {lead.status || 'Quoted'}
                         </Badge>
                       </TableCell>}
-                      {leadColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="whitespace-nowrap">{lead.organisationHospital ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherName ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('speciality') && <TableCell className="whitespace-nowrap">{lead.speciality ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherEmail ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherPhone ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherAddress ?? lead.clinicHospitalName ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="whitespace-nowrap">{lead.patientClientName ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('age') && <TableCell className="whitespace-nowrap">{lead.age != null ? String(lead.age) : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('gender') && <TableCell className="whitespace-nowrap">{lead.gender ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell className="whitespace-nowrap">{lead.patientClientEmail ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="whitespace-nowrap">{lead.patientClientPhone ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell className="whitespace-nowrap">{lead.patientClientAddress ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('geneticCounsellorRequired') && <TableCell className="whitespace-nowrap">{lead.geneticCounselorRequired ? 'Yes' : 'No'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableCell className="whitespace-nowrap">{lead.nutritionalCounsellingRequired ? 'Yes' : 'No'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('serviceName') && <TableCell className="whitespace-nowrap">{lead.serviceName ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('amountQuoted') && <TableCell className="whitespace-nowrap">{lead.amountQuoted != null ? `₹${formatINR(Number(lead.amountQuoted))}` : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('tat') && <TableCell className="whitespace-nowrap">{lead.tat != null ? String(lead.tat) : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('sampleType') && <TableCell className="whitespace-nowrap">{lead.sampleType ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('noOfSamples') && <TableCell className="whitespace-nowrap">{lead.noOfSamples != null ? String(lead.noOfSamples) : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('budget') && <TableCell className="whitespace-nowrap">{lead.budget != null ? `₹${formatINR(Number(lead.budget))}` : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableCell className="whitespace-nowrap">{lead.samplePickUpFrom ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('deliveryUpto') && <TableCell className="whitespace-nowrap">{lead.deliveryUpTo ? new Date(lead.deliveryUpTo).toLocaleDateString() : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('dateSampleCollected') && <TableCell className="whitespace-nowrap">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('sampleShippedDate') && <TableCell className="whitespace-nowrap">{lead.sampleShippedDate ? new Date(lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableCell className="whitespace-nowrap">{lead.sampleShipmentAmount != null ? `₹${formatINR(Number(lead.sampleShipmentAmount))}` : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('trackingId') && <TableCell className="whitespace-nowrap">{lead.trackingId ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('courierCompany') && <TableCell className="whitespace-nowrap">{lead.courierCompany ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : (lead.convertedAt ? new Date(lead.convertedAt).toLocaleDateString() : (lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'))}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('phlebotomistCharges') && <TableCell className="whitespace-nowrap">{lead.phlebotomistCharges != null ? `₹${formatINR(Number(lead.phlebotomistCharges))}` : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('progenicsTrf') && <TableCell className="whitespace-nowrap">
+                      {leadColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="whitespace-nowrap py-1">{lead.organisationHospital ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="whitespace-nowrap py-1">{lead.clinicianResearcherName ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('speciality') && <TableCell className="whitespace-nowrap py-1">{lead.speciality ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableCell className="whitespace-nowrap py-1">{lead.clinicianResearcherEmail ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell className="whitespace-nowrap py-1">{lead.clinicianResearcherPhone ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableCell className="whitespace-nowrap py-1">{lead.clinicianResearcherAddress ?? lead.clinicHospitalName ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientName ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('age') && <TableCell className="whitespace-nowrap py-1">{lead.age != null ? String(lead.age) : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('gender') && <TableCell className="whitespace-nowrap py-1">{lead.gender ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientEmail ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientPhone ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientAddress ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('geneticCounsellorRequired') && <TableCell className="whitespace-nowrap py-1">{lead.geneticCounselorRequired ? 'Yes' : 'No'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableCell className="whitespace-nowrap py-1">{lead.nutritionalCounsellingRequired ? 'Yes' : 'No'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('serviceName') && <TableCell className="whitespace-nowrap py-1">{lead.serviceName ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('amountQuoted') && <TableCell className="whitespace-nowrap py-1">{lead.amountQuoted != null ? `₹${formatINR(Number(lead.amountQuoted))}` : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('tat') && <TableCell className="whitespace-nowrap py-1">{lead.tat != null ? String(lead.tat) : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('sampleType') && <TableCell className="whitespace-nowrap py-1">{lead.sampleType ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('noOfSamples') && <TableCell className="whitespace-nowrap py-1">{lead.noOfSamples != null ? String(lead.noOfSamples) : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('budget') && <TableCell className="whitespace-nowrap py-1">{lead.budget != null ? `₹${formatINR(Number(lead.budget))}` : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableCell className="whitespace-nowrap py-1">{lead.samplePickUpFrom ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('deliveryUpto') && <TableCell className="whitespace-nowrap py-1">{lead.deliveryUpTo ? new Date(lead.deliveryUpTo).toLocaleDateString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('dateSampleCollected') && <TableCell className="whitespace-nowrap py-1">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('sampleShippedDate') && <TableCell className="whitespace-nowrap py-1">{lead.sampleShippedDate ? new Date(lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableCell className="whitespace-nowrap py-1">{lead.sampleShipmentAmount != null ? `₹${formatINR(Number(lead.sampleShipmentAmount))}` : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('trackingId') && <TableCell className="whitespace-nowrap py-1">{lead.trackingId ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('courierCompany') && <TableCell className="whitespace-nowrap py-1">{lead.courierCompany ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableCell className="whitespace-nowrap py-1">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : (lead.convertedAt ? new Date(lead.convertedAt).toLocaleDateString() : (lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString() : '-'))}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('phlebotomistCharges') && <TableCell className="whitespace-nowrap py-1">{lead.phlebotomistCharges != null ? `₹${formatINR(Number(lead.phlebotomistCharges))}` : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('progenicsTrf') && <TableCell className="whitespace-nowrap py-1">
                         {lead.progenicsTrf ? <PDFViewer pdfUrl={lead.progenicsTrf} fileName="Progenics_TRF.pdf" /> : '-'}
                       </TableCell>}
-                      {leadColumnPrefs.isColumnVisible('followUp') && <TableCell className="whitespace-nowrap">{lead.followUp ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('leadCreatedBy') && <TableCell className="whitespace-nowrap">{getUserNameById(lead.leadCreatedBy)}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson ? (lead.salesResponsiblePerson.trim() || '-') : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('leadCreated') && <TableCell className="whitespace-nowrap">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString() : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('leadModified') && <TableCell className="whitespace-nowrap">{lead.leadModified ? new Date(lead.leadModified).toLocaleString() : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="whitespace-nowrap">{(lead as any).remarkComment ?? (lead as any).remarks ?? (lead as any).remark ?? (lead as any).comments ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('actions') && <TableCell className="actions-column">
+                      {leadColumnPrefs.isColumnVisible('followUp') && <TableCell className="whitespace-nowrap py-1">{lead.followUp ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('leadCreatedBy') && <TableCell className="whitespace-nowrap py-1">{getUserNameById(lead.leadCreatedBy)}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="whitespace-nowrap py-1">{lead.salesResponsiblePerson ? (lead.salesResponsiblePerson.trim() || '-') : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('leadCreated') && <TableCell className="whitespace-nowrap py-1">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('leadModified') && <TableCell className="whitespace-nowrap py-1">{lead.leadModified ? new Date(lead.leadModified).toLocaleString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="whitespace-nowrap py-1">{(lead as any).remarkComment ?? (lead as any).remarks ?? (lead as any).remark ?? (lead as any).comments ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('actions') && <TableCell className="actions-column py-1">
                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 cursor-pointer flex-wrap">
                           <div className="flex gap-1 sm:gap-2">
                             {canEdit(lead) && (
-                              <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)} className="cursor-pointer p-1 h-8 w-8">
+                              <Button variant="outline" size="sm" onClick={() => handleEditLead(lead)} className="cursor-pointer p-1 h-7 w-7">
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
@@ -3111,7 +3111,7 @@ export default function LeadManagement() {
                                     deleteConfirmation.hideConfirmation();
                                   }
                                 });
-                              }} className="p-1 h-8 w-8">
+                              }} className="p-1 h-7 w-7">
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
                             )}

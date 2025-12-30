@@ -53,7 +53,7 @@ export function DataTable<T>({
             if (rowSpanMap[rowIndex]?.[colIndex]) continue;
 
             const span = col.rowSpan(data[rowIndex], rowIndex, data, (r, i) => {
-                return col.rowSpan ? col.rowSpan(r, i, data, col.rowSpan) : 1;
+                return col.rowSpan ? col.rowSpan(r, i, data, undefined) : 1;
             });
 
             if (span > 0) {
@@ -79,7 +79,7 @@ export function DataTable<T>({
                             {columns.map((col, index) => (
                                 <TableHead
                                     key={index}
-                                    className={cn("whitespace-nowrap font-semibold", col.className)}
+                                    className={cn("whitespace-nowrap font-semibold py-1", col.className)}
                                 >
                                     {col.header}
                                 </TableHead>
@@ -113,7 +113,7 @@ export function DataTable<T>({
                                         return (
                                             <TableCell
                                                 key={colIndex}
-                                                className={col.className}
+                                                className={cn("py-1", col.className)}
                                                 rowSpan={span > 0 ? span : undefined}
                                             >
                                                 {col.cell

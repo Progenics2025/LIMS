@@ -1015,50 +1015,50 @@ export default function Bioinformatics() {
                       if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
                         return (
                           <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.uniqueId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('projectId') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sampleId') && <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('clientId') && <TableCell>{(r as any).clientId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('organisationHospital') && <TableCell>{(r as any).organisationHospital ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell>{(r as any).clinicianResearcherName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('patientClientName') && <TableCell>{(r as any).patientClientName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('age') && <TableCell>{(r as any).age ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('gender') && <TableCell>{(r as any).gender ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('serviceName') && <TableCell>{(r as any).serviceName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('noOfSamples') && <TableCell>{(r as any).noOfSamples ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sequencingStatus') && <TableCell>{(r as any).sequencingStatus ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableCell>{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('basecalling') && <TableCell>{(r as any).basecalling ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableCell>{(r as any).basecallingDataStorageDate ? new Date((r as any).basecallingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('workflowType') && <TableCell>{(r as any).workflowType ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('analysisStatus') && <TableCell>{(r as any).analysisStatus ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('analysisDate') && <TableCell>{(r as any).analysisDate ? new Date((r as any).analysisDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('thirdPartyName') && <TableCell>{r.thirdPartyName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell>{(r as any).sampleSentToThirdPartyDate ? new Date((r as any).sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableCell>{(r as any).thirdPartyTrf ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableCell>{(r as any).resultsRawDataReceivedFromThirdPartyDate ? new Date((r as any).resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('thirdPartyReport') && <TableCell>{(r as any).thirdPartyReport ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('tat') && <TableCell>{(r as any).tat ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('vcfFileLink') && <TableCell>{(r as any).vcfFileLink ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('cnvStatus') && <TableCell>{(r as any).cnvStatus ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('progenicsRawData') && <TableCell>{(r as any).progenicsRawData ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableCell>{(r as any).progenicsRawDataSize ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableCell>{(r as any).progenicsRawDataLink ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableCell>{(r as any).analysisHtmlLink ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableCell>{(r as any).relativeAbundanceSheet ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableCell>{(r as any).dataAnalysisSheet ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableCell>{(r as any).databaseToolsInformation ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableCell>{(r as any).alertToTechnicalLeadd ? 'Yes' : 'No'}</TableCell>}
-                            {columnPrefs.isColumnVisible('alertToReportTeam') && <TableCell>{(r as any).alertToReportTeam ? 'Yes' : 'No'}</TableCell>}
-                            {columnPrefs.isColumnVisible('createdAt') && <TableCell>{(r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('createdBy') && <TableCell>{(r as any).createdBy ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('modifiedAt') && <TableCell>{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('modifiedBy') && <TableCell>{(r as any).modifiedBy ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('remarkComment') && <TableCell className="max-w-[220px] truncate pr-4" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{r.uniqueId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('projectId') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sampleId') && <TableCell className="py-1">{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('clientId') && <TableCell className="py-1">{(r as any).clientId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('organisationHospital') && <TableCell className="py-1">{(r as any).organisationHospital ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="py-1">{(r as any).clinicianResearcherName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('patientClientName') && <TableCell className="py-1">{(r as any).patientClientName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('age') && <TableCell className="py-1">{(r as any).age ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('gender') && <TableCell className="py-1">{(r as any).gender ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('serviceName') && <TableCell className="py-1">{(r as any).serviceName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('noOfSamples') && <TableCell className="py-1">{(r as any).noOfSamples ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sequencingStatus') && <TableCell className="py-1">{(r as any).sequencingStatus ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableCell className="py-1">{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('basecalling') && <TableCell className="py-1">{(r as any).basecalling ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableCell className="py-1">{(r as any).basecallingDataStorageDate ? new Date((r as any).basecallingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('workflowType') && <TableCell className="py-1">{(r as any).workflowType ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('analysisStatus') && <TableCell className="py-1">{(r as any).analysisStatus ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('analysisDate') && <TableCell className="py-1">{(r as any).analysisDate ? new Date((r as any).analysisDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('thirdPartyName') && <TableCell className="py-1">{r.thirdPartyName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell className="py-1">{(r as any).sampleSentToThirdPartyDate ? new Date((r as any).sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableCell className="py-1">{(r as any).thirdPartyTrf ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableCell className="py-1">{(r as any).resultsRawDataReceivedFromThirdPartyDate ? new Date((r as any).resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('thirdPartyReport') && <TableCell className="py-1">{(r as any).thirdPartyReport ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('tat') && <TableCell className="py-1">{(r as any).tat ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('vcfFileLink') && <TableCell className="py-1">{(r as any).vcfFileLink ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('cnvStatus') && <TableCell className="py-1">{(r as any).cnvStatus ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('progenicsRawData') && <TableCell className="py-1">{(r as any).progenicsRawData ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableCell className="py-1">{(r as any).progenicsRawDataSize ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableCell className="py-1">{(r as any).progenicsRawDataLink ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableCell className="py-1">{(r as any).analysisHtmlLink ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableCell className="py-1">{(r as any).relativeAbundanceSheet ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableCell className="py-1">{(r as any).dataAnalysisSheet ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableCell className="py-1">{(r as any).databaseToolsInformation ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableCell className="py-1">{(r as any).alertToTechnicalLeadd ? 'Yes' : 'No'}</TableCell>}
+                            {columnPrefs.isColumnVisible('alertToReportTeam') && <TableCell className="py-1">{(r as any).alertToReportTeam ? 'Yes' : 'No'}</TableCell>}
+                            {columnPrefs.isColumnVisible('createdAt') && <TableCell className="py-1">{(r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('createdBy') && <TableCell className="py-1">{(r as any).createdBy ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('modifiedAt') && <TableCell className="py-1">{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('modifiedBy') && <TableCell className="py-1">{(r as any).modifiedBy ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('remarkComment') && <TableCell className="max-w-[220px] truncate pr-4 py-1" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('actions') && (
-                              <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right z-30 ${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'}`}>
+                              <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right z-30 ${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} py-1`}>
                                 <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full bg-white dark:bg-gray-900 px-2 py-1">
-                                  <Button size="sm" variant="ghost" aria-label="Edit record" onClick={() => openEdit(r)}>
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit record" onClick={() => openEdit(r)}>
                                     <EditIcon className="h-4 w-4" />
                                   </Button>
                                   <Button
@@ -1076,7 +1076,7 @@ export default function Bioinformatics() {
                                     <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
                                     <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
                                   </Button>
-                                  <Button size="sm" variant="ghost" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
                                     <Trash2 className="h-4 w-4 text-red-600" />
                                   </Button>
                                 </div>

@@ -620,51 +620,51 @@ export default function FinanceManagement() {
                 <Table className="leads-table">
                   <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                     <TableRow>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Unique ID</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Project ID</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Sample Collection Date</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Organisation / Hospital</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Name</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Email</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Phone</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Clinician / Researcher Address</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Name</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Email</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Patient / Client Phone</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Patient / Client Address</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Service Name</TableHead>
-                      <TableHead className="min-w-[120px] whitespace-nowrap font-semibold">Budget</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Phlebotomist Charges</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Sales / Responsible Person</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Sample Shipment Amount</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Invoice Number</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Amount</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Date</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Amount</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Balance Amount</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Date</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Mode of Payment</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Transactional Number</TableHead>
-                      <TableHead className="min-w-[170px] whitespace-nowrap font-semibold">Balance Amount Received Date</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Total Amount Received Status</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">UTR Details</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Charges</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Other Charges</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Other Charges Reason</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Name</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Third Party Phone</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Date</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Status</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Alert to Labprocess Team</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Report Team</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Technical Lead</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created At</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created By</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
-                      <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Unique ID</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Project ID</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Sample Collection Date</TableHead>
+                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Organisation / Hospital</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Name</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Email</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Phone</TableHead>
+                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Address</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Patient / Client Name</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Patient / Client Email</TableHead>
+                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold py-1">Patient / Client Phone</TableHead>
+                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Patient / Client Address</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Service Name</TableHead>
+                      <TableHead className="min-w-[120px] whitespace-nowrap font-semibold py-1">Budget</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Phlebotomist Charges</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Sales / Responsible Person</TableHead>
+                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Sample Shipment Amount</TableHead>
+                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold py-1">Invoice Number</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Invoice Amount</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Invoice Date</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Payment Receipt Amount</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Balance Amount</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Payment Receipt Date</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Mode of Payment</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Transactional Number</TableHead>
+                      <TableHead className="min-w-[170px] whitespace-nowrap font-semibold py-1">Balance Amount Received Date</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Total Amount Received Status</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">UTR Details</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Third Party Charges</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Other Charges</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Other Charges Reason</TableHead>
+                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Third Party Name</TableHead>
+                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold py-1">Third Party Phone</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Third Party Payment Date</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Third Party Payment Status</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Alert to Labprocess Team</TableHead>
+                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Alert to Report Team</TableHead>
+                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Alert to Technical Lead</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Created At</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Created By</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Modified At</TableHead>
+                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Modified By</TableHead>
+                      <TableHead className="min-w-[220px] whitespace-nowrap font-semibold py-1">Remark / Comment</TableHead>
+                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Screenshot/Document</TableHead>
+                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column py-1">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -679,61 +679,61 @@ export default function FinanceManagement() {
                         const balance = s.balanceAmount != null ? Number(s.balanceAmount) : (Number(s.amount || (lead as any).amount || 0) - Number(s.paidAmount || (lead as any).paidAmount || 0));
                         return (
                           <TableRow key={s.id} className={`${s.approveToLabProcess ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white">{s.uniqueId ?? s.unique_id ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{s.projectId ?? s.project_id ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.sampleCollectionDate ? new Date(s.sampleCollectionDate).toLocaleDateString() : ((lead as any).sampleCollectionDate ? new Date((lead as any).sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.organisationHospital ?? (lead as any).organisationHospital ?? 'N/A'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.clinicianResearcherName ?? (lead as any).clinicianResearcherName ?? (lead as any).referredDoctor ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.clinicianResearcherEmail ?? (lead as any).clinicianResearcherEmail ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.clinicianResearcherPhone ?? (lead as any).clinicianResearcherPhone ?? (lead as any).phone ?? '-'}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.clinicianResearcherAddress ?? (lead as any).clinicianResearcherAddress ?? (lead as any).location ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.patientClientName ?? (lead as any).patientClientName ?? (lead as any).patientName ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.patientClientEmail ?? (lead as any).patientClientEmail ?? (lead as any).patientEmail ?? '-'}</TableCell>
-                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{s.patientClientPhone ?? (lead as any).patientClientPhone ?? (lead as any).patientPhone ?? '-'}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.patientClientAddress ?? (lead as any).patientClientAddress ?? (lead as any).patientClientAddress ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.serviceName ?? (lead as any).serviceName ?? '-'}</TableCell>
-                            <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{s.budget != null ? `₹${formatINR(Number(s.budget))}` : ((lead as any).budget != null ? `₹${formatINR(Number((lead as any).budget))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.phlebotomistCharges != null ? `₹${formatINR(Number(s.phlebotomistCharges))}` : ((lead as any).phlebotomistCharges != null ? `₹${formatINR(Number((lead as any).phlebotomistCharges))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.salesResponsiblePerson ?? (lead as any).salesResponsiblePerson ?? '-'}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.sampleShipmentAmount != null ? `₹${formatINR(Number(s.sampleShipmentAmount))}` : (s.shippingCost != null ? `₹${formatINR(Number(s.shippingCost))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{s.invoiceNumber ?? (lead as any).invoiceNumber ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{s.invoiceAmount != null ? `₹${formatINR(Number(s.invoiceAmount))}` : ((lead as any).invoiceAmount != null ? `₹${formatINR(Number((lead as any).invoiceAmount))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{s.invoiceDate ? new Date(s.invoiceDate).toLocaleDateString() : ((lead as any).invoiceDate ? new Date((lead as any).invoiceDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.paymentReceivedAmount != null ? `₹${formatINR(Number(s.paymentReceivedAmount))}` : ((lead as any).paymentReceivedAmount != null ? `₹${formatINR(Number((lead as any).paymentReceivedAmount))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{!isNaN(balance) ? `₹${formatINR(Number(balance))}` : '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.paymentReceivedDate ? new Date(s.paymentReceivedDate).toLocaleDateString() : ((lead as any).paymentReceivedDate ? new Date((lead as any).paymentReceivedDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{s.paymentMethod ?? (lead as any).paymentMethod ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{s.transactionNumber ?? s.utrDetails ?? (lead as any).transactionNumber ?? (lead as any).utrDetails ?? '-'}</TableCell>
-                            <TableCell className="min-w-[170px] text-gray-900 dark:text-white">{s.balanceAmountReceivedDate ? new Date(s.balanceAmountReceivedDate).toLocaleDateString() : ((lead as any).balanceAmountReceivedDate ? new Date((lead as any).balanceAmountReceivedDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.totalPaymentReceivedStatus ?? (lead as any).totalPaymentReceivedStatus ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.utrDetails ?? (lead as any).utrDetails ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.thirdPartyCharges != null ? `₹${formatINR(Number(s.thirdPartyCharges))}` : ((lead as any).thirdPartyCharges != null ? `₹${formatINR(Number((lead as any).thirdPartyCharges))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.otherCharges != null ? `₹${formatINR(Number(s.otherCharges))}` : ((lead as any).otherCharges != null ? `₹${formatINR(Number((lead as any).otherCharges))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.otherChargesReason ?? (lead as any).otherChargesReason ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{s.thirdPartyName ?? (lead as any).thirdPartyName ?? '-'}</TableCell>
-                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{s.thirdPartyPhone ?? (lead as any).thirdPartyPhone ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.thirdPartyPaymentDate ? new Date(s.thirdPartyPaymentDate).toLocaleDateString() : ((lead as any).thirdPartyPaymentDate ? new Date((lead as any).thirdPartyPaymentDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.thirdPartyPaymentStatus ?? (lead as any).thirdPartyPaymentStatus ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.approveToLabProcess ? 'Yes' : ((lead as any).approveToLabProcess ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.approveToReportProcess ? 'Yes' : ((lead as any).approveToReportProcess ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{s.approveToTechnicalLead ? 'Yes' : ((lead as any).approveToTechnicalLead ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.createdAt ? new Date(s.createdAt).toLocaleString() : '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.createdBy ?? (lead as any).createdBy ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.modifiedAt ? new Date(s.modifiedAt).toLocaleString() : '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{s.modifiedBy ?? (lead as any).modifiedBy ?? '-'}</TableCell>
-                            <TableCell className="min-w-[220px] text-gray-900 dark:text-white">{s.remark_comment ?? s.comments ?? s.notes ?? s.remarks ?? (lead as any).comments ?? (lead as any).remarks ?? '-'}</TableCell>
+                            <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white py-1">{s.uniqueId ?? s.unique_id ?? '-'}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.projectId ?? s.project_id ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.sampleCollectionDate ? new Date(s.sampleCollectionDate).toLocaleDateString() : ((lead as any).sampleCollectionDate ? new Date((lead as any).sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>
+                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.organisationHospital ?? (lead as any).organisationHospital ?? 'N/A'}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherName ?? (lead as any).clinicianResearcherName ?? (lead as any).referredDoctor ?? '-'}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherEmail ?? (lead as any).clinicianResearcherEmail ?? '-'}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherPhone ?? (lead as any).clinicianResearcherPhone ?? (lead as any).phone ?? '-'}</TableCell>
+                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherAddress ?? (lead as any).clinicianResearcherAddress ?? (lead as any).location ?? '-'}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.patientClientName ?? (lead as any).patientClientName ?? (lead as any).patientName ?? '-'}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.patientClientEmail ?? (lead as any).patientClientEmail ?? (lead as any).patientEmail ?? '-'}</TableCell>
+                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white py-1">{s.patientClientPhone ?? (lead as any).patientClientPhone ?? (lead as any).patientPhone ?? '-'}</TableCell>
+                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.patientClientAddress ?? (lead as any).patientClientAddress ?? (lead as any).patientClientAddress ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.serviceName ?? (lead as any).serviceName ?? '-'}</TableCell>
+                            <TableCell className="min-w-[120px] text-gray-900 dark:text-white py-1">{s.budget != null ? `₹${formatINR(Number(s.budget))}` : ((lead as any).budget != null ? `₹${formatINR(Number((lead as any).budget))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.phlebotomistCharges != null ? `₹${formatINR(Number(s.phlebotomistCharges))}` : ((lead as any).phlebotomistCharges != null ? `₹${formatINR(Number((lead as any).phlebotomistCharges))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.salesResponsiblePerson ?? (lead as any).salesResponsiblePerson ?? '-'}</TableCell>
+                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.sampleShipmentAmount != null ? `₹${formatINR(Number(s.sampleShipmentAmount))}` : (s.shippingCost != null ? `₹${formatINR(Number(s.shippingCost))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white py-1">{s.invoiceNumber ?? (lead as any).invoiceNumber ?? '-'}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.invoiceAmount != null ? `₹${formatINR(Number(s.invoiceAmount))}` : ((lead as any).invoiceAmount != null ? `₹${formatINR(Number((lead as any).invoiceAmount))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.invoiceDate ? new Date(s.invoiceDate).toLocaleDateString() : ((lead as any).invoiceDate ? new Date((lead as any).invoiceDate).toLocaleDateString() : '-')}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.paymentReceivedAmount != null ? `₹${formatINR(Number(s.paymentReceivedAmount))}` : ((lead as any).paymentReceivedAmount != null ? `₹${formatINR(Number((lead as any).paymentReceivedAmount))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{!isNaN(balance) ? `₹${formatINR(Number(balance))}` : '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.paymentReceivedDate ? new Date(s.paymentReceivedDate).toLocaleDateString() : ((lead as any).paymentReceivedDate ? new Date((lead as any).paymentReceivedDate).toLocaleDateString() : '-')}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.paymentMethod ?? (lead as any).paymentMethod ?? '-'}</TableCell>
+                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.transactionNumber ?? s.utrDetails ?? (lead as any).transactionNumber ?? (lead as any).utrDetails ?? '-'}</TableCell>
+                            <TableCell className="min-w-[170px] text-gray-900 dark:text-white py-1">{s.balanceAmountReceivedDate ? new Date(s.balanceAmountReceivedDate).toLocaleDateString() : ((lead as any).balanceAmountReceivedDate ? new Date((lead as any).balanceAmountReceivedDate).toLocaleDateString() : '-')}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.totalPaymentReceivedStatus ?? (lead as any).totalPaymentReceivedStatus ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.utrDetails ?? (lead as any).utrDetails ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.thirdPartyCharges != null ? `₹${formatINR(Number(s.thirdPartyCharges))}` : ((lead as any).thirdPartyCharges != null ? `₹${formatINR(Number((lead as any).thirdPartyCharges))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.otherCharges != null ? `₹${formatINR(Number(s.otherCharges))}` : ((lead as any).otherCharges != null ? `₹${formatINR(Number((lead as any).otherCharges))}` : '-')}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.otherChargesReason ?? (lead as any).otherChargesReason ?? '-'}</TableCell>
+                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.thirdPartyName ?? (lead as any).thirdPartyName ?? '-'}</TableCell>
+                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white py-1">{s.thirdPartyPhone ?? (lead as any).thirdPartyPhone ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.thirdPartyPaymentDate ? new Date(s.thirdPartyPaymentDate).toLocaleDateString() : ((lead as any).thirdPartyPaymentDate ? new Date((lead as any).thirdPartyPaymentDate).toLocaleDateString() : '-')}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.thirdPartyPaymentStatus ?? (lead as any).thirdPartyPaymentStatus ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.approveToLabProcess ? 'Yes' : ((lead as any).approveToLabProcess ? 'Yes' : 'No')}</TableCell>
+                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.approveToReportProcess ? 'Yes' : ((lead as any).approveToReportProcess ? 'Yes' : 'No')}</TableCell>
+                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.approveToTechnicalLead ? 'Yes' : ((lead as any).approveToTechnicalLead ? 'Yes' : 'No')}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.createdAt ? new Date(s.createdAt).toLocaleString() : '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.createdBy ?? (lead as any).createdBy ?? '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.modifiedAt ? new Date(s.modifiedAt).toLocaleString() : '-'}</TableCell>
+                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.modifiedBy ?? (lead as any).modifiedBy ?? '-'}</TableCell>
+                            <TableCell className="min-w-[220px] text-gray-900 dark:text-white py-1">{s.remark_comment ?? s.comments ?? s.notes ?? s.remarks ?? (lead as any).comments ?? (lead as any).remarks ?? '-'}</TableCell>
                             <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
                               {renderAttachmentLink(s.screenshotDocument ?? s.screenshot_document)}
                             </TableCell>
-                            <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
+                            <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column py-1">
                               <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
-                                <Button variant="ghost" size="sm" onClick={() => {
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-1" onClick={() => {
                                   setSelectedRecord(s);
                                   setIsEditDialogOpen(true);
                                 }}>
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => {
+                                <Button variant="outline" size="sm" className="h-7 w-7 p-1" onClick={() => {
                                   setSelectedRecord(s);
                                   setIsEditDialogOpen(true);
                                   // prefill edit form with all 42-column fields

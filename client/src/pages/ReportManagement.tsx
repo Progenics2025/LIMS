@@ -860,78 +860,78 @@ export default function ReportManagement() {
               <Table className="leads-table w-full text-sm">
                 <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
                   <TableRow>
-                    {reportColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('reportUrl') && <TableHead>Report URL</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableHead>Report release Date</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableHead>Organisation / Hospital</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead>Clinician / Researcher Name</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead>Clinician / Researcher Email</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead>Clinician / Researcher Phone</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead>Clinician / Researcher Address</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('patientClientName') && <TableHead>Patient / Client Name</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('age') && <TableHead>Age</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('gender') && <TableHead>Gender</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead>Patient / Client Email</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead>Patient / Client Phone</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead>Patient / Client Address</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('geneticCounselorRequired') && <TableHead>Genetic Counselling Required</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableHead>Nutritional Counselling Required</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('serviceName') && <TableHead>Service Name</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('tat') && <TableHead>TAT (Days)</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('sampleType') && <TableHead>Sample Type</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('noOfSamples') && <TableHead>No of Samples</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('sampleId') && <TableHead>Sample ID</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead>Sample Received Date</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead>Progenics TRF</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('approvalFromFinance') && <TableHead>Approveal from Finance</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead>Sales / Responsible Person</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('leadCreatedBy') && <TableHead>Lead Created</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('leadModified') && <TableHead>Lead Modified</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('remarkComment') && <TableHead>Remark / Comment</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('gcCaseSummary') && <TableHead>GC case Summary</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('actions') && <TableHead className="min-w-[120px] border-l-2 actions-column">Actions</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">Unique ID</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">Project ID</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('reportUrl') && <TableHead className="py-1">Report URL</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableHead className="py-1">Report release Date</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="py-1">Organisation / Hospital</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="py-1">Clinician / Researcher Name</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead className="py-1">Clinician / Researcher Email</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead className="py-1">Clinician / Researcher Phone</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead className="py-1">Clinician / Researcher Address</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('patientClientName') && <TableHead className="py-1">Patient / Client Name</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('age') && <TableHead className="py-1">Age</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('gender') && <TableHead className="py-1">Gender</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="py-1">Patient / Client Email</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="py-1">Patient / Client Phone</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="py-1">Patient / Client Address</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('geneticCounselorRequired') && <TableHead className="py-1">Genetic Counselling Required</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableHead className="py-1">Nutritional Counselling Required</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('serviceName') && <TableHead className="py-1">Service Name</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('tat') && <TableHead className="py-1">TAT (Days)</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('sampleType') && <TableHead className="py-1">Sample Type</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('noOfSamples') && <TableHead className="py-1">No of Samples</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('sampleId') && <TableHead className="py-1">Sample ID</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead className="py-1">Sample Received Date</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead className="py-1">Progenics TRF</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('approvalFromFinance') && <TableHead className="py-1">Approveal from Finance</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead className="py-1">Sales / Responsible Person</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('leadCreatedBy') && <TableHead className="py-1">Lead Created</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('leadModified') && <TableHead className="py-1">Lead Modified</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="py-1">Remark / Comment</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('gcCaseSummary') && <TableHead className="py-1">GC case Summary</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('actions') && <TableHead className="min-w-[120px] border-l-2 actions-column py-1">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedReports.map((report) => (
                     <TableRow key={report.unique_id} className={`${report.report_release_date ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
-                      {reportColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.unique_id ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{report.project_id ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('reportUrl') && <TableCell>{report.report_url ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableCell>{report.report_release_date ? new Date(report.report_release_date).toLocaleDateString() : '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableCell>{report.organisation_hospital ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell>{report.clinician_researcher_name ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableCell>{report.clinician_researcher_email ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell>{report.clinician_researcher_phone ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableCell>{report.clinician_researcher_address ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('patientClientName') && <TableCell>{report.patient_client_name ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('age') && <TableCell>{report.age ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('gender') && <TableCell>{report.gender ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell>{report.patient_client_email ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell>{report.patient_client_phone ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell>{report.patient_client_address ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('geneticCounselorRequired') && <TableCell>{report.genetic_counselor_required ? 'Yes' : 'No'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableCell>{report.nutritional_counselling_required ? 'Yes' : 'No'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('serviceName') && <TableCell>{report.service_name ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('tat') && <TableCell>{report.tat ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('sampleType') && <TableCell>{report.sample_type ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('noOfSamples') && <TableCell>{report.no_of_samples ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('sampleId') && <TableCell>{report.sample_id ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableCell>{report.sample_received_date ? new Date(report.sample_received_date).toLocaleDateString() : '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('progenicsTrf') && <TableCell>{report.progenics_trf ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('approvalFromFinance') && <TableCell>{report.approval_from_finance ? 'Yes' : 'No'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell>{report.sales_responsible_person ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('leadCreatedBy') && <TableCell>{report.lead_created_by ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('leadModified') && <TableCell>{report.lead_modified ? new Date(report.lead_modified).toLocaleString() : '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('remarkComment') && <TableCell>{report.remark_comment ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('gcCaseSummary') && <TableCell>{report.gc_case_summary ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('actions') && <TableCell className="min-w-[150px] border-l-2 px-4 py-3">
+                      {reportColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{report.unique_id ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{report.project_id ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('reportUrl') && <TableCell className="py-1">{report.report_url ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableCell className="py-1">{report.report_release_date ? new Date(report.report_release_date).toLocaleDateString() : '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="py-1">{report.organisation_hospital ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="py-1">{report.clinician_researcher_name ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableCell className="py-1">{report.clinician_researcher_email ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell className="py-1">{report.clinician_researcher_phone ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableCell className="py-1">{report.clinician_researcher_address ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="py-1">{report.patient_client_name ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('age') && <TableCell className="py-1">{report.age ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('gender') && <TableCell className="py-1">{report.gender ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell className="py-1">{report.patient_client_email ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="py-1">{report.patient_client_phone ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell className="py-1">{report.patient_client_address ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('geneticCounselorRequired') && <TableCell className="py-1">{report.genetic_counselor_required ? 'Yes' : 'No'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableCell className="py-1">{report.nutritional_counselling_required ? 'Yes' : 'No'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('serviceName') && <TableCell className="py-1">{report.service_name ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('tat') && <TableCell className="py-1">{report.tat ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('sampleType') && <TableCell className="py-1">{report.sample_type ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('noOfSamples') && <TableCell className="py-1">{report.no_of_samples ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('sampleId') && <TableCell className="py-1">{report.sample_id ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableCell className="py-1">{report.sample_received_date ? new Date(report.sample_received_date).toLocaleDateString() : '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('progenicsTrf') && <TableCell className="py-1">{report.progenics_trf ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('approvalFromFinance') && <TableCell className="py-1">{report.approval_from_finance ? 'Yes' : 'No'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="py-1">{report.sales_responsible_person ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('leadCreatedBy') && <TableCell className="py-1">{report.lead_created_by ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('leadModified') && <TableCell className="py-1">{report.lead_modified ? new Date(report.lead_modified).toLocaleString() : '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="py-1">{report.remark_comment ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('gcCaseSummary') && <TableCell className="py-1">{report.gc_case_summary ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('actions') && <TableCell className="min-w-[150px] border-l-2 px-2 py-1">
                         <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(report)}>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-1" onClick={() => openEdit(report)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleDelete(report)}>
+                          <Button size="sm" variant="destructive" className="h-7 w-7 p-1" onClick={() => handleDelete(report)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
