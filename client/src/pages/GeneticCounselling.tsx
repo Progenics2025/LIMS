@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRecycle } from '@/contexts/RecycleContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,9 @@ import { useForm } from 'react-hook-form';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { FilterBar } from "@/components/FilterBar";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
+
 
 type GCRecord = {
   id: string;
@@ -175,6 +178,55 @@ export default function GeneticCounselling() {
   // Sorting state (per-column ascending/descending)
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Column configuration for hide/show feature
+  const gcColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'unique_id', label: 'Unique ID', canHide: false },
+    { id: 'project_id', label: 'Project ID', defaultVisible: true },
+    { id: 'counselling_date', label: 'Counselling Date', defaultVisible: true },
+    { id: 'gc_registration_start_time', label: 'GC Registration Start Time', defaultVisible: false },
+    { id: 'gc_registration_end_time', label: 'GC Registration End Time', defaultVisible: false },
+    { id: 'patient_client_name', label: 'Patient/Client Name', defaultVisible: true },
+    { id: 'age', label: 'Age', defaultVisible: false },
+    { id: 'gender', label: 'Gender', defaultVisible: false },
+    { id: 'patient_client_email', label: 'Patient/Client Email', defaultVisible: false },
+    { id: 'patient_client_phone', label: 'Patient/Client Phone', defaultVisible: false },
+    { id: 'patient_client_address', label: 'Patient/Client Address', defaultVisible: false },
+    { id: 'payment_status', label: 'Payment Status', defaultVisible: false },
+    { id: 'mode_of_payment', label: 'Mode of Payment', defaultVisible: false },
+    { id: 'approval_from_head', label: 'Approval from Head', defaultVisible: true },
+    { id: 'clinician_researcher_name', label: 'Clinician/Researcher Name', defaultVisible: true },
+    { id: 'organisation_hospital', label: 'Organisation/Hospital', defaultVisible: true },
+    { id: 'speciality', label: 'Speciality', defaultVisible: false },
+    { id: 'query_suspection', label: 'Query/Suspection', defaultVisible: false },
+    { id: 'gc_name', label: 'GC Name', defaultVisible: true },
+    { id: 'gc_other_members', label: 'GC Other Members', defaultVisible: false },
+    { id: 'service_name', label: 'Service Name', defaultVisible: true },
+    { id: 'counseling_type', label: 'Counselling Type', defaultVisible: true },
+    { id: 'counseling_start_time', label: 'Counselling Start Time', defaultVisible: false },
+    { id: 'counseling_end_time', label: 'Counselling End Time', defaultVisible: false },
+    { id: 'budget_for_test_opted', label: 'Budget for Test Opted', defaultVisible: false },
+    { id: 'testing_status', label: 'Testing Status', defaultVisible: true },
+    { id: 'action_required', label: 'Action Required', defaultVisible: false },
+    { id: 'potential_patient_for_testing_in_future', label: 'Potential Patient for Testing', defaultVisible: false },
+    { id: 'extended_family_testing_requirement', label: 'Extended Family Testing', defaultVisible: false },
+    { id: 'budget', label: 'Budget', defaultVisible: false },
+    { id: 'sample_type', label: 'Sample Type', defaultVisible: false },
+    { id: 'gc_summary_sheet', label: 'GC Summary Sheet', defaultVisible: false },
+    { id: 'gc_video_link', label: 'GC Video Link', defaultVisible: false },
+    { id: 'gc_audio_link', label: 'GC Audio Link', defaultVisible: false },
+    { id: 'sales_responsible_person', label: 'Sales/Responsible Person', defaultVisible: false },
+    { id: 'created_at', label: 'Created At', defaultVisible: false },
+    { id: 'created_by', label: 'Created By', defaultVisible: false },
+    { id: 'modified_at', label: 'Modified At', defaultVisible: false },
+    { id: 'modified_by', label: 'Modified By', defaultVisible: false },
+    { id: 'remark_comment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false },
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const gcColumnPrefs = useColumnPreferences('genetic_counselling_table', gcColumns);
+
 
   const form = useForm<GCRecord>({
     defaultValues: {
@@ -458,66 +510,80 @@ export default function GeneticCounselling() {
             </Select>
           </FilterBar>
 
+          {/* Column Visibility Settings */}
+          <div className="mt-2 mb-2 px-4">
+            <ColumnSettings
+              columns={gcColumns}
+              isColumnVisible={gcColumnPrefs.isColumnVisible}
+              toggleColumn={gcColumnPrefs.toggleColumn}
+              resetToDefaults={gcColumnPrefs.resetToDefaults}
+              showAllColumns={gcColumnPrefs.showAllColumns}
+              showCompactView={gcColumnPrefs.showCompactView}
+              visibleCount={gcColumnPrefs.visibleCount}
+              totalCount={gcColumnPrefs.totalCount}
+            />
+          </div>
+
           <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper process-table-wrapper">
             <Table className="leads-table">
               <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b-2">
                 <TableRow>
-                  <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('counselling_date'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling date{sortKey === 'counselling_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration start time{sortKey === 'gc_registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_registration_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration end time{sortKey === 'gc_registration_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('patient_client_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patient_client_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('patient_client_email'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client email{sortKey === 'patient_client_email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('patient_client_phone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client phone{sortKey === 'patient_client_phone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('patient_client_address'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client address{sortKey === 'patient_client_address' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('payment_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Payment status{sortKey === 'payment_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('mode_of_payment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Mode of payment{sortKey === 'mode_of_payment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('approval_from_head'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Approval from head{sortKey === 'approval_from_head' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('clinician_researcher_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Clinician/Researcher name{sortKey === 'clinician_researcher_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('organisation_hospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation/Hospital{sortKey === 'organisation_hospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('speciality'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Speciality{sortKey === 'speciality' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('query_suspection'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Query/Suspection{sortKey === 'query_suspection' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC name{sortKey === 'gc_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_other_members'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC other members{sortKey === 'gc_other_members' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('service_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Service name{sortKey === 'service_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('counseling_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling type{sortKey === 'counseling_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('counseling_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling start time{sortKey === 'counseling_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('counseling_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling end time{sortKey === 'counseling_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('budget_for_test_opted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Budget for Test opted{sortKey === 'budget_for_test_opted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('testing_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Testing status{sortKey === 'testing_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('action_required'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Action required{sortKey === 'action_required' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('potential_patient_for_testing_in_future'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Potential Patient for testing in future{sortKey === 'potential_patient_for_testing_in_future' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('extended_family_testing_requirement'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Extended family testing requirement{sortKey === 'extended_family_testing_requirement' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('budget'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Budget{sortKey === 'budget' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('sample_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample Type{sortKey === 'sample_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_summary_sheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC summary sheet{sortKey === 'gc_summary_sheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_video_link'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC video link{sortKey === 'gc_video_link' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('gc_audio_link'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC audio link{sortKey === 'gc_audio_link' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('sales_responsible_person'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sales/Responsible person{sortKey === 'sales_responsible_person' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('created_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created at{sortKey === 'created_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('created_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created by{sortKey === 'created_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('modified_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modified_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('modified_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modified_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead onClick={() => { setSortKey('remark_comment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remark_comment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                  <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold actions-column">Actions</TableHead>
+                  {gcColumnPrefs.isColumnVisible('unique_id') && <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('project_id') && <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('counselling_date') && <TableHead onClick={() => { setSortKey('counselling_date'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling date{sortKey === 'counselling_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_registration_start_time') && <TableHead onClick={() => { setSortKey('gc_registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration start time{sortKey === 'gc_registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_registration_end_time') && <TableHead onClick={() => { setSortKey('gc_registration_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC registration end time{sortKey === 'gc_registration_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('patient_client_name') && <TableHead onClick={() => { setSortKey('patient_client_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patient_client_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('age') && <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gender') && <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('patient_client_email') && <TableHead onClick={() => { setSortKey('patient_client_email'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client email{sortKey === 'patient_client_email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('patient_client_phone') && <TableHead onClick={() => { setSortKey('patient_client_phone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client phone{sortKey === 'patient_client_phone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('patient_client_address') && <TableHead onClick={() => { setSortKey('patient_client_address'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client address{sortKey === 'patient_client_address' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('payment_status') && <TableHead onClick={() => { setSortKey('payment_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Payment status{sortKey === 'payment_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('mode_of_payment') && <TableHead onClick={() => { setSortKey('mode_of_payment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Mode of payment{sortKey === 'mode_of_payment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('approval_from_head') && <TableHead onClick={() => { setSortKey('approval_from_head'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Approval from head{sortKey === 'approval_from_head' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('clinician_researcher_name') && <TableHead onClick={() => { setSortKey('clinician_researcher_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Clinician/Researcher name{sortKey === 'clinician_researcher_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('organisation_hospital') && <TableHead onClick={() => { setSortKey('organisation_hospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation/Hospital{sortKey === 'organisation_hospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('speciality') && <TableHead onClick={() => { setSortKey('speciality'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Speciality{sortKey === 'speciality' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('query_suspection') && <TableHead onClick={() => { setSortKey('query_suspection'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Query/Suspection{sortKey === 'query_suspection' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_name') && <TableHead onClick={() => { setSortKey('gc_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC name{sortKey === 'gc_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_other_members') && <TableHead onClick={() => { setSortKey('gc_other_members'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC other members{sortKey === 'gc_other_members' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('service_name') && <TableHead onClick={() => { setSortKey('service_name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Service name{sortKey === 'service_name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('counseling_type') && <TableHead onClick={() => { setSortKey('counseling_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling type{sortKey === 'counseling_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('counseling_start_time') && <TableHead onClick={() => { setSortKey('counseling_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling start time{sortKey === 'counseling_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('counseling_end_time') && <TableHead onClick={() => { setSortKey('counseling_end_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Counselling end time{sortKey === 'counseling_end_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('budget_for_test_opted') && <TableHead onClick={() => { setSortKey('budget_for_test_opted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Budget for Test opted{sortKey === 'budget_for_test_opted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('testing_status') && <TableHead onClick={() => { setSortKey('testing_status'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Testing status{sortKey === 'testing_status' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('action_required') && <TableHead onClick={() => { setSortKey('action_required'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Action required{sortKey === 'action_required' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('potential_patient_for_testing_in_future') && <TableHead onClick={() => { setSortKey('potential_patient_for_testing_in_future'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Potential Patient for testing in future{sortKey === 'potential_patient_for_testing_in_future' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('extended_family_testing_requirement') && <TableHead onClick={() => { setSortKey('extended_family_testing_requirement'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Extended family testing requirement{sortKey === 'extended_family_testing_requirement' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('budget') && <TableHead onClick={() => { setSortKey('budget'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Budget{sortKey === 'budget' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('sample_type') && <TableHead onClick={() => { setSortKey('sample_type'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample Type{sortKey === 'sample_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_summary_sheet') && <TableHead onClick={() => { setSortKey('gc_summary_sheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC summary sheet{sortKey === 'gc_summary_sheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_video_link') && <TableHead onClick={() => { setSortKey('gc_video_link'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC video link{sortKey === 'gc_video_link' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('gc_audio_link') && <TableHead onClick={() => { setSortKey('gc_audio_link'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">GC audio link{sortKey === 'gc_audio_link' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('sales_responsible_person') && <TableHead onClick={() => { setSortKey('sales_responsible_person'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sales/Responsible person{sortKey === 'sales_responsible_person' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('created_at') && <TableHead onClick={() => { setSortKey('created_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created at{sortKey === 'created_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('created_by') && <TableHead onClick={() => { setSortKey('created_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created by{sortKey === 'created_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('modified_at') && <TableHead onClick={() => { setSortKey('modified_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modified_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('modified_by') && <TableHead onClick={() => { setSortKey('modified_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modified_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('remark_comment') && <TableHead onClick={() => { setSortKey('remark_comment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remark_comment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold actions-column">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={41} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={gcColumnPrefs.visibleCount} className="text-center py-8 text-muted-foreground">
                       {filteredRows.length === 0 ? "No genetic counselling records found" : "No records match your search criteria"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   visibleRows.map((r) => (
                     <TableRow key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                      <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.unique_id}</TableCell>
-                      <TableCell>{r.project_id ?? '-'}</TableCell>
-                      <TableCell className="text-sm">
+                      {gcColumnPrefs.isColumnVisible('unique_id') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.unique_id}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('project_id') && <TableCell>{r.project_id ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('counselling_date') && <TableCell className="text-sm">
                         {r.counselling_date ? (
                           (() => {
                             try {
@@ -542,67 +608,67 @@ export default function GeneticCounselling() {
                             }
                           })()
                         ) : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_registration_start_time') && <TableCell className="text-sm">
                         {r.gc_registration_start_time ? (
                           <span>{formatTimeString(r.gc_registration_start_time)}</span>
                         ) : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_registration_end_time') && <TableCell className="text-sm">
                         {r.gc_registration_end_time ? (
                           <span>{formatTimeString(r.gc_registration_end_time)}</span>
                         ) : '-'}
-                      </TableCell>
-                      <TableCell>{r.patient_client_name ?? '-'}</TableCell>
-                      <TableCell>{r.age != null ? String(r.age) : '-'}</TableCell>
-                      <TableCell>{r.gender ?? '-'}</TableCell>
-                      <TableCell>{r.patient_client_email ?? '-'}</TableCell>
-                      <TableCell>{r.patient_client_phone ?? '-'}</TableCell>
-                      <TableCell>{r.patient_client_address ?? '-'}</TableCell>
-                      <TableCell>{r.payment_status ?? '-'}</TableCell>
-                      <TableCell>{r.mode_of_payment ?? '-'}</TableCell>
-                      <TableCell>{r.approval_from_head ? 'Yes' : 'No'}</TableCell>
-                      <TableCell>{r.clinician_researcher_name ?? '-'}</TableCell>
-                      <TableCell>{r.organisation_hospital ?? '-'}</TableCell>
-                      <TableCell>{r.speciality ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.query_suspection ?? '-'}</TableCell>
-                      <TableCell>{r.gc_name ?? '-'}</TableCell>
-                      <TableCell>{r.gc_other_members ?? '-'}</TableCell>
-                      <TableCell>{r.service_name ?? '-'}</TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('patient_client_name') && <TableCell>{r.patient_client_name ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('age') && <TableCell>{r.age != null ? String(r.age) : '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gender') && <TableCell>{r.gender ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('patient_client_email') && <TableCell>{r.patient_client_email ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('patient_client_phone') && <TableCell>{r.patient_client_phone ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('patient_client_address') && <TableCell>{r.patient_client_address ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('payment_status') && <TableCell>{r.payment_status ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('mode_of_payment') && <TableCell>{r.mode_of_payment ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('approval_from_head') && <TableCell>{r.approval_from_head ? 'Yes' : 'No'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('clinician_researcher_name') && <TableCell>{r.clinician_researcher_name ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('organisation_hospital') && <TableCell>{r.organisation_hospital ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('speciality') && <TableCell>{r.speciality ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('query_suspection') && <TableCell className="max-w-xs truncate">{r.query_suspection ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_name') && <TableCell>{r.gc_name ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_other_members') && <TableCell>{r.gc_other_members ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('service_name') && <TableCell>{r.service_name ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('counseling_type') && <TableCell>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCounsellingTypeBadgeColor(r.counseling_type ?? '')}`}>
                           {r.counseling_type}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('counseling_start_time') && <TableCell className="text-sm">
                         {r.counseling_start_time ? (
                           <span>{formatTimeString(r.counseling_start_time)}</span>
                         ) : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('counseling_end_time') && <TableCell className="text-sm">
                         {r.counseling_end_time ? (
                           <span>{formatTimeString(r.counseling_end_time)}</span>
                         ) : '-'}
-                      </TableCell>
-                      <TableCell>{r.budget_for_test_opted ?? '-'}</TableCell>
-                      <TableCell>{r.testing_status ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.action_required ?? '-'}</TableCell>
-                      <TableCell>{r.potential_patient_for_testing_in_future ? 'Yes' : 'No'}</TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('budget_for_test_opted') && <TableCell>{r.budget_for_test_opted ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('testing_status') && <TableCell>{r.testing_status ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('action_required') && <TableCell className="max-w-xs truncate">{r.action_required ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('potential_patient_for_testing_in_future') && <TableCell>{r.potential_patient_for_testing_in_future ? 'Yes' : 'No'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('extended_family_testing_requirement') && <TableCell>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${r.extended_family_testing_requirement
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
                           }`}>
                           {r.extended_family_testing_requirement ? 'Yes' : 'No'}
                         </span>
-                      </TableCell>
-                      <TableCell>{r.budget ?? '-'}</TableCell>
-                      <TableCell>{r.sample_type ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.gc_summary_sheet ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.gc_video_link ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.gc_audio_link ?? '-'}</TableCell>
-                      <TableCell>{r.sales_responsible_person ?? '-'}</TableCell>
-                      <TableCell className="text-sm">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('budget') && <TableCell>{r.budget ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('sample_type') && <TableCell>{r.sample_type ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_summary_sheet') && <TableCell className="max-w-xs truncate">{r.gc_summary_sheet ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_video_link') && <TableCell className="max-w-xs truncate">{r.gc_video_link ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('gc_audio_link') && <TableCell className="max-w-xs truncate">{r.gc_audio_link ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('sales_responsible_person') && <TableCell>{r.sales_responsible_person ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('created_at') && <TableCell className="text-sm">
                         {r.created_at ? (
                           (() => {
                             try {
@@ -627,9 +693,9 @@ export default function GeneticCounselling() {
                             }
                           })()
                         ) : '-'}
-                      </TableCell>
-                      <TableCell>{r.created_by ?? '-'}</TableCell>
-                      <TableCell className="text-sm">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('created_by') && <TableCell>{r.created_by ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('modified_at') && <TableCell className="text-sm">
                         {r.modified_at ? (
                           (() => {
                             try {
@@ -654,10 +720,10 @@ export default function GeneticCounselling() {
                             }
                           })()
                         ) : '-'}
-                      </TableCell>
-                      <TableCell>{r.modified_by ?? '-'}</TableCell>
-                      <TableCell className="max-w-xs truncate">{r.remark_comment ?? '-'}</TableCell>
-                      <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 actions-column">
+                      </TableCell>}
+                      {gcColumnPrefs.isColumnVisible('modified_by') && <TableCell>{r.modified_by ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('remark_comment') && <TableCell className="max-w-xs truncate">{r.remark_comment ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('actions') && <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 actions-column">
                         <div className="action-buttons flex space-x-2">
                           <Button size="sm" variant="ghost" aria-label="Edit GC" onClick={() => openEdit(r)}>
                             <EditIcon className="h-4 w-4" />
@@ -666,7 +732,7 @@ export default function GeneticCounselling() {
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </div>
-                      </TableCell>
+                      </TableCell>}
                     </TableRow>
                   ))
                 )}

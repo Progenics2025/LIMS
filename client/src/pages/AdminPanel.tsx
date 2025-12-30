@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
 
 const userFormSchema = insertUserSchema.extend({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -30,6 +32,18 @@ export default function AdminPanel() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Column configuration for hide/show feature
+  const adminColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'name', label: 'Name', canHide: false },
+    { id: 'email', label: 'Email', defaultVisible: true },
+    { id: 'role', label: 'Role', defaultVisible: true },
+    { id: 'status', label: 'Status', defaultVisible: true },
+    { id: 'lastLogin', label: 'Last Login', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false },
+  ], []);
+
+  const adminColumnPrefs = useColumnPreferences('admin_panel_table', adminColumns);
 
   const { data: usersData = [], isLoading } = useQuery<User[]>({
     queryKey: ['/api/users'],
@@ -416,11 +430,21 @@ export default function AdminPanel() {
 
       {/* Users Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="flex items-center">
             <Shield className="mr-2 h-5 w-5" />
             User Management
           </CardTitle>
+          <ColumnSettings
+            columns={adminColumns}
+            isColumnVisible={adminColumnPrefs.isColumnVisible}
+            toggleColumn={adminColumnPrefs.toggleColumn}
+            resetToDefaults={adminColumnPrefs.resetToDefaults}
+            showAllColumns={adminColumnPrefs.showAllColumns}
+            showCompactView={adminColumnPrefs.showCompactView}
+            visibleCount={adminColumnPrefs.visibleCount}
+            totalCount={adminColumnPrefs.totalCount}
+          />
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -434,18 +458,18 @@ export default function AdminPanel() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Actions</TableHead>
+                    {adminColumnPrefs.isColumnVisible('name') && <TableHead>Name</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('email') && <TableHead>Email</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('role') && <TableHead>Role</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('status') && <TableHead>Status</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('lastLogin') && <TableHead>Last Login</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('actions') && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell>
+                      {adminColumnPrefs.isColumnVisible('name') && <TableCell>
                         <div className="flex items-center">
                           <Avatar className="h-10 w-10 mr-3">
                             <AvatarFallback className="bg-primary-500 text-white text-sm">
@@ -458,11 +482,11 @@ export default function AdminPanel() {
                             </div>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">
+                      </TableCell>}
+                      {adminColumnPrefs.isColumnVisible('email') && <TableCell className="text-gray-900 dark:text-white">
                         {user.email}
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {adminColumnPrefs.isColumnVisible('role') && <TableCell>
                         <div className="flex items-center space-x-2">
                           <Select value={user.role} onValueChange={(val) => roleChangeMutation.mutate({ id: user.id, role: val })}>
                             <SelectTrigger className="w-48">
@@ -484,16 +508,16 @@ export default function AdminPanel() {
                             {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                           </Badge>
                         </div>
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {adminColumnPrefs.isColumnVisible('status') && <TableCell>
                         <Badge className={getStatusBadge(!!user.isActive)}>
                           {user.isActive !== false ? "Active" : "Inactive"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-gray-900 dark:text-white">
+                      </TableCell>}
+                      {adminColumnPrefs.isColumnVisible('lastLogin') && <TableCell className="text-gray-900 dark:text-white">
                         {formatLastLogin(user.lastLogin?.toString() || null)}
-                      </TableCell>
-                      <TableCell>
+                      </TableCell>}
+                      {adminColumnPrefs.isColumnVisible('actions') && <TableCell>
                         <div className="flex space-x-2">
                           <Button variant="outline" size="sm" onClick={() => handleOpenEdit(user)}>
                             <Edit className="h-4 w-4" />
@@ -520,7 +544,7 @@ export default function AdminPanel() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
+                      </TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>

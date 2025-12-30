@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,9 @@ import { useRecycle } from '@/contexts/RecycleContext';
 import { toast } from "@/hooks/use-toast";
 import { PDFViewer } from '@/components/PDFViewer';
 import { FilterBar } from "@/components/FilterBar";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
+
 
 async function apiRequest(method: string, url: string, data?: any) {
   const response = await fetch(url, {
@@ -129,6 +132,39 @@ export default function Nutrition() {
   const [editFormValues, setEditFormValues] = useState<any>({});
   const queryClient = useQueryClient();
   const { add } = useRecycle();
+
+  // Column configuration for hide/show feature
+  const nutritionColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'uniqueId', label: 'Unique ID', canHide: false },
+    { id: 'projectId', label: 'Project ID', defaultVisible: true },
+    { id: 'sampleId', label: 'Sample ID', defaultVisible: true },
+    { id: 'serviceName', label: 'Service Name', defaultVisible: true },
+    { id: 'patientClientName', label: 'Patient/Client Name', defaultVisible: true },
+    { id: 'age', label: 'Age', defaultVisible: false },
+    { id: 'gender', label: 'Gender', defaultVisible: false },
+    { id: 'progenicsTrf', label: 'Progenics TRF', defaultVisible: false },
+    { id: 'questionnaire', label: 'Questionnaire', defaultVisible: false },
+    { id: 'questionnaireCallRecording', label: 'Questionnaire Call Recording', defaultVisible: false },
+    { id: 'dataAnalysisSheet', label: 'Data Analysis Sheet', defaultVisible: false },
+    { id: 'progenicsReport', label: 'Progenics Report', defaultVisible: false },
+    { id: 'nutritionChart', label: 'Nutrition Chart', defaultVisible: false },
+    { id: 'counsellingSessionDate', label: 'Counselling Session Date', defaultVisible: true },
+    { id: 'furtherCounsellingRequired', label: 'Further Counselling Required', defaultVisible: false },
+    { id: 'counsellingStatus', label: 'Counselling Status', defaultVisible: true },
+    { id: 'counsellingSessionRecording', label: 'Counselling Session Recording', defaultVisible: false },
+    { id: 'alertToTechnicalLead', label: 'Alert to Technical Lead', defaultVisible: true },
+    { id: 'alertToReportTeam', label: 'Alert to Report Team', defaultVisible: true },
+    { id: 'createdAt', label: 'Created At', defaultVisible: false },
+    { id: 'createdBy', label: 'Created By', defaultVisible: false },
+    { id: 'modifiedAt', label: 'Modified At', defaultVisible: false },
+    { id: 'modifiedBy', label: 'Modified By', defaultVisible: false },
+    { id: 'remarksComment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false },
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const nutritionColumnPrefs = useColumnPreferences('nutrition_table', nutritionColumns);
+
 
   // Fetch all users for name lookup
   const { data: allUsers = [] } = useQuery<any[]>({
@@ -383,36 +419,50 @@ export default function Nutrition() {
             placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
           />
 
+          {/* Column Visibility Settings */}
+          <div className="mt-2 mb-2">
+            <ColumnSettings
+              columns={nutritionColumns}
+              isColumnVisible={nutritionColumnPrefs.isColumnVisible}
+              toggleColumn={nutritionColumnPrefs.toggleColumn}
+              resetToDefaults={nutritionColumnPrefs.resetToDefaults}
+              showAllColumns={nutritionColumnPrefs.showAllColumns}
+              showCompactView={nutritionColumnPrefs.showCompactView}
+              visibleCount={nutritionColumnPrefs.visibleCount}
+              totalCount={nutritionColumnPrefs.totalCount}
+            />
+          </div>
+
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <div className="border rounded-lg max-h-[60vh] overflow-y-auto">
               <table className="leads-table w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-30">
                   <tr>
-                    <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold sticky left-0 z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</th>
-                    <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Project ID</th>
-                    <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Sample ID</th>
-                    <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Service name</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Patient/Client name</th>
-                    <th className="min-w-[80px] px-4 py-3 text-left whitespace-nowrap font-semibold">Age</th>
-                    <th className="min-w-[100px] px-4 py-3 text-left whitespace-nowrap font-semibold">Gender</th>
-                    <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Progenics TRF</th>
-                    <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Questionnaire</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Questionnaire Call recording</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Data analysis sheet</th>
-                    <th className="min-w-[140px] px-4 py-3 text-left whitespace-nowrap font-semibold">Progenics Report</th>
-                    <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Nutrition Chart</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Counselling session date</th>
-                    <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap font-semibold">Further counselling required</th>
-                    <th className="min-w-[140px] px-4 py-3 text-left whitespace-nowrap font-semibold">Counselling status</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Counselling session recording</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Alert to Technical lead</th>
-                    <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Alert to Report team</th>
-                    <th className="min-w-[140px] px-4 py-3 text-left whitespace-nowrap font-semibold">Created at</th>
-                    <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Created by</th>
-                    <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Modified at</th>
-                    <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Modified by</th>
-                    <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap font-semibold">Remark/Comment</th>
-                    <th className="bg-gray-50 dark:bg-gray-800 z-20 px-4 py-3 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2 actions-column">Actions</th>
+                    {nutritionColumnPrefs.isColumnVisible('uniqueId') && <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold sticky left-0 z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</th>}
+                    {nutritionColumnPrefs.isColumnVisible('projectId') && <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Project ID</th>}
+                    {nutritionColumnPrefs.isColumnVisible('sampleId') && <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Sample ID</th>}
+                    {nutritionColumnPrefs.isColumnVisible('serviceName') && <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Service name</th>}
+                    {nutritionColumnPrefs.isColumnVisible('patientClientName') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Patient/Client name</th>}
+                    {nutritionColumnPrefs.isColumnVisible('age') && <th className="min-w-[80px] px-4 py-3 text-left whitespace-nowrap font-semibold">Age</th>}
+                    {nutritionColumnPrefs.isColumnVisible('gender') && <th className="min-w-[100px] px-4 py-3 text-left whitespace-nowrap font-semibold">Gender</th>}
+                    {nutritionColumnPrefs.isColumnVisible('progenicsTrf') && <th className="min-w-[120px] px-4 py-3 text-left whitespace-nowrap font-semibold">Progenics TRF</th>}
+                    {nutritionColumnPrefs.isColumnVisible('questionnaire') && <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Questionnaire</th>}
+                    {nutritionColumnPrefs.isColumnVisible('questionnaireCallRecording') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Questionnaire Call recording</th>}
+                    {nutritionColumnPrefs.isColumnVisible('dataAnalysisSheet') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Data analysis sheet</th>}
+                    {nutritionColumnPrefs.isColumnVisible('progenicsReport') && <th className="min-w-[140px] px-4 py-3 text-left whitespace-nowrap font-semibold">Progenics Report</th>}
+                    {nutritionColumnPrefs.isColumnVisible('nutritionChart') && <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Nutrition Chart</th>}
+                    {nutritionColumnPrefs.isColumnVisible('counsellingSessionDate') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Counselling session date</th>}
+                    {nutritionColumnPrefs.isColumnVisible('furtherCounsellingRequired') && <th className="min-w-[160px] px-4 py-3 text-left whitespace-nowrap font-semibold">Further counselling required</th>}
+                    {nutritionColumnPrefs.isColumnVisible('counsellingStatus') && <th className="min-w-[140px] px-4 py-3 text-left whitespace-nowrap font-semibold">Counselling status</th>}
+                    {nutritionColumnPrefs.isColumnVisible('counsellingSessionRecording') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Counselling session recording</th>}
+                    {nutritionColumnPrefs.isColumnVisible('alertToTechnicalLead') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Alert to Technical lead</th>}
+                    {nutritionColumnPrefs.isColumnVisible('alertToReportTeam') && <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Alert to Report team</th>}
+                    {nutritionColumnPrefs.isColumnVisible('createdAt') && <th className="min-w-[140px] px-4 py-3 text-left whitespace-nowrap font-semibold">Created at</th>}
+                    {nutritionColumnPrefs.isColumnVisible('createdBy') && <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Created by</th>}
+                    {nutritionColumnPrefs.isColumnVisible('modifiedAt') && <th className="min-w-[150px] px-4 py-3 text-left whitespace-nowrap font-semibold">Modified at</th>}
+                    {nutritionColumnPrefs.isColumnVisible('modifiedBy') && <th className="min-w-[130px] px-4 py-3 text-left whitespace-nowrap font-semibold">Modified by</th>}
+                    {nutritionColumnPrefs.isColumnVisible('remarksComment') && <th className="min-w-[200px] px-4 py-3 text-left whitespace-nowrap font-semibold">Remark/Comment</th>}
+                    {nutritionColumnPrefs.isColumnVisible('actions') && <th className="bg-gray-50 dark:bg-gray-800 z-20 px-4 py-3 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2 actions-column">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -425,37 +475,37 @@ export default function Nutrition() {
                   ) : (
                     paginatedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                        <td className="min-w-[120px] px-4 py-3 whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.uniqueId || '-'}</td>
-                        <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.projectId || '-'}</td>
-                        <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.sampleId || '-'}</td>
-                        <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.serviceName || '-'}</td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.patientClientName || '-'}</td>
-                        <td className="min-w-[80px] px-4 py-3 whitespace-nowrap">{record.age ?? '-'}</td>
-                        <td className="min-w-[100px] px-4 py-3 whitespace-nowrap">{record.gender || '-'}</td>
-                        <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">
+                        {nutritionColumnPrefs.isColumnVisible('uniqueId') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.uniqueId || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('projectId') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.projectId || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('sampleId') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">{record.sampleId || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('serviceName') && <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.serviceName || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('patientClientName') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.patientClientName || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('age') && <td className="min-w-[80px] px-4 py-3 whitespace-nowrap">{record.age ?? '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('gender') && <td className="min-w-[100px] px-4 py-3 whitespace-nowrap">{record.gender || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('progenicsTrf') && <td className="min-w-[120px] px-4 py-3 whitespace-nowrap">
                           <PDFViewer pdfUrl={record.progenicsTrf} fileName="Progenics_TRF.pdf" />
-                        </td>
-                        <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.questionnaire || '-'}</td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.questionnaireCallRecording || '-'}</td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.dataAnalysisSheet || '-'}</td>
-                        <td className="min-w-[140px] px-4 py-3 whitespace-nowrap">{record.progenicsReport || '-'}</td>
-                        <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.nutritionChart || '-'}</td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.counsellingSessionDate ? new Date(record.counsellingSessionDate).toLocaleDateString() : '-'}</td>
-                        <td className="min-w-[160px] px-4 py-3 whitespace-nowrap">{record.furtherCounsellingRequired ? 'Yes' : 'No'}</td>
-                        <td className="min-w-[140px] px-4 py-3 whitespace-nowrap">
+                        </td>}
+                        {nutritionColumnPrefs.isColumnVisible('questionnaire') && <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.questionnaire || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('questionnaireCallRecording') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.questionnaireCallRecording || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('dataAnalysisSheet') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.dataAnalysisSheet || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('progenicsReport') && <td className="min-w-[140px] px-4 py-3 whitespace-nowrap">{record.progenicsReport || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('nutritionChart') && <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.nutritionChart || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('counsellingSessionDate') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.counsellingSessionDate ? new Date(record.counsellingSessionDate).toLocaleDateString() : '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('furtherCounsellingRequired') && <td className="min-w-[160px] px-4 py-3 whitespace-nowrap">{record.furtherCounsellingRequired ? 'Yes' : 'No'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('counsellingStatus') && <td className="min-w-[140px] px-4 py-3 whitespace-nowrap">
                           <Badge className={getStatusBadgeColor(record.counsellingStatus)}>
                             {record.counsellingStatus || 'Pending'}
                           </Badge>
-                        </td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.counsellingSessionRecording || '-'}</td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.alertToTechnicalLead ? 'Yes' : 'No'}</td>
-                        <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.alertToReportTeam ? 'Yes' : 'No'}</td>
-                        <td className="min-w-[140px] px-4 py-3 whitespace-nowrap">{record.createdAt ? new Date(record.createdAt).toLocaleString() : '-'}</td>
-                        <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{getUserNameById(record.createdBy)}</td>
-                        <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.modifiedAt ? new Date(record.modifiedAt).toLocaleString() : '-'}</td>
-                        <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.modifiedBy || '-'}</td>
-                        <td className="min-w-[200px] px-4 py-3 whitespace-nowrap">{record.remarksComment || '-'}</td>
-                        <td className="border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column px-4 py-3">
+                        </td>}
+                        {nutritionColumnPrefs.isColumnVisible('counsellingSessionRecording') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.counsellingSessionRecording || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('alertToTechnicalLead') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.alertToTechnicalLead ? 'Yes' : 'No'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('alertToReportTeam') && <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.alertToReportTeam ? 'Yes' : 'No'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('createdAt') && <td className="min-w-[140px] px-4 py-3 whitespace-nowrap">{record.createdAt ? new Date(record.createdAt).toLocaleString() : '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('createdBy') && <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{getUserNameById(record.createdBy)}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('modifiedAt') && <td className="min-w-[150px] px-4 py-3 whitespace-nowrap">{record.modifiedAt ? new Date(record.modifiedAt).toLocaleString() : '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('modifiedBy') && <td className="min-w-[130px] px-4 py-3 whitespace-nowrap">{record.modifiedBy || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('remarksComment') && <td className="min-w-[200px] px-4 py-3 whitespace-nowrap">{record.remarksComment || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('actions') && <td className="border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column px-4 py-3">
                           <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
                             <Button
                               variant="outline"
@@ -509,7 +559,7 @@ export default function Nutrition() {
                               <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
                           </div>
-                        </td>
+                        </td>}
                       </tr>
                     ))
                   )}

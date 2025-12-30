@@ -16,10 +16,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
 
 export default function FinanceManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -31,6 +33,59 @@ export default function FinanceManagement() {
   const [financeQuery, setFinanceQuery] = useState<string>('');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
+
+  // Column configuration for hide/show feature (Finance)
+  const financeColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'uniqueId', label: 'Unique ID', canHide: false }, // Primary identifier
+    { id: 'projectId', label: 'Project ID', defaultVisible: true },
+    { id: 'sampleCollectionDate', label: 'Sample Collection Date', defaultVisible: true },
+    { id: 'organisationHospital', label: 'Organisation/Hospital', defaultVisible: true },
+    { id: 'clinicianResearcherName', label: 'Clinician/Researcher Name', defaultVisible: true },
+    { id: 'clinicianResearcherEmail', label: 'Clinician/Researcher Email', defaultVisible: false },
+    { id: 'clinicianResearcherPhone', label: 'Clinician/Researcher Phone', defaultVisible: false },
+    { id: 'clinicianResearcherAddress', label: 'Clinician/Researcher Address', defaultVisible: false },
+    { id: 'patientClientName', label: 'Patient/Client Name', defaultVisible: true },
+    { id: 'patientClientEmail', label: 'Patient/Client Email', defaultVisible: false },
+    { id: 'patientClientPhone', label: 'Patient/Client Phone', defaultVisible: false },
+    { id: 'patientClientAddress', label: 'Patient/Client Address', defaultVisible: false },
+    { id: 'serviceName', label: 'Service Name', defaultVisible: true },
+    { id: 'budget', label: 'Budget', defaultVisible: true },
+    { id: 'phlebotomistCharges', label: 'Phlebotomist Charges', defaultVisible: false },
+    { id: 'salesResponsiblePerson', label: 'Sales/Responsible Person', defaultVisible: false },
+    { id: 'sampleShipmentAmount', label: 'Sample Shipment Amount', defaultVisible: false },
+    { id: 'invoiceNumber', label: 'Invoice Number', defaultVisible: true },
+    { id: 'invoiceAmount', label: 'Invoice Amount', defaultVisible: true },
+    { id: 'invoiceDate', label: 'Invoice Date', defaultVisible: true },
+    { id: 'paymentReceiptAmount', label: 'Payment Receipt Amount', defaultVisible: true },
+    { id: 'balanceAmount', label: 'Balance Amount', defaultVisible: true },
+    { id: 'paymentReceiptDate', label: 'Payment Receipt Date', defaultVisible: false },
+    { id: 'modeOfPayment', label: 'Mode of Payment', defaultVisible: false },
+    { id: 'transactionalNumber', label: 'Transactional Number', defaultVisible: false },
+    { id: 'balanceAmountReceivedDate', label: 'Balance Amount Received Date', defaultVisible: false },
+    { id: 'totalAmountReceivedStatus', label: 'Total Amount Received Status', defaultVisible: true },
+    { id: 'utrDetails', label: 'UTR Details', defaultVisible: false },
+    { id: 'thirdPartyCharges', label: 'Third Party Charges', defaultVisible: false },
+    { id: 'otherCharges', label: 'Other Charges', defaultVisible: false },
+    { id: 'otherChargesReason', label: 'Other Charges Reason', defaultVisible: false },
+    { id: 'thirdPartyName', label: 'Third Party Name', defaultVisible: false },
+    { id: 'thirdPartyPhone', label: 'Third Party Phone', defaultVisible: false },
+    { id: 'thirdPartyPaymentDate', label: 'Third Party Payment Date', defaultVisible: false },
+    { id: 'thirdPartyPaymentStatus', label: 'Third Party Payment Status', defaultVisible: false },
+    { id: 'alertToLabprocessTeam', label: 'Alert to Labprocess Team', defaultVisible: false },
+    { id: 'alertToReportTeam', label: 'Alert to Report Team', defaultVisible: false },
+    { id: 'alertToTechnicalLead', label: 'Alert to Technical Lead', defaultVisible: false },
+    { id: 'screenshotDocument', label: 'Screenshot/Document', defaultVisible: false },
+    { id: 'createdAt', label: 'Created At', defaultVisible: false },
+    { id: 'createdBy', label: 'Created By', defaultVisible: false },
+    { id: 'modifiedAt', label: 'Modified At', defaultVisible: false },
+    { id: 'modifiedBy', label: 'Modified By', defaultVisible: false },
+    { id: 'remarkComment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false }, // Always visible
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const financeColumnPrefs = useColumnPreferences('finance_table', financeColumns);
+
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1047,6 +1102,20 @@ export default function FinanceManagement() {
             setPage={setPage}
           />
 
+          {/* Column Visibility Settings */}
+          <div className="mt-2 mb-2">
+            <ColumnSettings
+              columns={financeColumns}
+              isColumnVisible={financeColumnPrefs.isColumnVisible}
+              toggleColumn={financeColumnPrefs.toggleColumn}
+              resetToDefaults={financeColumnPrefs.resetToDefaults}
+              showAllColumns={financeColumnPrefs.showAllColumns}
+              showCompactView={financeColumnPrefs.showCompactView}
+              visibleCount={financeColumnPrefs.visibleCount}
+              totalCount={financeColumnPrefs.totalCount}
+            />
+          </div>
+
           {isLoadingRecords ? (
             <div className="text-center py-8">Loading finance records...</div>
           ) : (
@@ -1057,51 +1126,51 @@ export default function FinanceManagement() {
                   <Table className="leads-table">
                     <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                       <TableRow>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Project ID</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Sample Collection Date</TableHead>
-                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Organisation / Hospital</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Name</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Email</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Phone</TableHead>
-                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Clinician / Researcher Address</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Name</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Email</TableHead>
-                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Patient / Client Phone</TableHead>
-                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Patient / Client Address</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Service Name</TableHead>
-                        <TableHead className="min-w-[120px] whitespace-nowrap font-semibold">Budget</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Phlebotomist Charges</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Sales / Responsible Person</TableHead>
-                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Sample Shipment Amount</TableHead>
-                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Invoice Number</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Amount</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Date</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Amount</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Balance Amount</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Date</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Mode of Payment</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Transactional Number</TableHead>
-                        <TableHead className="min-w-[170px] whitespace-nowrap font-semibold">Balance Amount Received Date</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Total Amount Received Status</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">UTR Details</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Charges</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Other Charges</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Other Charges Reason</TableHead>
-                        <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Name</TableHead>
-                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Third Party Phone</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Date</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Status</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Alert to Labprocess Team</TableHead>
-                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Report Team</TableHead>
-                        <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Technical Lead</TableHead>
-                        <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created At</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created By</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>
-                        <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>
-                        <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>
-                        <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
+                        {financeColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Project ID</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Sample Collection Date</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Organisation / Hospital</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Name</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Email</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Clinician / Researcher Phone</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Clinician / Researcher Address</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('patientClientName') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Name</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Patient / Client Email</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Patient / Client Phone</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Patient / Client Address</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('serviceName') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Service Name</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('budget') && <TableHead className="min-w-[120px] whitespace-nowrap font-semibold">Budget</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('phlebotomistCharges') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Phlebotomist Charges</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Sales / Responsible Person</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Sample Shipment Amount</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('invoiceNumber') && <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Invoice Number</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('invoiceAmount') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Amount</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('invoiceDate') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Invoice Date</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('paymentReceiptAmount') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Amount</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('balanceAmount') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Balance Amount</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('paymentReceiptDate') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Payment Receipt Date</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('modeOfPayment') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Mode of Payment</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('transactionalNumber') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Transactional Number</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('balanceAmountReceivedDate') && <TableHead className="min-w-[170px] whitespace-nowrap font-semibold">Balance Amount Received Date</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('totalAmountReceivedStatus') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Total Amount Received Status</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('utrDetails') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">UTR Details</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('thirdPartyCharges') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Charges</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('otherCharges') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Other Charges</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('otherChargesReason') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Other Charges Reason</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('thirdPartyName') && <TableHead className="min-w-[180px] whitespace-nowrap font-semibold">Third Party Name</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('thirdPartyPhone') && <TableHead className="min-w-[150px] whitespace-nowrap font-semibold">Third Party Phone</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('thirdPartyPaymentDate') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Date</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('thirdPartyPaymentStatus') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Third Party Payment Status</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('alertToLabprocessTeam') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Alert to Labprocess Team</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('alertToReportTeam') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Report Team</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('alertToTechnicalLead') && <TableHead className="min-w-[200px] whitespace-nowrap font-semibold">Alert to Technical Lead</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('screenshotDocument') && <TableHead className="min-w-[140px] whitespace-nowrap font-semibold">Screenshot/Document</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('createdAt') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created At</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('createdBy') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Created By</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('modifiedAt') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('modifiedBy') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('actions') && <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1115,53 +1184,53 @@ export default function FinanceManagement() {
                           const uniqueIdDisplay = record.uniqueId ?? (record as any).unique_id ?? record.sample?.lead?.id ?? '-';
                           return (
                             <TableRow key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                              <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{uniqueIdDisplay}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{projectIdDisplay}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>
-                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherEmail ?? record.sample?.lead?.clinicianResearcherEmail ?? '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherPhone ?? record.sample?.lead?.clinicianResearcherPhone ?? record.sample?.lead?.phone ?? '-'}</TableCell>
-                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.clinicianResearcherAddress ?? record.sample?.lead?.clinicianResearcherAddress ?? record.sample?.lead?.location ?? '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientName ?? record.sample?.lead?.patientClientName ?? '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientEmail ?? record.sample?.lead?.patientClientEmail ?? '-'}</TableCell>
-                              <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.patientClientPhone ?? record.sample?.lead?.patientClientPhone ?? '-'}</TableCell>
-                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.patientClientAddress ?? record.sample?.lead?.patientClientAddress ?? '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.serviceName ?? record.sample?.lead?.serviceName ?? '-'}</TableCell>
-                              <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{record.budget != null ? `₹${formatINR(Number(record.budget))}` : (record.sample?.lead?.budget != null ? `₹${formatINR(Number(record.sample.lead.budget))}` : '-')}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.phlebotomistCharges != null ? `₹${formatINR(Number(record.phlebotomistCharges))}` : (record.sample?.lead?.phlebotomistCharges != null ? `₹${formatINR(Number(record.sample.lead.phlebotomistCharges))}` : '-')}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.salesResponsiblePerson ?? record.sample?.lead?.salesResponsiblePerson ?? '-'}</TableCell>
-                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sampleShipmentAmount))}` : (record.sample?.lead?.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sample.lead.sampleShipmentAmount))}` : '-')}</TableCell>
-                              <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.invoiceNumber ?? '-'}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceAmount != null ? `₹${formatINR(Number(record.invoiceAmount))}` : '-'}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceDate ? new Date(record.invoiceDate).toLocaleDateString() : '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptAmount != null ? `₹${formatINR(Number(record.paymentReceiptAmount))}` : '-'}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.balanceAmount != null ? `₹${formatINR(Number(record.balanceAmount))}` : '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptDate ? new Date(record.paymentReceiptDate).toLocaleDateString() : '-'}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.modeOfPayment || '-'}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.transactionalNumber ?? record.transactionNumber ?? '-'}</TableCell>
-                              <TableCell className="min-w-[170px] text-gray-900 dark:text-white">{record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toLocaleDateString() : '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.totalAmountReceivedStatus ? 'Yes' : 'No'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.utrDetails ?? '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyCharges != null ? `₹${formatINR(Number(record.thirdPartyCharges))}` : '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.otherCharges != null ? `₹${formatINR(Number(record.otherCharges))}` : '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.otherChargesReason ?? '-'}</TableCell>
-                              <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.thirdPartyName ?? '-'}</TableCell>
-                              <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.thirdPartyPhone ?? '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentDate ? new Date(record.thirdPartyPaymentDate).toLocaleDateString() : '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentStatus ? 'Yes' : 'No'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.alertToLabprocessTeam ? 'Yes' : 'No'}</TableCell>
-                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToReportTeam ? 'Yes' : 'No'}</TableCell>
-                              <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToTechnicalLead ? 'Yes' : 'No'}</TableCell>
-                              <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
+                              {financeColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{uniqueIdDisplay}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{projectIdDisplay}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherEmail ?? record.sample?.lead?.clinicianResearcherEmail ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherPhone ?? record.sample?.lead?.clinicianResearcherPhone ?? record.sample?.lead?.phone ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.clinicianResearcherAddress ?? record.sample?.lead?.clinicianResearcherAddress ?? record.sample?.lead?.location ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientName ?? record.sample?.lead?.patientClientName ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.patientClientEmail ?? record.sample?.lead?.patientClientEmail ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.patientClientPhone ?? record.sample?.lead?.patientClientPhone ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.patientClientAddress ?? record.sample?.lead?.patientClientAddress ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('serviceName') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.serviceName ?? record.sample?.lead?.serviceName ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('budget') && <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{record.budget != null ? `₹${formatINR(Number(record.budget))}` : (record.sample?.lead?.budget != null ? `₹${formatINR(Number(record.sample.lead.budget))}` : '-')}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('phlebotomistCharges') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.phlebotomistCharges != null ? `₹${formatINR(Number(record.phlebotomistCharges))}` : (record.sample?.lead?.phlebotomistCharges != null ? `₹${formatINR(Number(record.sample.lead.phlebotomistCharges))}` : '-')}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.salesResponsiblePerson ?? record.sample?.lead?.salesResponsiblePerson ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sampleShipmentAmount))}` : (record.sample?.lead?.sampleShipmentAmount != null ? `₹${formatINR(Number(record.sample.lead.sampleShipmentAmount))}` : '-')}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('invoiceNumber') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.invoiceNumber ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('invoiceAmount') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceAmount != null ? `₹${formatINR(Number(record.invoiceAmount))}` : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('invoiceDate') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.invoiceDate ? new Date(record.invoiceDate).toLocaleDateString() : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('paymentReceiptAmount') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptAmount != null ? `₹${formatINR(Number(record.paymentReceiptAmount))}` : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('balanceAmount') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.balanceAmount != null ? `₹${formatINR(Number(record.balanceAmount))}` : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('paymentReceiptDate') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.paymentReceiptDate ? new Date(record.paymentReceiptDate).toLocaleDateString() : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('modeOfPayment') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.modeOfPayment || '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('transactionalNumber') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.transactionalNumber ?? record.transactionNumber ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('balanceAmountReceivedDate') && <TableCell className="min-w-[170px] text-gray-900 dark:text-white">{record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toLocaleDateString() : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('totalAmountReceivedStatus') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.totalAmountReceivedStatus ? 'Yes' : 'No'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('utrDetails') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.utrDetails ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('thirdPartyCharges') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyCharges != null ? `₹${formatINR(Number(record.thirdPartyCharges))}` : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('otherCharges') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.otherCharges != null ? `₹${formatINR(Number(record.otherCharges))}` : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('otherChargesReason') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.otherChargesReason ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('thirdPartyName') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.thirdPartyName ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('thirdPartyPhone') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{record.thirdPartyPhone ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('thirdPartyPaymentDate') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentDate ? new Date(record.thirdPartyPaymentDate).toLocaleDateString() : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('thirdPartyPaymentStatus') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyPaymentStatus ? 'Yes' : 'No'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('alertToLabprocessTeam') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.alertToLabprocessTeam ? 'Yes' : 'No'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('alertToReportTeam') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToReportTeam ? 'Yes' : 'No'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('alertToTechnicalLead') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{record.alertToTechnicalLead ? 'Yes' : 'No'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('screenshotDocument') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
                                 {renderAttachmentLink(record.screenshotDocument ?? record.screenshot_document)}
-                              </TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.createdAt ?? record.created_at) ? new Date(record.createdAt ?? record.created_at).toLocaleString() : '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.createdBy ?? record.created_by ?? '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>
-                              <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>
-                              <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>
-                              <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
+                              </TableCell>}
+                              {financeColumnPrefs.isColumnVisible('createdAt') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.createdAt ?? record.created_at) ? new Date(record.createdAt ?? record.created_at).toLocaleString() : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('createdBy') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.createdBy ?? record.created_by ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('modifiedAt') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('modifiedBy') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('actions') && <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
                                 <div className="action-buttons flex space-x-1 items-center justify-center h-full bg-white dark:bg-gray-900 px-2 py-1">
                                   <Button
                                     variant="outline"
@@ -1227,7 +1296,7 @@ export default function FinanceManagement() {
                                     <Trash2 className="h-4 w-4 text-red-600" />
                                   </Button>
                                 </div>
-                              </TableCell>
+                              </TableCell>}
                             </TableRow>
                           );
                         })

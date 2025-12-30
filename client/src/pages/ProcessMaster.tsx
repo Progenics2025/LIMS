@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,6 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { formatINR } from '@/components/ui/currency-input';
 import { PDFViewer } from '@/components/PDFViewer';
 import { FilterBar } from "@/components/FilterBar";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
+
 
 function normalizeLead(l: any) {
   if (!l) return l;
@@ -164,6 +167,54 @@ export default function ProcessMaster() {
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Column configuration for hide/show feature
+  const processMasterColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'uniqueId', label: 'Unique ID', canHide: false },
+    { id: 'projectId', label: 'Project ID', defaultVisible: true },
+    { id: 'sampleId', label: 'Sample ID', defaultVisible: true },
+    { id: 'clientId', label: 'Client ID', defaultVisible: false },
+    { id: 'organisationHospital', label: 'Organisation/Hospital', defaultVisible: true },
+    { id: 'clinicianResearcherName', label: 'Clinician/Researcher Name', defaultVisible: true },
+    { id: 'specialty', label: 'Speciality', defaultVisible: false },
+    { id: 'clinicianResearcherEmail', label: 'Clinician/Researcher Email', defaultVisible: false },
+    { id: 'clinicianResearcherPhone', label: 'Clinician/Researcher Phone', defaultVisible: false },
+    { id: 'clinicianResearcherAddress', label: 'Clinician/Researcher Address', defaultVisible: false },
+    { id: 'patientClientName', label: 'Patient/Client Name', defaultVisible: true },
+    { id: 'age', label: 'Age', defaultVisible: false },
+    { id: 'gender', label: 'Gender', defaultVisible: false },
+    { id: 'patientClientEmail', label: 'Patient/Client Email', defaultVisible: false },
+    { id: 'patientClientPhone', label: 'Patient/Client Phone', defaultVisible: false },
+    { id: 'patientClientAddress', label: 'Patient/Client Address', defaultVisible: false },
+    { id: 'sampleCollectionDate', label: 'Sample Collection Date', defaultVisible: true },
+    { id: 'sampleReceivedDate', label: 'Sample Received Date', defaultVisible: false },
+    { id: 'serviceName', label: 'Service Name', defaultVisible: true },
+    { id: 'sampleType', label: 'Sample Type', defaultVisible: false },
+    { id: 'noOfSamples', label: 'No of Samples', defaultVisible: false },
+    { id: 'tat', label: 'TAT', defaultVisible: true },
+    { id: 'salesResponsiblePerson', label: 'Sales/Responsible Person', defaultVisible: false },
+    { id: 'progenicsTrf', label: 'Progenics TRF', defaultVisible: false },
+    { id: 'thirdPartyTrf', label: 'Third Party TRF', defaultVisible: false },
+    { id: 'progenicsReport', label: 'Progenics Report', defaultVisible: false },
+    { id: 'sampleSentToThirdPartyDate', label: 'Sample Sent to Third Party Date', defaultVisible: false },
+    { id: 'thirdPartyName', label: 'Third Party Name', defaultVisible: false },
+    { id: 'thirdPartyReport', label: 'Third Party Report', defaultVisible: false },
+    { id: 'resultsRawDataReceivedFromThirdPartyDate', label: 'Results Raw Data Received Date', defaultVisible: false },
+    { id: 'logisticStatus', label: 'Logistic Status', defaultVisible: true },
+    { id: 'financeStatus', label: 'Finance Status', defaultVisible: true },
+    { id: 'labProcessStatus', label: 'Lab Process Status', defaultVisible: true },
+    { id: 'bioinformaticsStatus', label: 'Bioinformatics Status', defaultVisible: true },
+    { id: 'nutritionalManagementStatus', label: 'Nutritional Management Status', defaultVisible: false },
+    { id: 'progenicsReportReleaseDate', label: 'Report Release Date', defaultVisible: false },
+    { id: 'remarkComment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'modifiedBy', label: 'Modified By', defaultVisible: false },
+    { id: 'modifiedAt', label: 'Modified At', defaultVisible: false },
+    { id: 'actions', label: 'Actions', canHide: false },
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const processMasterColumnPrefs = useColumnPreferences('process_master_table', processMasterColumns);
+
 
   const { data: processMasterData = [], isLoading: processMasterLoading } = useQuery({
     queryKey: ['/api/process-master'],
@@ -571,97 +622,111 @@ export default function ProcessMaster() {
         </div>
       </div>
 
+      {/* Column Visibility Settings */}
+      <div className="mb-4">
+        <ColumnSettings
+          columns={processMasterColumns}
+          isColumnVisible={processMasterColumnPrefs.isColumnVisible}
+          toggleColumn={processMasterColumnPrefs.toggleColumn}
+          resetToDefaults={processMasterColumnPrefs.resetToDefaults}
+          showAllColumns={processMasterColumnPrefs.showAllColumns}
+          showCompactView={processMasterColumnPrefs.showCompactView}
+          visibleCount={processMasterColumnPrefs.visibleCount}
+          totalCount={processMasterColumnPrefs.totalCount}
+        />
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <Table className="leads-table w-full">
               <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
                 <TableRow>
-                  <TableHead className="whitespace-nowrap sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
-                  <TableHead className="whitespace-nowrap">Project ID</TableHead>
-                  <TableHead className="whitespace-nowrap">Sample ID</TableHead>
-                  <TableHead className="whitespace-nowrap">Client ID</TableHead>
-                  <TableHead className="whitespace-nowrap">Organisation/Hospital</TableHead>
-                  <TableHead className="whitespace-nowrap">Clinician/Researcher name</TableHead>
-                  <TableHead className="whitespace-nowrap">Speciality</TableHead>
-                  <TableHead className="whitespace-nowrap">Clinician/Researcher Email</TableHead>
-                  <TableHead className="whitespace-nowrap">Clinician/Researcher Phone</TableHead>
-                  <TableHead className="whitespace-nowrap">Clinician/Researcher address</TableHead>
-                  <TableHead className="whitespace-nowrap">Patient/Client name</TableHead>
-                  <TableHead className="whitespace-nowrap">Age</TableHead>
-                  <TableHead className="whitespace-nowrap">Gender</TableHead>
-                  <TableHead className="whitespace-nowrap">Patient/Client email</TableHead>
-                  <TableHead className="whitespace-nowrap">Patient/Client phone</TableHead>
-                  <TableHead className="whitespace-nowrap">Patient/Client address</TableHead>
-                  <TableHead className="whitespace-nowrap">Sample collection date</TableHead>
-                  <TableHead className="whitespace-nowrap">Sample recevied date</TableHead>
-                  <TableHead className="whitespace-nowrap">Service name</TableHead>
-                  <TableHead className="whitespace-nowrap">Sample Type</TableHead>
-                  <TableHead className="whitespace-nowrap">No of Samples</TableHead>
-                  <TableHead className="whitespace-nowrap">TAT</TableHead>
-                  <TableHead className="whitespace-nowrap">Sales/Responsible person</TableHead>
-                  <TableHead className="whitespace-nowrap">Progenics TRF</TableHead>
-                  <TableHead className="whitespace-nowrap">Third Party TRF</TableHead>
-                  <TableHead className="whitespace-nowrap">Progenics Report</TableHead>
-                  <TableHead className="whitespace-nowrap">Sample Sent To Third Party Date</TableHead>
-                  <TableHead className="whitespace-nowrap">Third Party Name</TableHead>
-                  <TableHead className="whitespace-nowrap">Third Party Report</TableHead>
-                  <TableHead className="whitespace-nowrap">Results/Raw Data Received From Third Party Date</TableHead>
-                  <TableHead className="whitespace-nowrap">Logistic Status</TableHead>
-                  <TableHead className="whitespace-nowrap">Finance Status</TableHead>
-                  <TableHead className="whitespace-nowrap">Lab Process Status</TableHead>
-                  <TableHead className="whitespace-nowrap">Bioinformatics Status</TableHead>
-                  <TableHead className="whitespace-nowrap">Nutritional Management Status</TableHead>
-                  <TableHead className="whitespace-nowrap">Progenics Report Release Date</TableHead>
-                  <TableHead className="whitespace-nowrap">Remark/Comment</TableHead>
-                  <TableHead className="whitespace-nowrap">Modified By</TableHead>
-                  <TableHead className="whitespace-nowrap">Modified At</TableHead>
-                  <TableHead className="actions-column whitespace-nowrap">Actions</TableHead>
+                  {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap">Project ID</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap">Sample ID</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap">Client ID</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="whitespace-nowrap">Organisation/Hospital</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="whitespace-nowrap">Clinician/Researcher name</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('specialty') && <TableHead className="whitespace-nowrap">Speciality</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead className="whitespace-nowrap">Clinician/Researcher Email</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead className="whitespace-nowrap">Clinician/Researcher Phone</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead className="whitespace-nowrap">Clinician/Researcher address</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientName') && <TableHead className="whitespace-nowrap">Patient/Client name</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap">Age</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap">Gender</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="whitespace-nowrap">Patient/Client email</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="whitespace-nowrap">Patient/Client phone</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="whitespace-nowrap">Patient/Client address</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableHead className="whitespace-nowrap">Sample collection date</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead className="whitespace-nowrap">Sample recevied date</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap">Service name</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleType') && <TableHead className="whitespace-nowrap">Sample Type</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('noOfSamples') && <TableHead className="whitespace-nowrap">No of Samples</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('tat') && <TableHead className="whitespace-nowrap">TAT</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead className="whitespace-nowrap">Sales/Responsible person</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead className="whitespace-nowrap">Progenics TRF</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead className="whitespace-nowrap">Third Party TRF</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('progenicsReport') && <TableHead className="whitespace-nowrap">Progenics Report</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead className="whitespace-nowrap">Sample Sent To Third Party Date</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('thirdPartyName') && <TableHead className="whitespace-nowrap">Third Party Name</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('thirdPartyReport') && <TableHead className="whitespace-nowrap">Third Party Report</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('resultsRawDataReceivedFromThirdPartyDate') && <TableHead className="whitespace-nowrap">Results/Raw Data Received From Third Party Date</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('logisticStatus') && <TableHead className="whitespace-nowrap">Logistic Status</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('financeStatus') && <TableHead className="whitespace-nowrap">Finance Status</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('labProcessStatus') && <TableHead className="whitespace-nowrap">Lab Process Status</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('bioinformaticsStatus') && <TableHead className="whitespace-nowrap">Bioinformatics Status</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('nutritionalManagementStatus') && <TableHead className="whitespace-nowrap">Nutritional Management Status</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('progenicsReportReleaseDate') && <TableHead className="whitespace-nowrap">Progenics Report Release Date</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap">Remark/Comment</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('modifiedBy') && <TableHead className="whitespace-nowrap">Modified By</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('modifiedAt') && <TableHead className="whitespace-nowrap">Modified At</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleLeads.map((lead: any, i: any) => (
                   <TableRow key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                    <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.projectId || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.sampleId || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.clientId || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.organisationHospital || lead.organization || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherName || lead.referredDoctor || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.specialty || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherEmail || lead.email || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherPhone || lead.phone || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.clinicianResearcherAddress || lead.clinicianAddress || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.patientClientName || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.age || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.gender || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.patientClientEmail || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.patientClientPhone || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.patientClientAddress || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.serviceName || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.sampleType || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.noOfSamples || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.tat || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.progenicsTrf ? <PDFViewer pdfUrl={lead.progenicsTrf} fileName="Progenics_TRF.pdf" /> : '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.thirdPartyTrf || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.progenicsReport || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.sampleSentToThirdPartyDate ? new Date(lead.sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.thirdPartyName || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.thirdPartyReport || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.resultsRawDataReceivedFromThirdPartyDate ? new Date(lead.resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.logisticStatus || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.financeStatus || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.labProcessStatus || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.bioinformaticsStatus || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.nutritionalManagementStatus || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.progenicsReportReleaseDate ? new Date(lead.progenicsReportReleaseDate).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.remarkComment || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.modifiedBy || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{lead.modifiedAt ? new Date(lead.modifiedAt).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell className="actions-column">
+                    {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{lead.uniqueId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap">{lead.projectId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableCell className="whitespace-nowrap">{lead.sampleId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('clientId') && <TableCell className="whitespace-nowrap">{lead.clientId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="whitespace-nowrap">{lead.organisationHospital || lead.organization || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherName || lead.referredDoctor || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('specialty') && <TableCell className="whitespace-nowrap">{lead.specialty || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherEmail || lead.email || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherPhone || lead.phone || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableCell className="whitespace-nowrap">{lead.clinicianResearcherAddress || lead.clinicianAddress || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="whitespace-nowrap">{lead.patientClientName || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('age') && <TableCell className="whitespace-nowrap">{lead.age || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('gender') && <TableCell className="whitespace-nowrap">{lead.gender || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell className="whitespace-nowrap">{lead.patientClientEmail || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="whitespace-nowrap">{lead.patientClientPhone || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell className="whitespace-nowrap">{lead.patientClientAddress || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="whitespace-nowrap">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableCell className="whitespace-nowrap">{lead.sampleReceivedDate ? new Date(lead.sampleReceivedDate).toLocaleDateString() : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('serviceName') && <TableCell className="whitespace-nowrap">{lead.serviceName || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('sampleType') && <TableCell className="whitespace-nowrap">{lead.sampleType || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('noOfSamples') && <TableCell className="whitespace-nowrap">{lead.noOfSamples || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('tat') && <TableCell className="whitespace-nowrap">{lead.tat || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="whitespace-nowrap">{lead.salesResponsiblePerson || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('progenicsTrf') && <TableCell className="whitespace-nowrap">{lead.progenicsTrf ? <PDFViewer pdfUrl={lead.progenicsTrf} fileName="Progenics_TRF.pdf" /> : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('thirdPartyTrf') && <TableCell className="whitespace-nowrap">{lead.thirdPartyTrf || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('progenicsReport') && <TableCell className="whitespace-nowrap">{lead.progenicsReport || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell className="whitespace-nowrap">{lead.sampleSentToThirdPartyDate ? new Date(lead.sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('thirdPartyName') && <TableCell className="whitespace-nowrap">{lead.thirdPartyName || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('thirdPartyReport') && <TableCell className="whitespace-nowrap">{lead.thirdPartyReport || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('resultsRawDataReceivedFromThirdPartyDate') && <TableCell className="whitespace-nowrap">{lead.resultsRawDataReceivedFromThirdPartyDate ? new Date(lead.resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('logisticStatus') && <TableCell className="whitespace-nowrap">{lead.logisticStatus || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('financeStatus') && <TableCell className="whitespace-nowrap">{lead.financeStatus || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('labProcessStatus') && <TableCell className="whitespace-nowrap">{lead.labProcessStatus || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('bioinformaticsStatus') && <TableCell className="whitespace-nowrap">{lead.bioinformaticsStatus || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('nutritionalManagementStatus') && <TableCell className="whitespace-nowrap">{lead.nutritionalManagementStatus || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('progenicsReportReleaseDate') && <TableCell className="whitespace-nowrap">{lead.progenicsReportReleaseDate ? new Date(lead.progenicsReportReleaseDate).toLocaleDateString() : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="whitespace-nowrap">{lead.remarkComment || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('modifiedBy') && <TableCell className="whitespace-nowrap">{lead.modifiedBy || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('modifiedAt') && <TableCell className="whitespace-nowrap">{lead.modifiedAt ? new Date(lead.modifiedAt).toLocaleDateString() : '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('actions') && <TableCell className="actions-column">
                       <div className="flex gap-2">
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
                           <Edit className="h-4 w-4" />
@@ -670,7 +735,7 @@ export default function ProcessMaster() {
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
-                    </TableCell>
+                    </TableCell>}
                   </TableRow>
                 ))}
               </TableBody>

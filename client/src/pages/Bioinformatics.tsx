@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useRecycle } from '@/contexts/RecycleContext';
 import { Activity, Cpu, CheckCircle, Search, Edit as EditIcon, Trash2, Clock, FileText } from 'lucide-react';
@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { FilterBar } from "@/components/FilterBar";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
 
 type BIRecord = {
   id: string;
@@ -82,6 +84,54 @@ export default function Bioinformatics() {
   // Sorting state (per-column)
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Column configuration for hide/show feature
+  const bioinformaticsColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'uniqueId', label: 'Unique ID', canHide: false }, // Primary identifier
+    { id: 'projectId', label: 'Project ID', defaultVisible: true },
+    { id: 'sampleId', label: 'Sample ID', defaultVisible: true },
+    { id: 'clientId', label: 'Client ID', defaultVisible: true },
+    { id: 'organisationHospital', label: 'Organisation/Hospital', defaultVisible: true },
+    { id: 'clinicianResearcherName', label: 'Clinician/Researcher Name', defaultVisible: true },
+    { id: 'patientClientName', label: 'Patient/Client Name', defaultVisible: true },
+    { id: 'age', label: 'Age', defaultVisible: false }, // Hidden by default
+    { id: 'gender', label: 'Gender', defaultVisible: false }, // Hidden by default
+    { id: 'serviceName', label: 'Service Name', defaultVisible: true },
+    { id: 'noOfSamples', label: 'No of Samples', defaultVisible: false }, // Hidden by default
+    { id: 'sequencingStatus', label: 'Sequencing Status', defaultVisible: true },
+    { id: 'sequencingDataStorageDate', label: 'Sequencing Data Storage Date', defaultVisible: false },
+    { id: 'basecalling', label: 'Basecalling', defaultVisible: false },
+    { id: 'basecallingDataStorageDate', label: 'Basecalling Data Storage Date', defaultVisible: false },
+    { id: 'workflowType', label: 'Workflow Type', defaultVisible: false },
+    { id: 'analysisStatus', label: 'Analysis Status', defaultVisible: true },
+    { id: 'analysisDate', label: 'Analysis Date', defaultVisible: true },
+    { id: 'thirdPartyName', label: 'Third Party Name', defaultVisible: false },
+    { id: 'sampleSentToThirdPartyDate', label: 'Sample Sent to 3rd Party Date', defaultVisible: false },
+    { id: 'thirdPartyTrf', label: 'Third Party TRF', defaultVisible: false },
+    { id: 'resultsRawDataReceivedDate', label: 'Results Received Date', defaultVisible: false },
+    { id: 'thirdPartyReport', label: 'Third Party Report', defaultVisible: false },
+    { id: 'tat', label: 'TAT', defaultVisible: true },
+    { id: 'vcfFileLink', label: 'VCF File Link', defaultVisible: false },
+    { id: 'cnvStatus', label: 'CNV Status', defaultVisible: false },
+    { id: 'progenicsRawData', label: 'Progenics Raw Data', defaultVisible: false },
+    { id: 'progenicsRawDataSize', label: 'Progenics Raw Data Size', defaultVisible: false },
+    { id: 'progenicsRawDataLink', label: 'Progenics Raw Data Link', defaultVisible: false },
+    { id: 'analysisHtmlLink', label: 'Analysis HTML Link', defaultVisible: false },
+    { id: 'relativeAbundanceSheet', label: 'Relative Abundance Sheet', defaultVisible: false },
+    { id: 'dataAnalysisSheet', label: 'Data Analysis Sheet', defaultVisible: false },
+    { id: 'databaseToolsInformation', label: 'Database/Tools Information', defaultVisible: false },
+    { id: 'alertToTechnicalLead', label: 'Alert to Technical Lead', defaultVisible: true },
+    { id: 'alertToReportTeam', label: 'Alert to Report Team', defaultVisible: true },
+    { id: 'createdAt', label: 'Created At', defaultVisible: false },
+    { id: 'createdBy', label: 'Created By', defaultVisible: false },
+    { id: 'modifiedAt', label: 'Modified At', defaultVisible: false },
+    { id: 'modifiedBy', label: 'Modified By', defaultVisible: false },
+    { id: 'remarkComment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false }, // Always visible
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const columnPrefs = useColumnPreferences('bioinformatics_table', bioinformaticsColumns);
 
   const form = useForm<BIRecord>({ defaultValues: {} as any });
   const { toast } = useToast();
@@ -873,53 +923,69 @@ export default function Bioinformatics() {
             </Select>
           </FilterBar>
 
+          {/* Column Visibility Settings */}
+          {(biTypeFilter === 'clinical' || biTypeFilter === 'discovery') && (
+            <div className="mt-2">
+              <ColumnSettings
+                columns={bioinformaticsColumns}
+                isColumnVisible={columnPrefs.isColumnVisible}
+                toggleColumn={columnPrefs.toggleColumn}
+                resetToDefaults={columnPrefs.resetToDefaults}
+                showAllColumns={columnPrefs.showAllColumns}
+                showCompactView={columnPrefs.showCompactView}
+                visibleCount={columnPrefs.visibleCount}
+                totalCount={columnPrefs.totalCount}
+              />
+            </div>
+          )}
+
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <div className="max-h-[60vh] overflow-y-auto">
               <Table className="leads-table">
                 <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                   {biTypeFilter === 'clinical' || biTypeFilter === 'discovery' ? (
                     <TableRow>
-                      <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Project ID</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Organisation/Hospital</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Clinician/Researcher name</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Patient/Client name</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Age</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Gender</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Service name</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">No of Samples</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Sequencing status</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Sequencing data storage date</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Basecalling</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">basecalling data storage date</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Workflow type</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Analysis status</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Analysis date</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Third party Name</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Sample sent to third party Date</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Third party TRF</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Results/Raw data received from third party date</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Third party report</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">TAT</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">VCF file link</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">CNV status</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Progenics raw data</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Progenics raw data size</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Progenics raw data link</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Analysis HTML link</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Relative abundance sheet</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Data analysis sheet</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Database/Tools information</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Alert to Technical lead</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Alert to Report team</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Created at</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Created by</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Modified at</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Modified by</TableHead>
-                      <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>
-                      <TableHead className="sticky right-0 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>
+                      {columnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
+                      {columnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap font-semibold">Project ID</TableHead>}
+                      {columnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>}
+                      {columnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>}
+                      {columnPrefs.isColumnVisible('organisationHospital') && <TableHead className="whitespace-nowrap font-semibold">Organisation/Hospital</TableHead>}
+                      {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="whitespace-nowrap font-semibold">Clinician/Researcher name</TableHead>}
+                      {columnPrefs.isColumnVisible('patientClientName') && <TableHead className="whitespace-nowrap font-semibold">Patient/Client name</TableHead>}
+                      {columnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap font-semibold">Age</TableHead>}
+                      {columnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap font-semibold">Gender</TableHead>}
+                      {columnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap font-semibold">Service name</TableHead>}
+                      {columnPrefs.isColumnVisible('noOfSamples') && <TableHead className="whitespace-nowrap font-semibold">No of Samples</TableHead>}
+                      {columnPrefs.isColumnVisible('sequencingStatus') && <TableHead className="whitespace-nowrap font-semibold">Sequencing status</TableHead>}
+                      {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableHead className="whitespace-nowrap font-semibold">Sequencing data storage date</TableHead>}
+                      {columnPrefs.isColumnVisible('basecalling') && <TableHead className="whitespace-nowrap font-semibold">Basecalling</TableHead>}
+                      {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableHead className="whitespace-nowrap font-semibold">Basecalling data storage date</TableHead>}
+                      {columnPrefs.isColumnVisible('workflowType') && <TableHead className="whitespace-nowrap font-semibold">Workflow type</TableHead>}
+                      {columnPrefs.isColumnVisible('analysisStatus') && <TableHead className="whitespace-nowrap font-semibold">Analysis status</TableHead>}
+                      {columnPrefs.isColumnVisible('analysisDate') && <TableHead className="whitespace-nowrap font-semibold">Analysis date</TableHead>}
+                      {columnPrefs.isColumnVisible('thirdPartyName') && <TableHead className="whitespace-nowrap font-semibold">Third party Name</TableHead>}
+                      {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead className="whitespace-nowrap font-semibold">Sample sent to third party Date</TableHead>}
+                      {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead className="whitespace-nowrap font-semibold">Third party TRF</TableHead>}
+                      {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableHead className="whitespace-nowrap font-semibold">Results/Raw data received date</TableHead>}
+                      {columnPrefs.isColumnVisible('thirdPartyReport') && <TableHead className="whitespace-nowrap font-semibold">Third party report</TableHead>}
+                      {columnPrefs.isColumnVisible('tat') && <TableHead className="whitespace-nowrap font-semibold">TAT</TableHead>}
+                      {columnPrefs.isColumnVisible('vcfFileLink') && <TableHead className="whitespace-nowrap font-semibold">VCF file link</TableHead>}
+                      {columnPrefs.isColumnVisible('cnvStatus') && <TableHead className="whitespace-nowrap font-semibold">CNV status</TableHead>}
+                      {columnPrefs.isColumnVisible('progenicsRawData') && <TableHead className="whitespace-nowrap font-semibold">Progenics raw data</TableHead>}
+                      {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableHead className="whitespace-nowrap font-semibold">Progenics raw data size</TableHead>}
+                      {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableHead className="whitespace-nowrap font-semibold">Progenics raw data link</TableHead>}
+                      {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableHead className="whitespace-nowrap font-semibold">Analysis HTML link</TableHead>}
+                      {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableHead className="whitespace-nowrap font-semibold">Relative abundance sheet</TableHead>}
+                      {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableHead className="whitespace-nowrap font-semibold">Data analysis sheet</TableHead>}
+                      {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableHead className="whitespace-nowrap font-semibold">Database/Tools information</TableHead>}
+                      {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableHead className="whitespace-nowrap font-semibold">Alert to Technical lead</TableHead>}
+                      {columnPrefs.isColumnVisible('alertToReportTeam') && <TableHead className="whitespace-nowrap font-semibold">Alert to Report team</TableHead>}
+                      {columnPrefs.isColumnVisible('createdAt') && <TableHead className="whitespace-nowrap font-semibold">Created at</TableHead>}
+                      {columnPrefs.isColumnVisible('createdBy') && <TableHead className="whitespace-nowrap font-semibold">Created by</TableHead>}
+                      {columnPrefs.isColumnVisible('modifiedAt') && <TableHead className="whitespace-nowrap font-semibold">Modified at</TableHead>}
+                      {columnPrefs.isColumnVisible('modifiedBy') && <TableHead className="whitespace-nowrap font-semibold">Modified by</TableHead>}
+                      {columnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>}
+                      {columnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>}
                     </TableRow>
                   ) : (
                     <TableRow>
@@ -945,70 +1011,73 @@ export default function Bioinformatics() {
                       if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
                         return (
                           <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.uniqueId ?? '-'}</TableCell>
-                            <TableCell>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>
-                            <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>
-                            <TableCell>{(r as any).clientId ?? '-'}</TableCell>
-                            <TableCell>{(r as any).organisationHospital ?? '-'}</TableCell>
-                            <TableCell>{(r as any).clinicianResearcherName ?? '-'}</TableCell>
-                            <TableCell>{(r as any).patientClientName ?? '-'}</TableCell>
-                            <TableCell>{(r as any).age ?? '-'}</TableCell>
-                            <TableCell>{(r as any).gender ?? '-'}</TableCell>
-                            <TableCell>{(r as any).serviceName ?? '-'}</TableCell>
-                            <TableCell>{(r as any).sequencingStatus ?? '-'}</TableCell>
-                            <TableCell>{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>
-                            <TableCell>{(r as any).basecalling ?? '-'}</TableCell>
-                            <TableCell>{(r as any).basecallingDataStorageDate ? new Date((r as any).basecallingDataStorageDate).toLocaleDateString() : '-'}</TableCell>
-                            <TableCell>{(r as any).workflowType ?? '-'}</TableCell>
-                            <TableCell>{(r as any).analysisStatus ?? '-'}</TableCell>
-                            <TableCell>{(r as any).analysisDate ? new Date((r as any).analysisDate).toLocaleDateString() : '-'}</TableCell>
-                            <TableCell>{r.thirdPartyName ?? '-'}</TableCell>
-                            <TableCell>{(r as any).sampleSentToThirdPartyDate ? new Date((r as any).sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                            <TableCell>{(r as any).thirdPartyTrf ?? '-'}</TableCell>
-                            <TableCell>{(r as any).resultsRawDataReceivedFromThirdPartyDate ? new Date((r as any).resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                            <TableCell>{(r as any).thirdPartyReport ?? '-'}</TableCell>
-                            <TableCell>{(r as any).tat ?? '-'}</TableCell>
-                            <TableCell>{(r as any).vcfFileLink ?? '-'}</TableCell>
-                            <TableCell>{(r as any).cnvStatus ?? '-'}</TableCell>
-                            <TableCell>{(r as any).progenicsRawData ?? '-'}</TableCell>
-                            <TableCell>{(r as any).progenicsRawDataSize ?? '-'}</TableCell>
-                            <TableCell>{(r as any).progenicsRawDataLink ?? '-'}</TableCell>
-                            <TableCell>{(r as any).analysisHtmlLink ?? '-'}</TableCell>
-                            <TableCell>{(r as any).relativeAbundanceSheet ?? '-'}</TableCell>
-                            <TableCell>{(r as any).dataAnalysisSheet ?? '-'}</TableCell>
-                            <TableCell>{(r as any).databaseToolsInformation ?? '-'}</TableCell>
-                            <TableCell>{(r as any).alertToTechnicalLeadd ? 'Yes' : 'No'}</TableCell>
-                            <TableCell>{(r as any).alertToReportTeam ? 'Yes' : 'No'}</TableCell>
-                            <TableCell>{(r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '-'}</TableCell>
-                            <TableCell>{(r as any).createdBy ?? '-'}</TableCell>
-                            <TableCell>{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>
-                            <TableCell>{(r as any).modifiedBy ?? '-'}</TableCell>
-                            <TableCell className="max-w-[220px] truncate pr-4" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>
-                            <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right z-30 ${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'}`}>
-                              <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full bg-white dark:bg-gray-900 px-2 py-1">
-                                <Button size="sm" variant="ghost" aria-label="Edit record" onClick={() => openEdit(r)}>
-                                  <EditIcon className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  className={`min-w-[48px] px-2 py-1 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-sm ${(r as any).alertToReportTeam
-                                    ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
-                                    : 'bg-green-500 hover:bg-green-600 text-white'
-                                    } disabled:bg-gray-400 disabled:cursor-not-allowed`}
-                                  onClick={() => { sendToReportsMutation.mutate(r); }}
-                                  disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}
-                                  title={(r as any).alertToReportTeam ? 'Already sent to reports' : 'Send to Reports module'}
-                                  aria-label="Send to Reports"
-                                >
-                                  <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
-                                  <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
-                                </Button>
-                                <Button size="sm" variant="ghost" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </div>
-                            </TableCell>
+                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{r.uniqueId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('projectId') && <TableCell>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sampleId') && <TableCell>{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('clientId') && <TableCell>{(r as any).clientId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('organisationHospital') && <TableCell>{(r as any).organisationHospital ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell>{(r as any).clinicianResearcherName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('patientClientName') && <TableCell>{(r as any).patientClientName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('age') && <TableCell>{(r as any).age ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('gender') && <TableCell>{(r as any).gender ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('serviceName') && <TableCell>{(r as any).serviceName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('noOfSamples') && <TableCell>{(r as any).noOfSamples ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sequencingStatus') && <TableCell>{(r as any).sequencingStatus ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableCell>{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('basecalling') && <TableCell>{(r as any).basecalling ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableCell>{(r as any).basecallingDataStorageDate ? new Date((r as any).basecallingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('workflowType') && <TableCell>{(r as any).workflowType ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('analysisStatus') && <TableCell>{(r as any).analysisStatus ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('analysisDate') && <TableCell>{(r as any).analysisDate ? new Date((r as any).analysisDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('thirdPartyName') && <TableCell>{r.thirdPartyName ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell>{(r as any).sampleSentToThirdPartyDate ? new Date((r as any).sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableCell>{(r as any).thirdPartyTrf ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableCell>{(r as any).resultsRawDataReceivedFromThirdPartyDate ? new Date((r as any).resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('thirdPartyReport') && <TableCell>{(r as any).thirdPartyReport ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('tat') && <TableCell>{(r as any).tat ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('vcfFileLink') && <TableCell>{(r as any).vcfFileLink ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('cnvStatus') && <TableCell>{(r as any).cnvStatus ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('progenicsRawData') && <TableCell>{(r as any).progenicsRawData ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableCell>{(r as any).progenicsRawDataSize ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableCell>{(r as any).progenicsRawDataLink ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableCell>{(r as any).analysisHtmlLink ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableCell>{(r as any).relativeAbundanceSheet ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableCell>{(r as any).dataAnalysisSheet ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableCell>{(r as any).databaseToolsInformation ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableCell>{(r as any).alertToTechnicalLeadd ? 'Yes' : 'No'}</TableCell>}
+                            {columnPrefs.isColumnVisible('alertToReportTeam') && <TableCell>{(r as any).alertToReportTeam ? 'Yes' : 'No'}</TableCell>}
+                            {columnPrefs.isColumnVisible('createdAt') && <TableCell>{(r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('createdBy') && <TableCell>{(r as any).createdBy ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('modifiedAt') && <TableCell>{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('modifiedBy') && <TableCell>{(r as any).modifiedBy ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('remarkComment') && <TableCell className="max-w-[220px] truncate pr-4" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('actions') && (
+                              <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right z-30 ${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'}`}>
+                                <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full bg-white dark:bg-gray-900 px-2 py-1">
+                                  <Button size="sm" variant="ghost" aria-label="Edit record" onClick={() => openEdit(r)}>
+                                    <EditIcon className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className={`min-w-[48px] px-2 py-1 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-sm ${(r as any).alertToReportTeam
+                                      ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
+                                      : 'bg-green-500 hover:bg-green-600 text-white'
+                                      } disabled:bg-gray-400 disabled:cursor-not-allowed`}
+                                    onClick={() => { sendToReportsMutation.mutate(r); }}
+                                    disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}
+                                    title={(r as any).alertToReportTeam ? 'Already sent to reports' : 'Send to Reports module'}
+                                    aria-label="Send to Reports"
+                                  >
+                                    <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
+                                    <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
+                                  </Button>
+                                  <Button size="sm" variant="ghost" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       }

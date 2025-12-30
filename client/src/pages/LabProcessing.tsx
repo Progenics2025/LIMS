@@ -21,6 +21,9 @@ import { z } from "zod";
 import { Plus, Eye, Edit, FlaskConical, TestTube, Microscope, Activity, Trash2, AlertCircle } from "lucide-react";
 import { useRecycle } from '@/contexts/RecycleContext';
 import { FilterBar } from "@/components/FilterBar";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
+
 
 const labFormSchema = insertLabProcessingSchema.extend({
   projectId: z.string().optional(),
@@ -243,6 +246,42 @@ export default function LabProcessing() {
   // Add client-side sorting state
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Column configuration for hide/show feature
+  const labColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'uniqueId', label: 'Unique ID', canHide: false },
+    { id: 'projectId', label: 'Project ID', defaultVisible: true },
+    { id: 'sampleId', label: 'Sample ID', defaultVisible: true },
+    { id: 'clientId', label: 'Client ID', defaultVisible: false },
+    { id: 'serviceName', label: 'Service Name', defaultVisible: true },
+    { id: 'sampleType', label: 'Sample Type', defaultVisible: true },
+    { id: 'sampleDeliveryDate', label: 'Sample Received Date', defaultVisible: true },
+    { id: 'extractionProtocol', label: 'Extraction Protocol', defaultVisible: true },
+    { id: 'extractionQualityCheck', label: 'Extraction Quality Check', defaultVisible: false },
+    { id: 'extractionQCStatus', label: 'Extraction QC Status', defaultVisible: true },
+    { id: 'extractionProcess', label: 'Extraction Process', defaultVisible: false },
+    { id: 'libraryPreparationProtocol', label: 'Library Preparation Protocol', defaultVisible: false },
+    { id: 'libraryPreparationQualityCheck', label: 'Library Preparation Quality Check', defaultVisible: false },
+    { id: 'libraryQCStatus', label: 'Library QC Status', defaultVisible: false },
+    { id: 'libraryProcess', label: 'Library Process', defaultVisible: false },
+    { id: 'purificationProtocol', label: 'Purification Protocol', defaultVisible: false },
+    { id: 'purificationQualityCheck', label: 'Purification Quality Check', defaultVisible: false },
+    { id: 'purificationQCStatus', label: 'Purification QC Status', defaultVisible: false },
+    { id: 'purificationProcess', label: 'Purification Process', defaultVisible: false },
+    { id: 'alertToBioinformaticsTeam', label: 'Alert to Bioinformatics', defaultVisible: true },
+    { id: 'alertToTechnicalLead', label: 'Alert to Technical Lead', defaultVisible: false },
+    { id: 'progenicsTrf', label: 'Progenics TRF', defaultVisible: false },
+    { id: 'createdAt', label: 'Created At', defaultVisible: false },
+    { id: 'createdBy', label: 'Created By', defaultVisible: false },
+    { id: 'modifiedAt', label: 'Modified At', defaultVisible: false },
+    { id: 'modifiedBy', label: 'Modified By', defaultVisible: false },
+    { id: 'remarksComment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false },
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const labColumnPrefs = useColumnPreferences('lab_processing_table', labColumns);
+
 
   // Filter lab processing records based on search and status (use normalized shape)
   // Auto-detect lab type from project_id prefix: PG = clinical, DG = discovery
@@ -700,59 +739,67 @@ export default function LabProcessing() {
     form.setValue('isOutsourced', checked);
   };
 
-  const columns: ColumnDef<any>[] = [
+  const allColumns: (ColumnDef<any> & { id: string })[] = [
     {
+      id: 'uniqueId',
       header: "Unique ID",
       accessorKey: "uniqueId",
       className: "sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
     },
-    { header: "Project ID", accessorKey: "projectId" },
+    { id: 'projectId', header: "Project ID", accessorKey: "projectId" },
     {
+      id: 'sampleId',
       header: "Sample ID",
       cell: (lab) => lab.projectId
         ? `${lab.projectId}_${getSequentialSampleId(lab, labTypeFilter === 'clinical' ? clinicalLabs : discoveryLabs)}`
         : lab.sampleId ?? '-'
     },
-    { header: "Client ID", accessorKey: "clientId" },
-    { header: "Service name", accessorKey: "serviceName" },
-    { header: "Sample Type", accessorKey: "sampleType" },
+    { id: 'clientId', header: "Client ID", accessorKey: "clientId" },
+    { id: 'serviceName', header: "Service name", accessorKey: "serviceName" },
+    { id: 'sampleType', header: "Sample Type", accessorKey: "sampleType" },
     {
+      id: 'sampleDeliveryDate',
       header: "Sample received date",
       cell: (lab) => lab.sampleDeliveryDate ? new Date(lab.sampleDeliveryDate).toLocaleDateString() : '-'
     },
-    { header: "Extraction protocol", accessorKey: "extractionProtocol" },
-    { header: "Extraction quality check", accessorKey: "extractionQualityCheck" },
-    { header: "Extraction QC status", accessorKey: "extractionQCStatus" },
-    { header: "Extraction process", accessorKey: "extractionProcess" },
-    { header: "Library preparation protocol", accessorKey: "libraryPreparationProtocol" },
-    { header: "Library preparation quality check", accessorKey: "libraryPreparationQualityCheck" },
-    { header: "Library preparation QC status", accessorKey: "libraryQCStatus" },
-    { header: "Library preparation process", accessorKey: "libraryProcess" },
-    { header: "Purification protocol", accessorKey: "purificationProtocol" },
-    { header: "Purification quality check", accessorKey: "purificationQualityCheck" },
-    { header: "Purification QC status", accessorKey: "purificationQCStatus" },
-    { header: "Purification process", accessorKey: "purificationProcess" },
+    { id: 'extractionProtocol', header: "Extraction protocol", accessorKey: "extractionProtocol" },
+    { id: 'extractionQualityCheck', header: "Extraction quality check", accessorKey: "extractionQualityCheck" },
+    { id: 'extractionQCStatus', header: "Extraction QC status", accessorKey: "extractionQCStatus" },
+    { id: 'extractionProcess', header: "Extraction process", accessorKey: "extractionProcess" },
+    { id: 'libraryPreparationProtocol', header: "Library preparation protocol", accessorKey: "libraryPreparationProtocol" },
+    { id: 'libraryPreparationQualityCheck', header: "Library preparation quality check", accessorKey: "libraryPreparationQualityCheck" },
+    { id: 'libraryQCStatus', header: "Library preparation QC status", accessorKey: "libraryQCStatus" },
+    { id: 'libraryProcess', header: "Library preparation process", accessorKey: "libraryProcess" },
+    { id: 'purificationProtocol', header: "Purification protocol", accessorKey: "purificationProtocol" },
+    { id: 'purificationQualityCheck', header: "Purification quality check", accessorKey: "purificationQualityCheck" },
+    { id: 'purificationQCStatus', header: "Purification QC status", accessorKey: "purificationQCStatus" },
+    { id: 'purificationProcess', header: "Purification process", accessorKey: "purificationProcess" },
     {
+      id: 'alertToBioinformaticsTeam',
       header: "Alert to Bioinformatics team",
       cell: (lab) => lab.alertToBioinformaticsTeam ? 'Yes' : 'No'
     },
     {
+      id: 'alertToTechnicalLead',
       header: "Alert to Technical lead",
       cell: (lab) => lab.alertToTechnicalLead ? 'Yes' : 'No'
     },
-    { header: "Progenics TRF", accessorKey: "progenicsTrf" },
+    { id: 'progenicsTrf', header: "Progenics TRF", accessorKey: "progenicsTrf" },
     {
+      id: 'createdAt',
       header: "Created at",
       cell: (lab) => lab.createdAt ? new Date(lab.createdAt).toLocaleString() : '-'
     },
-    { header: "Created by", accessorKey: "createdBy" },
+    { id: 'createdBy', header: "Created by", accessorKey: "createdBy" },
     {
+      id: 'modifiedAt',
       header: "Modified at",
       cell: (lab) => lab.modifiedAt ? new Date(lab.modifiedAt).toLocaleString() : '-'
     },
-    { header: "Modified by", accessorKey: "modifiedBy" },
-    { header: "Remark/Comment", accessorKey: "remarksComment" },
+    { id: 'modifiedBy', header: "Modified by", accessorKey: "modifiedBy" },
+    { id: 'remarksComment', header: "Remark/Comment", accessorKey: "remarksComment" },
     {
+      id: 'actions',
       header: "Actions",
       className: "min-w-[180px] actions-column",
       cell: (lab) => (
@@ -820,6 +867,10 @@ export default function LabProcessing() {
       )
     }
   ];
+
+  // Filter columns based on visibility preferences
+  const columns = allColumns.filter(col => labColumnPrefs.isColumnVisible(col.id));
+
 
   return (
     <div className="space-y-8">
@@ -899,6 +950,20 @@ export default function LabProcessing() {
             setPage={setPage}
             placeholder="Search Unique ID / Project ID / Sample ID / Client ID..."
           />
+
+          {/* Column Visibility Settings */}
+          <div className="mt-2 mb-2 px-4">
+            <ColumnSettings
+              columns={labColumns}
+              isColumnVisible={labColumnPrefs.isColumnVisible}
+              toggleColumn={labColumnPrefs.toggleColumn}
+              resetToDefaults={labColumnPrefs.resetToDefaults}
+              showAllColumns={labColumnPrefs.showAllColumns}
+              showCompactView={labColumnPrefs.showCompactView}
+              visibleCount={labColumnPrefs.visibleCount}
+              totalCount={labColumnPrefs.totalCount}
+            />
+          </div>
 
           {isLoading ? (
             <div className="text-center py-8">Loading lab processing data...</div>

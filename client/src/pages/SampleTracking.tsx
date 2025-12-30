@@ -17,6 +17,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useMemo } from "react";
 import { FilterBar } from "@/components/FilterBar";
+import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
+import { ColumnSettings } from '@/components/ColumnSettings';
+
 
 export default function SampleTracking() {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
@@ -129,6 +132,40 @@ export default function SampleTracking() {
   // Sorting state
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Column configuration for hide/show feature
+  const sampleColumns: ColumnConfig[] = useMemo(() => [
+    { id: 'uniqueId', label: 'Unique ID', canHide: false },
+    { id: 'projectId', label: 'Project ID', defaultVisible: true },
+    { id: 'sampleCollectionDate', label: 'Sample Collection Date', defaultVisible: true },
+    { id: 'sampleShippedDate', label: 'Sample Shipped Date', defaultVisible: false },
+    { id: 'sampleDeliveryDate', label: 'Sample Delivery Date', defaultVisible: true },
+    { id: 'samplePickUpFrom', label: 'Sample Pick Up From', defaultVisible: false },
+    { id: 'deliveryUpTo', label: 'Delivery Up To', defaultVisible: false },
+    { id: 'trackingId', label: 'Tracking ID', defaultVisible: false },
+    { id: 'courierCompany', label: 'Courier Company', defaultVisible: false },
+    { id: 'sampleShipmentAmount', label: 'Sample Shipment Amount', defaultVisible: false },
+    { id: 'organisationHospital', label: 'Organisation/Hospital', defaultVisible: true },
+    { id: 'clinicianResearcherName', label: 'Clinician/Researcher Name', defaultVisible: true },
+    { id: 'clinicianResearcherPhone', label: 'Clinician/Researcher Phone', defaultVisible: false },
+    { id: 'patientClientName', label: 'Patient/Client Name', defaultVisible: true },
+    { id: 'patientClientPhone', label: 'Patient/Client Phone', defaultVisible: false },
+    { id: 'sampleReceivedDate', label: 'Sample Received Date', defaultVisible: false },
+    { id: 'salesResponsiblePerson', label: 'Sales/Responsible Person', defaultVisible: false },
+    { id: 'thirdPartyName', label: 'Third Party Name', defaultVisible: false },
+    { id: 'thirdPartyPhone', label: 'Third Party Phone', defaultVisible: false },
+    { id: 'sampleSentToThirdPartyDate', label: 'Sample Sent to Third Party Date', defaultVisible: false },
+    { id: 'sampleReceivedToThirdPartyDate', label: 'Sample Received to Third Party Date', defaultVisible: false },
+    { id: 'alertToLabprocessTeam', label: 'Alert to Labprocess Team', defaultVisible: true },
+    { id: 'createdAt', label: 'Created At', defaultVisible: false },
+    { id: 'createdBy', label: 'Created By', defaultVisible: false },
+    { id: 'remarkComment', label: 'Remark/Comment', defaultVisible: true },
+    { id: 'actions', label: 'Actions', canHide: false },
+  ], []);
+
+  // Column visibility preferences (per-user)
+  const sampleColumnPrefs = useColumnPreferences('sample_tracking_table', sampleColumns);
+
 
   // derived filtering & pagination for samples (computed in component scope)
   const filteredSamples = normalizedSamples.filter((s) => {
@@ -506,37 +543,51 @@ export default function SampleTracking() {
             placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
           />
 
+          {/* Column Visibility Settings */}
+          <div className="mt-2 mb-2 px-4">
+            <ColumnSettings
+              columns={sampleColumns}
+              isColumnVisible={sampleColumnPrefs.isColumnVisible}
+              toggleColumn={sampleColumnPrefs.toggleColumn}
+              resetToDefaults={sampleColumnPrefs.resetToDefaults}
+              showAllColumns={sampleColumnPrefs.showAllColumns}
+              showCompactView={sampleColumnPrefs.showCompactView}
+              visibleCount={sampleColumnPrefs.visibleCount}
+              totalCount={sampleColumnPrefs.totalCount}
+            />
+          </div>
+
           <div>
             <div className="border rounded-lg max-h-[60vh] overflow-x-auto leads-table-wrapper process-table-wrapper">
               <Table className="leads-table">
                 <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b-2">
                   <TableRow>
-                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleCollectionDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Collection Date{sortKey === 'sampleCollectionDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShippedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipped Date{sortKey === 'sampleShippedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleDeliveryDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Delivery Date{sortKey === 'sampleDeliveryDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('samplePickUpFrom'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Pick Up From{sortKey === 'samplePickUpFrom' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('deliveryUpTo'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Delivery Up To{sortKey === 'deliveryUpTo' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('trackingId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Tracking ID{sortKey === 'trackingId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('courierCompany'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Courier Company{sortKey === 'courierCompany' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShipmentAmount'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipment Amount{sortKey === 'sampleShipmentAmount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Organisation/Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Clinician/Researcher Name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('clinicianResearcherPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Clinician/Researcher Phone{sortKey === 'clinicianResearcherPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Patient/Client Name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('patientClientPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Patient/Client Phone{sortKey === 'patientClientPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sales/Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Third Party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Third Party Phone{sortKey === 'thirdPartyPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleSentToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Sent to Third Party Date{sortKey === 'sampleSentToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleReceivedToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Received to Third Party Date{sortKey === 'sampleReceivedToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('alertToLabprocessTeam'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Alert to Labprocess Team{sortKey === 'alertToLabprocessTeam' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created At{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="min-w-[200px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>
-                    <TableHead className="bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] whitespace-nowrap font-semibold min-w-[100px] actions-column">Actions</TableHead>
+                    {sampleColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('projectId') && <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleCollectionDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Collection Date{sortKey === 'sampleCollectionDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleShippedDate') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShippedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipped Date{sortKey === 'sampleShippedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleDeliveryDate') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleDeliveryDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Delivery Date{sortKey === 'sampleDeliveryDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('samplePickUpFrom'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Pick Up From{sortKey === 'samplePickUpFrom' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('deliveryUpTo') && <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('deliveryUpTo'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Delivery Up To{sortKey === 'deliveryUpTo' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('trackingId') && <TableHead className="min-w-[120px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('trackingId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Tracking ID{sortKey === 'trackingId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('courierCompany') && <TableHead className="min-w-[130px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('courierCompany'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Courier Company{sortKey === 'courierCompany' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleShipmentAmount'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Shipment Amount{sortKey === 'sampleShipmentAmount' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Organisation/Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Clinician/Researcher Name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('clinicianResearcherPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Clinician/Researcher Phone{sortKey === 'clinicianResearcherPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('patientClientName') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Patient/Client Name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('patientClientPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Patient/Client Phone{sortKey === 'patientClientPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Received Date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sales/Responsible Person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('thirdPartyName') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Third Party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('thirdPartyPhone') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('thirdPartyPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Third Party Phone{sortKey === 'thirdPartyPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleSentToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Sent to Third Party Date{sortKey === 'sampleSentToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('sampleReceivedToThirdPartyDate') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('sampleReceivedToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Sample Received to Third Party Date{sortKey === 'sampleReceivedToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('alertToLabprocessTeam') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('alertToLabprocessTeam'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Alert to Labprocess Team{sortKey === 'alertToLabprocessTeam' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('createdAt') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created At{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('createdBy') && <TableHead className="min-w-[150px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Created By{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="min-w-[200px] cursor-pointer whitespace-nowrap font-semibold" onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }}>Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {sampleColumnPrefs.isColumnVisible('actions') && <TableHead className="bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] whitespace-nowrap font-semibold min-w-[100px] actions-column">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -557,32 +608,32 @@ export default function SampleTracking() {
                     visibleSamples.map((sample) => {
                       return (
                         <TableRow key={sample.id} className={`${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                          <TableCell className="min-w-[120px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{sample.uniqueId ?? sample.id ?? '-'}</TableCell>
-                          <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.projectId ?? '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleCollectionDate ? new Date(sample.sampleCollectionDate).toLocaleDateString() : sample.lead?.sampleCollectionDate ? new Date(sample.lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleShippedDate ? new Date(sample.sampleShippedDate).toLocaleDateString() : sample.lead?.sampleShippedDate ? new Date(sample.lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleDeliveryDate ? new Date(sample.sampleDeliveryDate).toLocaleDateString() : sample.lead?.sampleDeliveryDate ? new Date(sample.lead.sampleDeliveryDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.samplePickUpFrom || sample.lead?.samplePickUpFrom || '-'}</TableCell>
-                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.deliveryUpTo ? new Date(sample.deliveryUpTo).toLocaleDateString() : sample.lead?.deliveryUpTo ? new Date(sample.lead.deliveryUpTo).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.trackingId || '-'}</TableCell>
-                          <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.courierCompany || sample.lead?.courierCompany || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleShipmentAmount ? `₹${formatINR(Number(sample.sampleShipmentAmount))}` : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.organisationHospital || sample.lead?.organisationHospital || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.clinicianResearcherName || sample.lead?.clinicianResearcherName || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.clinicianResearcherPhone || sample.lead?.clinicianResearcherPhone || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.patientClientName || sample.lead?.patientClientName || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.patientClientPhone || sample.lead?.patientClientPhone || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleReceivedDate ? new Date(sample.sampleReceivedDate).toLocaleDateString() : sample.lead?.sampleReceivedDate ? new Date(sample.lead.sampleReceivedDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.salesResponsiblePerson || sample.lead?.salesResponsiblePerson || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.thirdPartyName || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.thirdPartyPhone || '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleSentToThirdPartyDate ? new Date(sample.sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleReceivedToThirdPartyDate ? new Date(sample.sampleReceivedToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.alertToLabprocessTeam ? 'Yes' : 'No'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.createdAt ? new Date(sample.createdAt).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{typeof sample.createdBy === 'object' ? (sample.createdBy as any)?.name ?? '-' : sample.createdBy ?? '-'}</TableCell>
-                          <TableCell className="min-w-[200px] text-gray-900 dark:text-white max-w-xs truncate">{sample.remarkComment || sample.lead?.remarkComment || sample._raw?.remark_comment || '-'}</TableCell>
-                          <TableCell className={`min-w-[100px] border-l-2 border-gray-200 dark:border-gray-700 z-[4] ${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
+                          {sampleColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{sample.uniqueId ?? sample.id ?? '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.projectId ?? '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleCollectionDate ? new Date(sample.sampleCollectionDate).toLocaleDateString() : sample.lead?.sampleCollectionDate ? new Date(sample.lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleShippedDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleShippedDate ? new Date(sample.sampleShippedDate).toLocaleDateString() : sample.lead?.sampleShippedDate ? new Date(sample.lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleDeliveryDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleDeliveryDate ? new Date(sample.sampleDeliveryDate).toLocaleDateString() : sample.lead?.sampleDeliveryDate ? new Date(sample.lead.sampleDeliveryDate).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.samplePickUpFrom || sample.lead?.samplePickUpFrom || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('deliveryUpTo') && <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.deliveryUpTo ? new Date(sample.deliveryUpTo).toLocaleDateString() : sample.lead?.deliveryUpTo ? new Date(sample.lead.deliveryUpTo).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('trackingId') && <TableCell className="min-w-[120px] text-gray-900 dark:text-white">{sample.trackingId || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('courierCompany') && <TableCell className="min-w-[130px] text-gray-900 dark:text-white">{sample.courierCompany || sample.lead?.courierCompany || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleShipmentAmount ? `₹${formatINR(Number(sample.sampleShipmentAmount))}` : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.organisationHospital || sample.lead?.organisationHospital || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.clinicianResearcherName || sample.lead?.clinicianResearcherName || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.clinicianResearcherPhone || sample.lead?.clinicianResearcherPhone || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.patientClientName || sample.lead?.patientClientName || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.patientClientPhone || sample.lead?.patientClientPhone || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleReceivedDate ? new Date(sample.sampleReceivedDate).toLocaleDateString() : sample.lead?.sampleReceivedDate ? new Date(sample.lead.sampleReceivedDate).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.salesResponsiblePerson || sample.lead?.salesResponsiblePerson || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('thirdPartyName') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.thirdPartyName || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('thirdPartyPhone') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.thirdPartyPhone || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleSentToThirdPartyDate ? new Date(sample.sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('sampleReceivedToThirdPartyDate') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.sampleReceivedToThirdPartyDate ? new Date(sample.sampleReceivedToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('alertToLabprocessTeam') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.alertToLabprocessTeam ? 'Yes' : 'No'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('createdAt') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{sample.createdAt ? new Date(sample.createdAt).toLocaleDateString() : '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('createdBy') && <TableCell className="min-w-[150px] text-gray-900 dark:text-white">{typeof sample.createdBy === 'object' ? (sample.createdBy as any)?.name ?? '-' : sample.createdBy ?? '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white max-w-xs truncate">{sample.remarkComment || sample.lead?.remarkComment || sample._raw?.remark_comment || '-'}</TableCell>}
+                          {sampleColumnPrefs.isColumnVisible('actions') && <TableCell className={`min-w-[100px] border-l-2 border-gray-200 dark:border-gray-700 z-[4] ${sample.alertToLabprocessTeam ? 'bg-red-50 dark:bg-red-900/20' : 'bg-green-50 dark:bg-green-900/20'}`}>
                             <div className="action-buttons flex space-x-2">
                               <Button
                                 variant="outline"
@@ -628,7 +679,7 @@ export default function SampleTracking() {
                                 <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
                             </div>
-                          </TableCell>
+                          </TableCell>}
                         </TableRow>
                       );
                     })
