@@ -20,10 +20,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Normalize URL to ensure it starts with / for proper path resolution
+  const normalizedUrl = pdfUrl && !pdfUrl.startsWith('/') && !pdfUrl.startsWith('http')
+    ? '/' + pdfUrl
+    : pdfUrl;
+
   const handleDownload = async () => {
-    if (!pdfUrl) return;
+    if (!normalizedUrl) return;
     try {
-      const response = await fetch(pdfUrl);
+      const response = await fetch(normalizedUrl);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -38,7 +43,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
-  if (!pdfUrl) {
+  if (!normalizedUrl) {
     return null;
   }
 
@@ -57,7 +62,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
-            <div className="flex justify-between items-center gap-4">
+            <div className="flex justify-between items-center gap-4 pr-8">
               <DialogTitle>{fileName}</DialogTitle>
               <Button
                 variant="outline"
@@ -71,7 +76,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           </DialogHeader>
           <div className="flex-1 overflow-auto">
             <iframe
-              src={pdfUrl}
+              src={normalizedUrl}
               className="w-full h-full"
               title={fileName}
               style={{ minHeight: '600px' }}

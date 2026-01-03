@@ -113,7 +113,8 @@ var init_schema = __esm({
       leadCreatedBy: varchar("lead_created_by", { length: 36 }),
       salesResponsiblePerson: varchar("sales_responsible_person", { length: 255 }),
       leadCreated: timestamp("lead_created", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
-      leadModified: timestamp("lead_modified", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`)
+      leadModified: timestamp("lead_modified", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+      modifiedBy: varchar("modified_by", { length: 255 })
     });
     leadTrfs = mysqlTable("lead_trfs", {
       id: varchar("id", { length: 36 }).primaryKey(),
@@ -151,7 +152,9 @@ var init_schema = __esm({
       alertToLabprocessTeam: boolean("alert_to_labprocess_team").default(false),
       createdAt: timestamp("created_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
       createdBy: varchar("created_by", { length: 80 }),
-      remarkComment: text("remark_comment")
+      remarkComment: text("remark_comment"),
+      modifiedAt: timestamp("modified_at", { mode: "date" }),
+      modifiedBy: varchar("modified_by", { length: 255 })
     });
     labProcessing = mysqlTable("lab_processing", {
       id: varchar("id", { length: 36 }).primaryKey(),
@@ -3398,7 +3401,7 @@ async function syncLeadToProcessMaster(lead, isUpdate = false) {
       gender: lead.gender || null,
       patient_client_email: lead.patientClientEmail || lead.patient_client_email || null,
       patient_client_phone: lead.patientClientPhone || lead.patient_client_phone || null,
-      patient_client_address: lead.patientClientAddress || lead.patient_client_address || null,
+      patient_client_address: lead.patientClientAddress || null,
       sample_collection_date: lead.sampleCollectionDate || lead.sample_collection_date || null,
       sample_recevied_date: lead.sampleReceivedDate || lead.sample_recevied_date || null,
       service_name: lead.serviceName || lead.service_name || null,
@@ -3431,7 +3434,9 @@ async function syncLeadToProcessMaster(lead, isUpdate = false) {
       // Set separately
       progenics_report_release_date: null,
       // Set separately
-      Remark_Comment: lead.remarkComment || lead.Remark_Comment || null
+      Remark_Comment: lead.remarkComment || lead.Remark_Comment || null,
+      created_by: lead.leadCreatedBy || lead.lead_created_by || null,
+      modified_by: lead.modifiedBy || lead.modified_by || null
     };
     const [existing] = await pool.execute(
       "SELECT id FROM process_master_sheet WHERE unique_id = ?",
@@ -3946,8 +3951,6 @@ async function registerRoutes(app2) {
       }
       console.log("Lead geneticCounselorRequired check:", lead.geneticCounselorRequired, "Lead keys:", Object.keys(lead).filter((k) => k.includes("genetic")));
       console.log("[GC Auto-Create] Full lead object keys:", Object.keys(lead));
-      console.log("[GC Auto-Create] Lead.patientClientAddress:", lead.patientClientAddress);
-      console.log("[GC Auto-Create] Lead.patient_client_address:", lead.patient_client_address);
       if (lead.geneticCounselorRequired) {
         try {
           const [existingGC] = await pool.execute(
@@ -3966,7 +3969,7 @@ async function registerRoutes(app2) {
               unique_id: toString(lead.uniqueId) || "",
               project_id: lead.projectId || null,
               patient_client_name: toString(lead.patientClientName),
-              patient_client_address: toString(lead.patientClientAddress || lead.patient_client_address),
+              patient_client_address: toString(lead.patientClientAddress),
               age: lead.age ? Number(lead.age) : null,
               gender: toString(lead.gender),
               patient_client_email: toString(lead.patientClientEmail),
@@ -3989,7 +3992,7 @@ async function registerRoutes(app2) {
               service_name: geneticCounsellingRecord.service_name,
               sample_type: geneticCounsellingRecord.sample_type
             });
-            console.log("[GC Auto-Create Debug] Lead source address - patientClientAddress:", lead.patientClientAddress, "patient_client_address:", lead.patient_client_address);
+            console.log("[GC Auto-Create Debug] Lead source address - patientClientAddress:", lead.patientClientAddress);
             const keys = Object.keys(geneticCounsellingRecord).filter((k) => geneticCounsellingRecord[k] !== void 0);
             console.log("[GC Auto-Create Debug] Fields being inserted:", keys);
             console.log("[GC Auto-Create Debug] Full record object:", JSON.stringify(geneticCounsellingRecord, null, 2));
@@ -4692,7 +4695,7 @@ async function registerRoutes(app2) {
       console.log("Inserted into report_management:", result);
       try {
         const isDiscovery = projectId.startsWith("DG");
-        const bioTableName = isDiscovery ? "bioinfo_discovery_sheet" : "bioinfo_clinical_sheet";
+        const bioTableName = isDiscovery ? "bioinformatics_sheet_discovery" : "bioinformatics_sheet_clinical";
         await pool.execute(
           `UPDATE ${bioTableName} SET alert_to_report_team = ?, modified_at = ? WHERE id = ?`,
           [1, /* @__PURE__ */ new Date(), bioinformaticsId]
@@ -5661,7 +5664,7 @@ async function registerRoutes(app2) {
       let leadData = { service_name: serviceName, sample_type: sampleType };
       try {
         const [leadRows] = await pool.execute(
-          "SELECT service_name, sample_type, no_of_samples FROM lead_management WHERE unique_id = ? LIMIT 1",
+          "SELECT service_name, sample_type, no_of_samples, lead_created_by FROM lead_management WHERE unique_id = ? LIMIT 1",
           [uniqueId]
         );
         if (leadRows && leadRows.length > 0) {
@@ -5669,6 +5672,7 @@ async function registerRoutes(app2) {
           leadData.service_name = serviceName || lead.service_name || null;
           leadData.sample_type = sampleType || lead.sample_type || null;
           leadData.no_of_samples = lead.no_of_samples || null;
+          leadData.lead_created_by = lead.lead_created_by || null;
           console.log("Fetched lead data from lead_management table:", leadData);
         }
       } catch (leadError) {
@@ -5691,7 +5695,7 @@ async function registerRoutes(app2) {
         const day = String(dateObj.getUTCDate()).padStart(2, "0");
         baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
       }
-      baseLabProcessData.created_by = createdBy || "system";
+      baseLabProcessData.created_by = createdBy || leadData.lead_created_by || "system";
       baseLabProcessData.created_at = /* @__PURE__ */ new Date();
       let tableName = isDiscovery ? "labprocess_discovery_sheet" : "labprocess_clinical_sheet";
       const insertedIds = [];
@@ -6601,6 +6605,221 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
     }
   });
+  app2.get("/api/dashboard/recent-activities", async (req, res) => {
+    try {
+      const activities = [];
+      try {
+        const [leadRows] = await pool.execute(`
+          SELECT id, unique_id, patient_client_name, service_name, status, lead_created, lead_created_by, organisation_hospital
+          FROM lead_management 
+          ORDER BY lead_created DESC 
+          LIMIT 50
+        `);
+        for (const lead of leadRows || []) {
+          activities.push({
+            id: `lead-${lead.id}`,
+            action: lead.status === "converted" ? "Lead converted" : `New lead created`,
+            entity: lead.patient_client_name || lead.organisation_hospital || "Unknown",
+            timestamp: lead.lead_created,
+            type: "lead",
+            userId: lead.lead_created_by || "system",
+            details: lead.service_name ? `Service: ${lead.service_name}` : void 0
+          });
+        }
+      } catch (leadError) {
+        console.log("lead_management query skipped:", leadError.message);
+      }
+      try {
+        const [sampleRows] = await pool.execute(`
+          SELECT id, unique_id, patient_client_name, organisation_hospital, created_at, created_by, sample_recevied_date
+          FROM sample_tracking 
+          ORDER BY created_at DESC 
+          LIMIT 50
+        `);
+        for (const sample of sampleRows || []) {
+          activities.push({
+            id: `sample-${sample.id}`,
+            action: sample.sample_recevied_date ? "Sample received" : "Sample registered",
+            entity: sample.patient_client_name || sample.organisation_hospital || sample.unique_id || "Unknown",
+            timestamp: sample.created_at,
+            type: "sample",
+            userId: sample.created_by || "system",
+            details: sample.unique_id ? `Sample ID: ${sample.unique_id}` : void 0
+          });
+        }
+      } catch (sampleError) {
+        console.log("sample_tracking query skipped:", sampleError.message);
+      }
+      try {
+        const [reportRows] = await pool.execute(`
+          SELECT unique_id, project_id, patient_client_name, service_name, created_at, sales_responsible_person, report_release_date
+          FROM report_management 
+          ORDER BY COALESCE(created_at, report_release_date) DESC 
+          LIMIT 50
+        `);
+        for (const report of reportRows || []) {
+          const hasReleaseDate = report.report_release_date != null;
+          activities.push({
+            id: `report-${report.unique_id}`,
+            action: hasReleaseDate ? "Report released" : "Report created",
+            entity: report.patient_client_name || report.unique_id || "Unknown",
+            timestamp: report.created_at || (/* @__PURE__ */ new Date()).toISOString(),
+            type: "report",
+            userId: report.sales_responsible_person || "system",
+            details: report.service_name ? `Service: ${report.service_name}` : void 0
+          });
+        }
+      } catch (reportError) {
+        console.log("report_management query skipped:", reportError.message);
+      }
+      try {
+        const [financeRows] = await pool.execute(`
+          SELECT id, unique_id, patient_client_name, organisation_hospital, payment_receipt_amount, invoice_amount, created_at, created_by, mode_of_payment
+          FROM finance_sheet 
+          ORDER BY created_at DESC 
+          LIMIT 50
+        `);
+        for (const finance of financeRows || []) {
+          const amount = finance.payment_receipt_amount || finance.invoice_amount || 0;
+          activities.push({
+            id: `payment-${finance.id}`,
+            action: finance.payment_receipt_amount ? "Payment received" : "Invoice generated",
+            entity: finance.patient_client_name || finance.organisation_hospital || finance.unique_id || "Unknown",
+            timestamp: finance.created_at,
+            type: "payment",
+            userId: finance.created_by || "system",
+            details: amount > 0 ? `Amount: \u20B9${amount}` : void 0
+          });
+        }
+      } catch (financeError) {
+        console.log("finance_sheet query skipped:", financeError.message);
+      }
+      activities.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0).getTime();
+        const dateB = new Date(b.timestamp || 0).getTime();
+        return dateB - dateA;
+      });
+      res.json(activities.slice(0, 20));
+    } catch (error) {
+      console.error("Failed to fetch recent activities:", error.message);
+      res.status(500).json({ message: "Failed to fetch recent activities" });
+    }
+  });
+  app2.get("/api/dashboard/performance-metrics", async (req, res) => {
+    try {
+      let leadConversionRate = 0;
+      let exceedingTAT = 0;
+      let monthlyRevenue = 0;
+      let lastMonthRevenue = 0;
+      let revenueGrowth = 0;
+      let activeSamples = 0;
+      let completedReports = 0;
+      let pendingApprovals = 0;
+      const customerSatisfaction = 95;
+      try {
+        const [leadStats] = await pool.execute(`
+          SELECT 
+            COUNT(*) as total_leads,
+            SUM(CASE WHEN status = 'converted' THEN 1 ELSE 0 END) as converted_leads
+          FROM lead_management
+        `);
+        const totalLeads = Number(leadStats?.[0]?.total_leads || 0);
+        const convertedLeads = Number(leadStats?.[0]?.converted_leads || 0);
+        leadConversionRate = totalLeads > 0 ? Math.round(convertedLeads / totalLeads * 100) : 0;
+      } catch (e) {
+        console.log("Lead stats query skipped:", e.message);
+      }
+      try {
+        const [tatStats] = await pool.execute(`
+          SELECT COUNT(*) as exceeding_tat
+          FROM lead_management
+          WHERE status = 'converted'
+          AND sample_recevied_date IS NOT NULL
+          AND tat IS NOT NULL
+          AND DATE_ADD(sample_recevied_date, INTERVAL CAST(tat AS UNSIGNED) DAY) < NOW()
+        `);
+        exceedingTAT = Number(tatStats?.[0]?.exceeding_tat || 0);
+      } catch (e) {
+        console.log("TAT stats query skipped:", e.message);
+      }
+      try {
+        const [monthlyRevenueStats] = await pool.execute(`
+          SELECT COALESCE(SUM(payment_receipt_amount), 0) as monthly_revenue
+          FROM finance_sheet
+          WHERE (
+            (payment_receipt_date IS NOT NULL AND MONTH(payment_receipt_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_receipt_date) = YEAR(CURRENT_DATE()))
+            OR (payment_receipt_date IS NULL AND invoice_date IS NOT NULL AND MONTH(invoice_date) = MONTH(CURRENT_DATE()) AND YEAR(invoice_date) = YEAR(CURRENT_DATE()))
+          )
+        `);
+        monthlyRevenue = Number(monthlyRevenueStats?.[0]?.monthly_revenue || 0);
+        if (monthlyRevenue === 0) {
+          const [totalRevenueStats] = await pool.execute(`
+            SELECT COALESCE(SUM(payment_receipt_amount), 0) as total_revenue FROM finance_sheet
+          `);
+          monthlyRevenue = Number(totalRevenueStats?.[0]?.total_revenue || 0);
+        }
+      } catch (e) {
+        console.log("Monthly revenue query skipped:", e.message);
+      }
+      try {
+        const [lastMonthRevenueStats] = await pool.execute(`
+          SELECT COALESCE(SUM(payment_receipt_amount), 0) as last_month_revenue
+          FROM finance_sheet
+          WHERE (
+            (payment_receipt_date IS NOT NULL AND MONTH(payment_receipt_date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AND YEAR(payment_receipt_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)))
+            OR (payment_receipt_date IS NULL AND invoice_date IS NOT NULL AND MONTH(invoice_date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AND YEAR(invoice_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)))
+          )
+        `);
+        lastMonthRevenue = Number(lastMonthRevenueStats?.[0]?.last_month_revenue || 0);
+        revenueGrowth = lastMonthRevenue > 0 ? Math.round((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue * 100) : 0;
+      } catch (e) {
+        console.log("Last month revenue query skipped:", e.message);
+      }
+      try {
+        const [activeSamplesStats] = await pool.execute(`
+          SELECT COUNT(*) as active_samples FROM sample_tracking
+        `);
+        activeSamples = Number(activeSamplesStats?.[0]?.active_samples || 0);
+      } catch (e) {
+        console.log("Active samples query skipped:", e.message);
+      }
+      try {
+        const [completedReportsStats] = await pool.execute(`
+          SELECT COUNT(*) as completed_reports FROM report_management WHERE report_release_date IS NOT NULL
+        `);
+        completedReports = Number(completedReportsStats?.[0]?.completed_reports || 0);
+        if (completedReports === 0) {
+          const [totalReportsStats] = await pool.execute(`
+            SELECT COUNT(*) as total_reports FROM report_management
+          `);
+          completedReports = Number(totalReportsStats?.[0]?.total_reports || 0);
+        }
+      } catch (e) {
+        console.log("Completed reports query skipped:", e.message);
+      }
+      try {
+        const [pendingApprovalsStats] = await pool.execute(`
+          SELECT COUNT(*) as pending_approvals FROM report_management WHERE approval_from_finance = 0 OR approval_from_finance IS NULL
+        `);
+        pendingApprovals = Number(pendingApprovalsStats?.[0]?.pending_approvals || 0);
+      } catch (e) {
+        console.log("Pending approvals query skipped:", e.message);
+      }
+      res.json({
+        leadConversionRate,
+        exceedingTAT,
+        customerSatisfaction,
+        monthlyRevenue,
+        activeSamples,
+        completedReports,
+        pendingApprovals,
+        revenueGrowth
+      });
+    } catch (error) {
+      console.error("Failed to fetch performance metrics:", error.message);
+      res.status(500).json({ message: "Failed to fetch performance metrics" });
+    }
+  });
   app2.get("/api/dashboard/revenue-analytics", async (req, res) => {
     try {
       const [financeRows] = await pool.execute(`
@@ -6682,11 +6901,13 @@ async function registerRoutes(app2) {
         const amount = parseFloat(row.payment_receipt_amount || row.budget || 0);
         serviceBreakdown[service] = (serviceBreakdown[service] || 0) + amount;
       }
+      const totalServiceRevenue = Object.values(serviceBreakdown).reduce((sum, val) => sum + val, 0);
       const breakdownData = Object.entries(serviceBreakdown).filter(([_, value]) => value > 0).map(([name, value]) => ({
-        name: name || "Other",
-        value: Math.round(value),
+        category: name || "Other",
+        revenue: Math.round(value),
+        percentage: totalServiceRevenue > 0 ? Math.round(value / totalServiceRevenue * 100) : 0,
         color: getRandomColor(name)
-      })).sort((a, b) => b.value - a.value).slice(0, 10);
+      })).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
       const totalRecords = financeRows.length;
       const totalRevenue = financeRows.reduce(
         (sum, row) => sum + parseFloat(row.payment_receipt_amount || row.budget || 0),

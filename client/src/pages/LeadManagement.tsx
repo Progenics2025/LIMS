@@ -133,8 +133,8 @@ const leadFormSchema = insertLeadSchema.extend({
   samplePickUpFrom: z.string().optional(),
   // date inputs - coerce string from HTML date input to Date object
   sampleCollectionDate: z.coerce.date().optional().nullable(),
-  // store datetime as Date object and convert to ISO string before submission
-  deliveryUpTo: z.coerce.date().optional().nullable(),
+  // deliveryUpTo is now a text field (varchar)
+  deliveryUpTo: z.string().optional().nullable(),
   // date when sample was shipped
   sampleShippedDate: z.coerce.date().optional().nullable(),
   sampleShipmentAmount: z.string().optional(),
@@ -219,29 +219,8 @@ function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData, userId?
     return Number.isFinite(asNum) ? String(asNum) : null;
   };
 
-  // Convert deliveryUpTo from Date object to ISO string for API submission
-  if (copy.deliveryUpTo) {
-    if (copy.deliveryUpTo instanceof Date) {
-      if (!isNaN(copy.deliveryUpTo.getTime())) {
-        copy.deliveryUpTo = copy.deliveryUpTo.toISOString();
-      } else {
-        copy.deliveryUpTo = null;
-      }
-    } else if (typeof copy.deliveryUpTo === 'string' && copy.deliveryUpTo.trim() !== '') {
-      try {
-        const d = new Date(copy.deliveryUpTo);
-        if (!isNaN(d.getTime())) {
-          copy.deliveryUpTo = d.toISOString();
-        } else {
-          copy.deliveryUpTo = null;
-        }
-      } catch (error) {
-        copy.deliveryUpTo = null;
-      }
-    } else {
-      copy.deliveryUpTo = null;
-    }
-  } else {
+  // deliveryUpTo is now a string, no conversion needed
+  if (copy.deliveryUpTo === undefined || copy.deliveryUpTo === null) {
     copy.deliveryUpTo = null;
   }
 
@@ -1340,7 +1319,7 @@ export default function LeadManagement() {
       sampleCollectionDate: (lead as any).sampleCollectionDate ? new Date((lead as any).sampleCollectionDate) : null,
       // tracking fields - as Date objects
       samplePickUpFrom: (lead as any).samplePickUpFrom || '',
-      deliveryUpTo: (lead as any).deliveryUpTo ? new Date((lead as any).deliveryUpTo) : null,
+      deliveryUpTo: (lead as any).deliveryUpTo || null,
       sampleShippedDate: (lead as any).sampleShippedDate ? new Date((lead as any).sampleShippedDate) : null,
       sampleShipmentAmount: (lead as any).sampleShipmentAmount != null ? String((lead as any).sampleShipmentAmount) : '',
       trackingId: (lead as any).trackingId || '',
@@ -1795,21 +1774,8 @@ export default function LeadManagement() {
                       <Label>Delivery upto</Label>
                       <Input
                         {...form.register('deliveryUpTo')}
-                        type="datetime-local"
-                        disabled={!form.watch('sampleCollectionDate')}
-                        min={form.watch('sampleCollectionDate') ? `${formatDateForInput(form.watch('sampleCollectionDate'))}T00:00` : undefined}
-                        value={formatDatetimeForInput(form.watch('deliveryUpTo'))}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            form.setValue('deliveryUpTo', parseLocalDatetime(e.target.value));
-                          } else {
-                            form.setValue('deliveryUpTo', null);
-                          }
-                        }}
+                        placeholder="Delivery address"
                       />
-                      {!form.watch('sampleCollectionDate') && (
-                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
-                      )}
                     </div>
                     <div>
                       <Label>Sample Shipped Date</Label>
@@ -2357,21 +2323,8 @@ export default function LeadManagement() {
                       <Label>Delivery upto</Label>
                       <Input
                         {...editForm.register('deliveryUpTo')}
-                        type="datetime-local"
-                        disabled={!editForm.watch('sampleCollectionDate')}
-                        min={editForm.watch('sampleCollectionDate') ? `${formatDateForInput(editForm.watch('sampleCollectionDate'))}T00:00` : undefined}
-                        value={formatDatetimeForInput(editForm.watch('deliveryUpTo'))}
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            editForm.setValue('deliveryUpTo', parseLocalDatetime(e.target.value));
-                          } else {
-                            editForm.setValue('deliveryUpTo', null);
-                          }
-                        }}
+                        placeholder="e.g. 2 days, 48 hours"
                       />
-                      {!editForm.watch('sampleCollectionDate') && (
-                        <p className="text-xs text-amber-600 mt-1">Set Sample Collection Date first</p>
-                      )}
                     </div>
                     <div>
                       <Label>Sample Shipped Date</Label>
@@ -3028,7 +2981,7 @@ export default function LeadManagement() {
                   {leadColumnPrefs.isColumnVisible('leadCreated') && <TableHead onClick={() => { setSortKey('leadCreated'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">Lead Created{sortKey === 'leadCreated' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('leadModified') && <TableHead onClick={() => { setSortKey('leadModified'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">Lead Modified{sortKey === 'leadModified' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Remark / Comment</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap font-semibold min-w-[200px] py-1">Actions</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap font-semibold min-w-[200px] py-1 sticky right-0 z-40 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -3043,8 +2996,8 @@ export default function LeadManagement() {
                 ) : (
                   visibleLeads.map((lead) => (
                     <TableRow key={lead.id} className={`${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                      {leadColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('uniqueId') && <TableCell className={`whitespace-nowrap sticky left-0 z-20 ${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{lead.uniqueId ?? lead.id ?? (lead as any)?._raw?.unique_id ?? (lead as any)?._raw?.uniqueId ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('projectId') && <TableCell className={`whitespace-nowrap sticky left-[120px] z-20 ${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{lead.projectId ?? (lead as any)?._raw?.project_id ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('leadType') && <TableCell className="whitespace-nowrap py-1">
                         <Badge className={lead.leadType === 'project' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                           {lead.leadType || 'Individual'}
@@ -3076,7 +3029,7 @@ export default function LeadManagement() {
                       {leadColumnPrefs.isColumnVisible('noOfSamples') && <TableCell className="whitespace-nowrap py-1">{lead.noOfSamples != null ? String(lead.noOfSamples) : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('budget') && <TableCell className="whitespace-nowrap py-1">{lead.budget != null ? `₹${formatINR(Number(lead.budget))}` : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('samplePickUpFrom') && <TableCell className="whitespace-nowrap py-1">{lead.samplePickUpFrom ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('deliveryUpto') && <TableCell className="whitespace-nowrap py-1">{lead.deliveryUpTo ? new Date(lead.deliveryUpTo).toLocaleDateString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('deliveryUpto') && <TableCell className="whitespace-nowrap py-1">{lead.deliveryUpTo || '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('dateSampleCollected') && <TableCell className="whitespace-nowrap py-1">{lead.sampleCollectionDate ? new Date(lead.sampleCollectionDate).toLocaleDateString() : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('sampleShippedDate') && <TableCell className="whitespace-nowrap py-1">{lead.sampleShippedDate ? new Date(lead.sampleShippedDate).toLocaleDateString() : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('sampleShipmentAmount') && <TableCell className="whitespace-nowrap py-1">{lead.sampleShipmentAmount != null ? `₹${formatINR(Number(lead.sampleShipmentAmount))}` : '-'}</TableCell>}
@@ -3093,7 +3046,7 @@ export default function LeadManagement() {
                       {leadColumnPrefs.isColumnVisible('leadCreated') && <TableCell className="whitespace-nowrap py-1">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString() : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('leadModified') && <TableCell className="whitespace-nowrap py-1">{lead.leadModified ? new Date(lead.leadModified).toLocaleString() : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="whitespace-nowrap py-1">{(lead as any).remarkComment ?? (lead as any).remarks ?? (lead as any).remark ?? (lead as any).comments ?? '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('actions') && <TableCell className="actions-column py-1">
+                      {leadColumnPrefs.isColumnVisible('actions') && <TableCell className={`actions-column py-1 sticky right-0 z-20 ${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 border-gray-200 dark:border-gray-700`}>
                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 cursor-pointer flex-wrap">
                           <div className="flex gap-1 sm:gap-2">
                             {canEdit(lead) && (

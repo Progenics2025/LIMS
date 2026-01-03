@@ -467,7 +467,7 @@ export default function Nutrition() {
                     {nutritionColumnPrefs.isColumnVisible('modifiedAt') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Modified at</th>}
                     {nutritionColumnPrefs.isColumnVisible('modifiedBy') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Modified by</th>}
                     {nutritionColumnPrefs.isColumnVisible('remarksComment') && <th className="min-w-[200px] px-4 py-1 text-left whitespace-nowrap font-semibold">Remark/Comment</th>}
-                    {nutritionColumnPrefs.isColumnVisible('actions') && <th className="bg-gray-50 dark:bg-gray-800 z-20 px-4 py-1 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2 actions-column">Actions</th>}
+                    {nutritionColumnPrefs.isColumnVisible('actions') && <th className="sticky right-0 z-40 bg-gray-50 dark:bg-gray-800 px-4 py-1 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2 actions-column">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -480,8 +480,8 @@ export default function Nutrition() {
                   ) : (
                     paginatedRecords.map((record) => (
                       <tr key={record.id} className={`${record.alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
-                        {nutritionColumnPrefs.isColumnVisible('uniqueId') && <td className="min-w-[120px] px-4 py-1 whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.uniqueId || '-'}</td>}
-                        {nutritionColumnPrefs.isColumnVisible('projectId') && <td className="min-w-[120px] px-4 py-1 whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{record.projectId || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('uniqueId') && <td className={`min-w-[120px] px-4 py-1 whitespace-nowrap sticky left-0 z-20 ${record.alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{record.uniqueId || '-'}</td>}
+                        {nutritionColumnPrefs.isColumnVisible('projectId') && <td className={`min-w-[120px] px-4 py-1 whitespace-nowrap sticky left-[120px] z-20 ${record.alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{record.projectId || '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('sampleId') && <td className="min-w-[120px] px-4 py-1 whitespace-nowrap">{record.sampleId || '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('serviceName') && <td className="min-w-[130px] px-4 py-1 whitespace-nowrap">{record.serviceName || '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('patientClientName') && <td className="min-w-[150px] px-4 py-1 whitespace-nowrap">{record.patientClientName || '-'}</td>}
@@ -510,8 +510,8 @@ export default function Nutrition() {
                         {nutritionColumnPrefs.isColumnVisible('modifiedAt') && <td className="min-w-[150px] px-4 py-1 whitespace-nowrap">{record.modifiedAt ? new Date(record.modifiedAt).toLocaleString() : '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('modifiedBy') && <td className="min-w-[130px] px-4 py-1 whitespace-nowrap">{record.modifiedBy || '-'}</td>}
                         {nutritionColumnPrefs.isColumnVisible('remarksComment') && <td className="min-w-[200px] px-4 py-1 whitespace-nowrap">{record.remarksComment || '-'}</td>}
-                        {nutritionColumnPrefs.isColumnVisible('actions') && <td className="border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column px-4 py-1">
-                          <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
+                        {nutritionColumnPrefs.isColumnVisible('actions') && <td className={`sticky right-0 z-20 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column px-4 py-1 ${record.alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'}`}>
+                          <div className="action-buttons flex items-center space-x-2 h-full px-2 py-1">
                             <Button
                               variant="outline"
                               size="sm"

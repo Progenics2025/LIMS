@@ -890,14 +890,14 @@ export default function ReportManagement() {
                     {reportColumnPrefs.isColumnVisible('leadModified') && <TableHead className="py-1">Lead Modified</TableHead>}
                     {reportColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="py-1">Remark / Comment</TableHead>}
                     {reportColumnPrefs.isColumnVisible('gcCaseSummary') && <TableHead className="py-1">GC case Summary</TableHead>}
-                    {reportColumnPrefs.isColumnVisible('actions') && <TableHead className="min-w-[120px] border-l-2 actions-column py-1">Actions</TableHead>}
+                    {reportColumnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 bg-white dark:bg-gray-900 min-w-[120px] border-l-2 actions-column py-1">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedReports.map((report) => (
                     <TableRow key={report.unique_id} className={`${report.report_release_date ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
-                      {reportColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[120px] font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{report.unique_id ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[120px] sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{report.project_id ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('uniqueId') && <TableCell className={`min-w-[120px] font-medium sticky left-0 z-20 ${report.report_release_date ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{report.unique_id ?? '-'}</TableCell>}
+                      {reportColumnPrefs.isColumnVisible('projectId') && <TableCell className={`min-w-[120px] sticky left-[120px] z-20 ${report.report_release_date ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{report.project_id ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('reportUrl') && <TableCell className="py-1">{report.report_url ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('reportReleaseDate') && <TableCell className="py-1">{report.report_release_date ? new Date(report.report_release_date).toLocaleDateString() : '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="py-1">{report.organisation_hospital ?? '-'}</TableCell>}
@@ -926,8 +926,8 @@ export default function ReportManagement() {
                       {reportColumnPrefs.isColumnVisible('leadModified') && <TableCell className="py-1">{report.lead_modified ? new Date(report.lead_modified).toLocaleString() : '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="py-1">{report.remark_comment ?? '-'}</TableCell>}
                       {reportColumnPrefs.isColumnVisible('gcCaseSummary') && <TableCell className="py-1">{report.gc_case_summary ?? '-'}</TableCell>}
-                      {reportColumnPrefs.isColumnVisible('actions') && <TableCell className="min-w-[150px] border-l-2 px-2 py-1">
-                        <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
+                      {reportColumnPrefs.isColumnVisible('actions') && <TableCell className={`sticky right-0 z-20 min-w-[150px] border-l-2 px-2 py-1 ${report.report_release_date ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'}`}>
+                        <div className="action-buttons flex items-center space-x-2 h-full px-2 py-1">
                           <Button size="sm" variant="outline" className="h-7 w-7 p-1" onClick={() => openEdit(report)}>
                             <Edit className="h-4 w-4" />
                           </Button>

@@ -49,7 +49,7 @@ export const leads = mysqlTable("lead_management", {
   geneticCounselorRequired: boolean("genetic_counselor_required").default(false),
   nutritionalCounsellingRequired: boolean("nutritional_counselling_required").default(false),
   samplePickUpFrom: varchar("sample_pick_up_from", { length: 500 }),
-  deliveryUpTo: timestamp("delivery_up_to", { mode: "date" }),
+  deliveryUpTo: varchar("delivery_up_to", { length: 255 }),
   sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
   sampleShippedDate: timestamp("sample_shipped_date", { mode: "date" }),
   sampleReceivedDate: timestamp("sample_recevied_date", { mode: "date" }),
@@ -466,9 +466,7 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   leadModified: true,
 }).extend({
   // Preprocess date fields: convert empty strings to null, then coerce to Date
-  deliveryUpTo: z
-    .preprocess(emptyToNull, z.coerce.date().nullable())
-    .optional(),
+  deliveryUpTo: z.string().nullable().optional(),
   sampleCollectionDate: z
     .preprocess(emptyToNull, z.coerce.date().nullable())
     .optional(),

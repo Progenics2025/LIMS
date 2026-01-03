@@ -71,7 +71,7 @@ function normalizeDateFields(obj: any) {
     'dateSampleReceived', 'dateSampleCollected', 'pickupUpto', 'pickupDate', 'createdAt', 'convertedAt',
     'sampleCollectedDate', 'sampleShippedDate', 'sampleDeliveryDate', 'thirdPartySentDate', 'thirdPartyReceivedDate',
     'sampleCollectionDate', 'sampleDeliveryDate', 'sampleSentToThirdPartyDate', 'sampleReceivedToThirdPartyDate',
-    'leadCreated', 'leadModified', 'deliveryUpTo', 'sampleReceivedDate'
+    'leadCreated', 'leadModified', 'sampleReceivedDate'
   ];
   // helper to try several parsing strategies for a date-string
   const tryParseDate = (val: string) => {
@@ -4373,7 +4373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         `);
         monthlyRevenue = Number(monthlyRevenueStats?.[0]?.monthly_revenue || 0);
-        
+
         // If still 0, get total revenue instead as a fallback for display
         if (monthlyRevenue === 0) {
           const [totalRevenueStats]: any = await pool.execute(`
@@ -4413,7 +4413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT COUNT(*) as completed_reports FROM report_management WHERE report_release_date IS NOT NULL
         `);
         completedReports = Number(completedReportsStats?.[0]?.completed_reports || 0);
-        
+
         // If 0, get total count as fallback
         if (completedReports === 0) {
           const [totalReportsStats]: any = await pool.execute(`

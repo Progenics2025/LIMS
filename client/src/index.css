@@ -1362,7 +1362,7 @@
   /* Actions column mobile optimization */
   .leads-table .actions-column {
     position: relative !important;
-    background: transparent !important;
+    /* background removed to allow dynamic row colors from Tailwind */
     border: none !important;
     min-width: 200px !important;
     padding: 8px !important;
@@ -1411,13 +1411,13 @@
   .leads-table .actions-column {
     position: sticky;
     right: 0;
-    background: white;
+    /* background removed to allow dynamic row colors from Tailwind */
     border-left: 2px solid #e5e7eb;
     z-index: 10;
   }
 
   .dark .leads-table .actions-column {
-    background-color: #111827;
+    /* background removed to allow dynamic row colors */
   }
 
   .leads-table .actions-column > div {
@@ -1446,13 +1446,13 @@
   .leads-table .actions-column {
     position: sticky;
     right: 0;
-    background: white;
+    /* background removed to allow dynamic row colors from Tailwind */
     border-left: 2px solid #e5e7eb;
     z-index: 10;
   }
 
   .dark .leads-table .actions-column {
-    background-color: #111827;
+    /* background removed to allow dynamic row colors */
   }
 
   .leads-table .actions-column > div {

@@ -314,34 +314,11 @@ export default function FinanceManagement() {
   // Converted leads removed from Finance view — show only finance_sheet rows
   const convertedLeads: any[] = [];
 
-  const { data: pendingApprovals = [], isLoading } = useQuery<SampleWithLead[]>({
-    queryKey: ['/api/finance/pending-approvals'],
-    queryFn: async () => {
-      try {
-        console.log('[Pending Approvals GET] Fetching /api/finance/pending-approvals');
-        const res = await fetch('/api/finance/pending-approvals');
-        if (!res.ok) {
-          const errorData = await res.text();
-          console.error('[Pending Approvals GET] Response not OK:', res.status, errorData);
-          throw new Error(`HTTP ${res.status}: Failed to fetch pending approvals`);
-        }
-        const data = await res.json();
-        console.log('[Pending Approvals GET] Success, received', Array.isArray(data) ? data.length : 'non-array', 'records');
-        return data;
-      } catch (e) {
-        console.error('[Pending Approvals GET] Error:', e);
-        throw e;
-      }
-    },
-    retry: 1,
-  });
-
   const stats = (() => {
     // Use API stats if available, otherwise calculate from client data
     const totalRevenue = financeStats?.totalRevenue ??
       (Array.isArray(financeData) ? financeData.reduce((sum, f) => sum + Number(f.paymentReceivedAmount || f.payment_received_amount || 0), 0) : 0);
     const pendingPayments = financeStats?.pendingPayments ?? 0;
-    const pendingApprovalsCount = financeStats?.pendingApprovals ?? (Array.isArray(pendingApprovals) ? pendingApprovals.length : 0);
 
     return [
       {
@@ -358,64 +335,12 @@ export default function FinanceManagement() {
         color: "text-yellow-600 dark:text-yellow-400",
         bgColor: "bg-yellow-50 dark:bg-yellow-900/20",
       },
-      {
-        title: "Pending Approvals",
-        value: pendingApprovalsCount,
-        icon: FileText,
-        color: "text-blue-600 dark:text-blue-400",
-        bgColor: "bg-blue-50 dark:bg-blue-900/20",
-      },
     ];
   })();
 
   // Column counts for empty-state spanning cells (keeps header visible when no rows)
-  // Column counts for empty-state spanning cells (keeps header visible when no rows)
   // added 1 column for Screenshot/Document
-  const PENDING_HEADER_COUNT = 45;
-  // Use same header count for finance records so both tables show identical columns
-  const FINANCE_HEADER_COUNT = PENDING_HEADER_COUNT;
-
-  // Simple ID / Sample ID search (copied from LabProcessing)
-  // Filter pending approvals by search query using 4 fields: Unique ID, Project ID, Patient Name, Phone
-  const filteredPendingApprovals = (pendingApprovals || []).filter((s) => {
-    if (!financeQuery) return true;
-    const q = String(financeQuery).toLowerCase().trim();
-    const lead = s.lead || {};
-    return (
-      (String(s.uniqueId || '')).toLowerCase().includes(q) ||
-      (String(s.projectId || (lead as any).projectId || '')).toLowerCase().includes(q) ||
-      (String(s.patientClientName || (lead as any).patientClientName || '')).toLowerCase().includes(q) ||
-      (String(s.patientClientPhone || (lead as any).patientClientPhone || '')).toLowerCase().includes(q)
-    );
-  });
-
-  // Apply optional client-side sorting for pending approvals
-  const sortedPendingApprovals = (() => {
-    if (!sortKey) return filteredPendingApprovals;
-    const getValue = (obj: any, key: string) => {
-      if (key === 'balance') {
-        const amount = Number(obj.lead?.amount ?? obj.amount ?? 0);
-        const paid = Number(obj.lead?.paidAmount ?? obj.paidAmount ?? 0);
-        return amount - paid;
-      }
-      return key.split('.').reduce((acc: any, k: string) => (acc ? acc[k] : undefined), obj);
-    };
-    const copy = [...filteredPendingApprovals];
-    copy.sort((a: any, b: any) => {
-      const A = getValue(a, sortKey);
-      const B = getValue(b, sortKey);
-      if (A == null && B == null) return 0;
-      if (A == null) return sortDir === 'asc' ? -1 : 1;
-      if (B == null) return sortDir === 'asc' ? 1 : -1;
-      if (typeof A === 'number' && typeof B === 'number') return sortDir === 'asc' ? A - B : B - A;
-      const sA = String(A).toLowerCase();
-      const sB = String(B).toLowerCase();
-      if (sA < sB) return sortDir === 'asc' ? -1 : 1;
-      if (sA > sB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return copy;
-  })();
+  const FINANCE_HEADER_COUNT = 45;
 
   // Normalize finance records: convert snake_case to camelCase for display
   const normalizeFinanceRecord = (record: any) => ({
@@ -605,210 +530,7 @@ export default function FinanceManagement() {
         })}
       </div>
 
-      {/* Pending Approvals Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Financial Approvals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading pending approvals...</div>
-          ) : (
-            <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
-              {/* Make pending approvals table vertically scrollable with sticky header */}
-              <div className="max-h-[50vh] overflow-y-auto">
-                <Table className="leads-table">
-                  <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                    <TableRow>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Unique ID</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Project ID</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Sample Collection Date</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Organisation / Hospital</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Name</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Email</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Phone</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Clinician / Researcher Address</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Patient / Client Name</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Patient / Client Email</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold py-1">Patient / Client Phone</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Patient / Client Address</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Service Name</TableHead>
-                      <TableHead className="min-w-[120px] whitespace-nowrap font-semibold py-1">Budget</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Phlebotomist Charges</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Sales / Responsible Person</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Sample Shipment Amount</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold py-1">Invoice Number</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Invoice Amount</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Invoice Date</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Payment Receipt Amount</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Balance Amount</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Payment Receipt Date</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Mode of Payment</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Transactional Number</TableHead>
-                      <TableHead className="min-w-[170px] whitespace-nowrap font-semibold py-1">Balance Amount Received Date</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Total Amount Received Status</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">UTR Details</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Third Party Charges</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Other Charges</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Other Charges Reason</TableHead>
-                      <TableHead className="min-w-[180px] whitespace-nowrap font-semibold py-1">Third Party Name</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold py-1">Third Party Phone</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Third Party Payment Date</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Third Party Payment Status</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Alert to Labprocess Team</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Alert to Report Team</TableHead>
-                      <TableHead className="min-w-[200px] whitespace-nowrap font-semibold py-1">Alert to Technical Lead</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Created At</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Created By</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Modified At</TableHead>
-                      <TableHead className="min-w-[160px] whitespace-nowrap font-semibold py-1">Modified By</TableHead>
-                      <TableHead className="min-w-[220px] whitespace-nowrap font-semibold py-1">Remark / Comment</TableHead>
-                      <TableHead className="min-w-[140px] whitespace-nowrap font-semibold py-1">Screenshot/Document</TableHead>
-                      <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column py-1">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPendingApprovals.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={PENDING_HEADER_COUNT} className="text-center py-8 text-gray-500 dark:text-gray-400">No pending approvals match your search</TableCell>
-                      </TableRow>
-                    ) : (
-                      sortedPendingApprovals.map((sample) => {
-                        const s: any = sample;
-                        const lead = s.lead || {};
-                        const balance = s.balanceAmount != null ? Number(s.balanceAmount) : (Number(s.amount || (lead as any).amount || 0) - Number(s.paidAmount || (lead as any).paidAmount || 0));
-                        return (
-                          <TableRow key={s.id} className={`${s.approveToLabProcess ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white py-1">{s.uniqueId ?? s.unique_id ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.projectId ?? s.project_id ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.sampleCollectionDate ? new Date(s.sampleCollectionDate).toLocaleDateString() : ((lead as any).sampleCollectionDate ? new Date((lead as any).sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.organisationHospital ?? (lead as any).organisationHospital ?? 'N/A'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherName ?? (lead as any).clinicianResearcherName ?? (lead as any).referredDoctor ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherEmail ?? (lead as any).clinicianResearcherEmail ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherPhone ?? (lead as any).clinicianResearcherPhone ?? (lead as any).phone ?? '-'}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.clinicianResearcherAddress ?? (lead as any).clinicianResearcherAddress ?? (lead as any).location ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.patientClientName ?? (lead as any).patientClientName ?? (lead as any).patientName ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.patientClientEmail ?? (lead as any).patientClientEmail ?? (lead as any).patientEmail ?? '-'}</TableCell>
-                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white py-1">{s.patientClientPhone ?? (lead as any).patientClientPhone ?? (lead as any).patientPhone ?? '-'}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.patientClientAddress ?? (lead as any).patientClientAddress ?? (lead as any).patientClientAddress ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.serviceName ?? (lead as any).serviceName ?? '-'}</TableCell>
-                            <TableCell className="min-w-[120px] text-gray-900 dark:text-white py-1">{s.budget != null ? `₹${formatINR(Number(s.budget))}` : ((lead as any).budget != null ? `₹${formatINR(Number((lead as any).budget))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.phlebotomistCharges != null ? `₹${formatINR(Number(s.phlebotomistCharges))}` : ((lead as any).phlebotomistCharges != null ? `₹${formatINR(Number((lead as any).phlebotomistCharges))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.salesResponsiblePerson ?? (lead as any).salesResponsiblePerson ?? '-'}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.sampleShipmentAmount != null ? `₹${formatINR(Number(s.sampleShipmentAmount))}` : (s.shippingCost != null ? `₹${formatINR(Number(s.shippingCost))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white py-1">{s.invoiceNumber ?? (lead as any).invoiceNumber ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.invoiceAmount != null ? `₹${formatINR(Number(s.invoiceAmount))}` : ((lead as any).invoiceAmount != null ? `₹${formatINR(Number((lead as any).invoiceAmount))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.invoiceDate ? new Date(s.invoiceDate).toLocaleDateString() : ((lead as any).invoiceDate ? new Date((lead as any).invoiceDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.paymentReceivedAmount != null ? `₹${formatINR(Number(s.paymentReceivedAmount))}` : ((lead as any).paymentReceivedAmount != null ? `₹${formatINR(Number((lead as any).paymentReceivedAmount))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{!isNaN(balance) ? `₹${formatINR(Number(balance))}` : '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.paymentReceivedDate ? new Date(s.paymentReceivedDate).toLocaleDateString() : ((lead as any).paymentReceivedDate ? new Date((lead as any).paymentReceivedDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.paymentMethod ?? (lead as any).paymentMethod ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white py-1">{s.transactionNumber ?? s.utrDetails ?? (lead as any).transactionNumber ?? (lead as any).utrDetails ?? '-'}</TableCell>
-                            <TableCell className="min-w-[170px] text-gray-900 dark:text-white py-1">{s.balanceAmountReceivedDate ? new Date(s.balanceAmountReceivedDate).toLocaleDateString() : ((lead as any).balanceAmountReceivedDate ? new Date((lead as any).balanceAmountReceivedDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.totalPaymentReceivedStatus ?? (lead as any).totalPaymentReceivedStatus ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.utrDetails ?? (lead as any).utrDetails ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.thirdPartyCharges != null ? `₹${formatINR(Number(s.thirdPartyCharges))}` : ((lead as any).thirdPartyCharges != null ? `₹${formatINR(Number((lead as any).thirdPartyCharges))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.otherCharges != null ? `₹${formatINR(Number(s.otherCharges))}` : ((lead as any).otherCharges != null ? `₹${formatINR(Number((lead as any).otherCharges))}` : '-')}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.otherChargesReason ?? (lead as any).otherChargesReason ?? '-'}</TableCell>
-                            <TableCell className="min-w-[180px] text-gray-900 dark:text-white py-1">{s.thirdPartyName ?? (lead as any).thirdPartyName ?? '-'}</TableCell>
-                            <TableCell className="min-w-[150px] text-gray-900 dark:text-white py-1">{s.thirdPartyPhone ?? (lead as any).thirdPartyPhone ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.thirdPartyPaymentDate ? new Date(s.thirdPartyPaymentDate).toLocaleDateString() : ((lead as any).thirdPartyPaymentDate ? new Date((lead as any).thirdPartyPaymentDate).toLocaleDateString() : '-')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.thirdPartyPaymentStatus ?? (lead as any).thirdPartyPaymentStatus ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.approveToLabProcess ? 'Yes' : ((lead as any).approveToLabProcess ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.approveToReportProcess ? 'Yes' : ((lead as any).approveToReportProcess ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[200px] text-gray-900 dark:text-white py-1">{s.approveToTechnicalLead ? 'Yes' : ((lead as any).approveToTechnicalLead ? 'Yes' : 'No')}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.createdAt ? new Date(s.createdAt).toLocaleString() : '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.createdBy ?? (lead as any).createdBy ?? '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.modifiedAt ? new Date(s.modifiedAt).toLocaleString() : '-'}</TableCell>
-                            <TableCell className="min-w-[160px] text-gray-900 dark:text-white py-1">{s.modifiedBy ?? (lead as any).modifiedBy ?? '-'}</TableCell>
-                            <TableCell className="min-w-[220px] text-gray-900 dark:text-white py-1">{s.remark_comment ?? s.comments ?? s.notes ?? s.remarks ?? (lead as any).comments ?? (lead as any).remarks ?? '-'}</TableCell>
-                            <TableCell className="min-w-[140px] text-gray-900 dark:text-white">
-                              {renderAttachmentLink(s.screenshotDocument ?? s.screenshot_document)}
-                            </TableCell>
-                            <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column py-1">
-                              <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-1" onClick={() => {
-                                  setSelectedRecord(s);
-                                  setIsEditDialogOpen(true);
-                                }}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="sm" className="h-7 w-7 p-1" onClick={() => {
-                                  setSelectedRecord(s);
-                                  setIsEditDialogOpen(true);
-                                  // prefill edit form with all 42-column fields
-                                  editForm.reset({
-                                    uniqueId: s.uniqueId ?? (s.lead as any)?.uniqueId ?? '',
-                                    projectId: s.projectId ?? (s.lead as any)?.projectId ?? '',
-                                    dateSampleCollected: s.dateSampleCollected ?? (s.lead as any)?.dateSampleCollected ?? '',
-                                    organization: s.organization ?? (s.lead as any)?.organization ?? '',
-                                    clinician: s.clinician ?? (s.lead as any)?.clinician ?? '',
-                                    city: s.city ?? (s.lead as any)?.city ?? '',
-                                    patientName: s.patientName ?? (s.lead as any)?.patientName ?? '',
-                                    patientEmail: s.patientEmail ?? (s.lead as any)?.patientEmail ?? '',
-                                    patientPhone: s.patientPhone ?? (s.lead as any)?.patientPhone ?? '',
-                                    patientClientAddress: s.patientClientAddress ?? (s.lead as any)?.patientClientAddress ?? '',
-                                    serviceName: s.serviceName ?? (s.lead as any)?.serviceName ?? '',
-                                    budget: s.budget ?? (s.lead as any)?.budget ?? '',
-                                    salesResponsiblePerson: s.salesResponsiblePerson ?? (s.lead as any)?.salesResponsiblePerson ?? '',
-                                    invoiceNumber: s.invoiceNumber ?? (s.lead as any)?.invoiceNumber ?? '',
-                                    invoiceAmount: s.invoiceAmount ?? (s.lead as any)?.invoiceAmount ?? '',
-                                    invoiceDate: s.invoiceDate ?? (s.lead as any)?.invoiceDate ?? '',
-                                    paymentReceivedAmount: s.paymentReceivedAmount ?? (s.lead as any)?.paymentReceivedAmount ?? '',
-                                    paymentMethod: s.paymentMethod ?? (s.lead as any)?.paymentMethod ?? '',
-                                    utrDetails: s.utrDetails ?? (s.lead as any)?.utrDetails ?? '',
-                                    balanceAmountReceivedDate: s.balanceAmountReceivedDate ?? (s.lead as any)?.balanceAmountReceivedDate ?? '',
-                                    totalPaymentReceivedStatus: s.totalPaymentReceivedStatus ?? (s.lead as any)?.totalPaymentReceivedStatus ?? '',
-                                    phlebotomistCharges: s.phlebotomistCharges ?? (s.lead as any)?.phlebotomistCharges ?? '',
-                                    sampleShipmentAmount: s.sampleShipmentAmount ?? (s.lead as any)?.sampleShipmentAmount ?? '',
-                                    thirdPartyCharges: s.thirdPartyCharges ?? (s.lead as any)?.thirdPartyCharges ?? '',
-                                    otherCharges: s.otherCharges ?? (s.lead as any)?.otherCharges ?? '',
-                                    thirdPartyName: s.thirdPartyName ?? (s.lead as any)?.thirdPartyName ?? '',
-                                    thirdPartyContractDetails: s.thirdPartyContractDetails ?? (s.lead as any)?.thirdPartyContractDetails ?? '',
-                                    thirdPartyPaymentStatus: s.thirdPartyPaymentStatus ?? (s.lead as any)?.thirdPartyPaymentStatus ?? '',
-                                    balanceAmount: s.balanceAmount ?? (s.lead as any)?.balanceAmount ?? '',
-                                    paymentReceiptDate: s.paymentReceiptDate ?? (s.lead as any)?.paymentReceiptDate ?? '',
-                                    transactionalNumber: s.transactionalNumber ?? (s.lead as any)?.transactionalNumber ?? '',
-                                    otherChargesReason: s.otherChargesReason ?? (s.lead as any)?.otherChargesReason ?? '',
-                                    thirdPartyPhone: s.thirdPartyPhone ?? (s.lead as any)?.thirdPartyPhone ?? '',
-                                    thirdPartyPaymentDate: s.thirdPartyPaymentDate ?? (s.lead as any)?.thirdPartyPaymentDate ?? '',
-                                    approveToLabProcess: s.approveToLabProcess ?? (s.lead as any)?.approveToLabProcess ?? '',
-                                    approveToReportProcess: s.approveToReportProcess ?? (s.lead as any)?.approveToReportProcess ?? '',
-                                    approveToTechnicalLead: s.approveToTechnicalLead ?? (s.lead as any)?.approveToTechnicalLead ?? '',
-                                    remarkComment: s.remark_comment ?? (s.lead as any)?.remark_comment ?? '',
-                                    createdAt: s.created_at ?? s.createdAt ?? (s.lead as any)?.createdAt ?? '',
-                                    createdBy: s.created_by ?? s.createdBy ?? (s.lead as any)?.createdBy ?? '',
-                                    modifiedAt: s.modified_at ?? s.modifiedAt ?? (s.lead as any)?.modifiedAt ?? '',
-                                    modifiedBy: s.modified_by ?? s.modifiedBy ?? (s.lead as any)?.modifiedBy ?? '',
-                                  });
-                                }}>
-                                  <EditIcon className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                  deleteConfirmation.confirmDelete({
-                                    title: 'Delete Finance Record',
-                                    description: `Are you sure you want to delete the finance record for "${s.unique_id || s.uniqueId}"? This action cannot be undone.`,
-                                    onConfirm: () => {
-                                      deleteFinanceMutation.mutate({ id: s.id });
-                                      deleteConfirmation.hideConfirmation();
-                                    }
-                                  });
-                                }}>
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Edit Finance Record Dialog */}
       {/* Edit Finance Record Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1190,7 +912,7 @@ export default function FinanceManagement() {
                         {financeColumnPrefs.isColumnVisible('modifiedAt') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified At</TableHead>}
                         {financeColumnPrefs.isColumnVisible('modifiedBy') && <TableHead className="min-w-[160px] whitespace-nowrap font-semibold">Modified By</TableHead>}
                         {financeColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="min-w-[220px] whitespace-nowrap font-semibold">Remark / Comment</TableHead>}
-                        {financeColumnPrefs.isColumnVisible('actions') && <TableHead className="min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>}
+                        {financeColumnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 min-w-[150px] whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 actions-column">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1203,9 +925,9 @@ export default function FinanceManagement() {
                           const projectIdDisplay = record.projectId ?? record.project_id ?? record.sample?.projectId ?? record.sample?.project_id ?? record.sample?.lead?.projectId ?? record.sample?.lead?.project_id ?? record.sample?.lead?.id ?? 'N/A';
                           const uniqueIdDisplay = record.uniqueId ?? (record as any).unique_id ?? record.sample?.lead?.id ?? '-';
                           return (
-                            <TableRow key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                              {financeColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{uniqueIdDisplay}</TableCell>}
-                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white sticky left-[140px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">{projectIdDisplay}</TableCell>}
+                            <TableRow key={record.id} className={`${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
+                              {financeColumnPrefs.isColumnVisible('uniqueId') && <TableCell className={`min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 ${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{uniqueIdDisplay}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className={`min-w-[140px] text-gray-900 dark:text-white sticky left-[140px] z-20 ${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{projectIdDisplay}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>}
@@ -1250,8 +972,8 @@ export default function FinanceManagement() {
                               {financeColumnPrefs.isColumnVisible('modifiedAt') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('modifiedBy') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>}
-                              {financeColumnPrefs.isColumnVisible('actions') && <TableCell className="min-w-[150px] bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[5] overflow-visible p-0 actions-column">
-                                <div className="action-buttons flex space-x-1 items-center justify-center h-full bg-white dark:bg-gray-900 px-2 py-1">
+                              {financeColumnPrefs.isColumnVisible('actions') && <TableCell className={`sticky right-0 z-20 min-w-[150px] ${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 border-gray-200 dark:border-gray-700 overflow-visible p-0 actions-column`}>
+                                <div className="action-buttons flex space-x-1 items-center justify-center h-full px-2 py-1">
                                   <Button
                                     variant="outline"
                                     size="sm"

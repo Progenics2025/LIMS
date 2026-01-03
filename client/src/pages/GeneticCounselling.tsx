@@ -534,7 +534,7 @@ export default function GeneticCounselling() {
             <Table className="leads-table">
               <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900 border-b-2">
                 <TableRow>
-                  {gcColumnPrefs.isColumnVisible('unique_id') && <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('unique_id') && <TableHead onClick={() => { setSortKey('unique_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">Unique ID{sortKey === 'unique_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('project_id') && <TableHead onClick={() => { setSortKey('project_id'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID{sortKey === 'project_id' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('counselling_date') && <TableHead onClick={() => { setSortKey('counselling_date'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold py-1">Counselling date{sortKey === 'counselling_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('gc_registration_start_time') && <TableHead onClick={() => { setSortKey('gc_registration_start_time'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold py-1">GC registration start time{sortKey === 'gc_registration_start_time' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
@@ -574,7 +574,7 @@ export default function GeneticCounselling() {
                   {gcColumnPrefs.isColumnVisible('modified_at') && <TableHead onClick={() => { setSortKey('modified_at'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold py-1">Modified at{sortKey === 'modified_at' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('modified_by') && <TableHead onClick={() => { setSortKey('modified_by'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold py-1">Modified by{sortKey === 'modified_by' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {gcColumnPrefs.isColumnVisible('remark_comment') && <TableHead onClick={() => { setSortKey('remark_comment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold py-1">Remark/Comment{sortKey === 'remark_comment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                  {gcColumnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold actions-column py-1">Actions</TableHead>}
+                  {gcColumnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 bg-white dark:bg-gray-900 border-l-2 whitespace-nowrap font-semibold actions-column py-1">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -587,8 +587,8 @@ export default function GeneticCounselling() {
                 ) : (
                   visibleRows.map((r) => (
                     <TableRow key={r.id} className={`${r.testing_status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                      {gcColumnPrefs.isColumnVisible('unique_id') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{r.unique_id}</TableCell>}
-                      {gcColumnPrefs.isColumnVisible('project_id') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{r.project_id ?? '-'}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('unique_id') && <TableCell className={`font-medium sticky left-0 z-20 ${r.testing_status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1 min-w-[120px]`}>{r.unique_id}</TableCell>}
+                      {gcColumnPrefs.isColumnVisible('project_id') && <TableCell className={`sticky left-[120px] z-20 ${r.testing_status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{r.project_id ?? '-'}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('counselling_date') && <TableCell className="text-sm py-1">
                         {r.counselling_date ? (
                           (() => {
@@ -729,7 +729,7 @@ export default function GeneticCounselling() {
                       </TableCell>}
                       {gcColumnPrefs.isColumnVisible('modified_by') && <TableCell className="py-1">{r.modified_by ?? '-'}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('remark_comment') && <TableCell className="max-w-xs truncate py-1">{r.remark_comment ?? '-'}</TableCell>}
-                      {gcColumnPrefs.isColumnVisible('actions') && <TableCell className="sticky right-0 bg-white dark:bg-gray-900 border-l-2 actions-column py-1">
+                      {gcColumnPrefs.isColumnVisible('actions') && <TableCell className={`sticky right-0 z-20 ${r.testing_status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 actions-column py-1`}>
                         <div className="action-buttons flex space-x-2">
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit GC" onClick={() => openEdit(r)}>
                             <EditIcon className="h-4 w-4" />

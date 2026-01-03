@@ -424,20 +424,52 @@ export default function LabProcessing() {
     },
   });
 
-  const getStatusCounts = () => ({
-    passed: normalizedLabs.filter(l => l.qcStatus === 'passed').length,
-    failed: normalizedLabs.filter(l => l.qcStatus === 'failed').length,
-    retest_required: normalizedLabs.filter(l => l.qcStatus === 'retest_required').length,
-    outsourced: normalizedLabs.filter(l => l.isOutsourced).length,
-    totalInQueue: normalizedLabs.length,
-    sentToBioinformatics: normalizedLabs.filter(l => l.alertToBioinformaticsTeam).length,
-  });
+  // Get status counts filtered by lab type (clinical/discovery)
+  const getStatusCounts = () => {
+    // Filter labs based on current labTypeFilter selection
+    const filteredByType = normalizedLabs.filter(l => {
+      if (labTypeFilter === 'all') return true;
+      const projectId = l.projectId || l._raw?.project_id || '';
+      const category = String(projectId).startsWith('DG') ? 'discovery' : 'clinical';
+      return category === labTypeFilter;
+    });
+
+    return {
+      passed: filteredByType.filter(l => l.qcStatus === 'passed').length,
+      failed: filteredByType.filter(l => l.qcStatus === 'failed').length,
+      retest_required: filteredByType.filter(l => l.qcStatus === 'retest_required').length,
+      outsourced: filteredByType.filter(l => l.isOutsourced).length,
+      totalInQueue: filteredByType.length,
+      sentToBioinformatics: filteredByType.filter(l => l.alertToBioinformaticsTeam).length,
+    };
+  };
 
   const statusCounts = getStatusCounts();
 
+  // Use type-specific stats from API or fall back to client-side counts
+  const getDisplayStats = () => {
+    if (labTypeFilter === 'discovery') {
+      return {
+        totalInQueue: labStats?.discoveryInQueue ?? statusCounts.totalInQueue,
+        sentToBioinformatics: labStats?.discoverySent ?? statusCounts.sentToBioinformatics,
+      };
+    } else if (labTypeFilter === 'clinical') {
+      return {
+        totalInQueue: labStats?.clinicalInQueue ?? statusCounts.totalInQueue,
+        sentToBioinformatics: labStats?.clinicalSent ?? statusCounts.sentToBioinformatics,
+      };
+    }
+    return {
+      totalInQueue: labStats?.totalInQueue ?? statusCounts.totalInQueue,
+      sentToBioinformatics: labStats?.sentToBioinformatics ?? statusCounts.sentToBioinformatics,
+    };
+  };
+
+  const displayStats = getDisplayStats();
+
   const statusCards = [
-    { title: "Total Samples Under Process", value: labStats?.totalInQueue ?? statusCounts.totalInQueue, icon: TestTube, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-50 dark:bg-blue-900/20" },
-    { title: "Processed (Sent to Bioinformatics)", value: labStats?.sentToBioinformatics ?? statusCounts.sentToBioinformatics, icon: FlaskConical, color: "text-green-600 dark:text-green-400", bgColor: "bg-green-50 dark:bg-green-900/20" },
+    { title: "Total Samples Under Process", value: displayStats.totalInQueue, icon: TestTube, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-50 dark:bg-blue-900/20" },
+    { title: "Processed (Sent to Bioinformatics)", value: displayStats.sentToBioinformatics, icon: FlaskConical, color: "text-green-600 dark:text-green-400", bgColor: "bg-green-50 dark:bg-green-900/20" },
     { title: "QC Passed", value: statusCounts.passed, icon: Microscope, color: "text-emerald-600 dark:text-emerald-400", bgColor: "bg-emerald-50 dark:bg-emerald-900/20" },
     { title: "QC Failed", value: statusCounts.failed, icon: Activity, color: "text-red-600 dark:text-red-400", bgColor: "bg-red-50 dark:bg-red-900/20" },
   ];
@@ -806,7 +838,7 @@ export default function LabProcessing() {
     {
       id: 'actions',
       header: "Actions",
-      className: "min-w-[180px] actions-column",
+      className: "min-w-[180px] sticky right-0 z-20 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 actions-column",
       cell: (lab) => (
         <div className="action-buttons flex space-x-2 items-center justify-center">
           <Button variant="outline" size="sm" onClick={() => {
@@ -842,11 +874,11 @@ export default function LabProcessing() {
               remarksComment: lab.remarksComment ?? '',
             });
             setIsEditDialogOpen(true);
-          }}><Edit className="h-4 w-4" /></Button>
+          }} className="h-7 w-7 p-1"><Edit className="h-4 w-4" /></Button>
           <Button
             variant="default"
             size="sm"
-            className={`px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-sm ${lab.alertToBioinformaticsTeam
+            className={`px-2 py-1 h-7 rounded-lg flex items-center justify-center gap-2 transition-all font-medium text-xs ${lab.alertToBioinformaticsTeam
               ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
               : 'bg-green-500 hover:bg-green-600 text-white'
               } disabled:bg-gray-400 disabled:cursor-not-allowed`}
@@ -862,7 +894,7 @@ export default function LabProcessing() {
           >
             {lab.alertToBioinformaticsTeam ? 'Sent ✓' : 'Send For Bioinformatics'}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => {
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-1" onClick={() => {
             deleteConfirmation.confirmDelete({
               title: 'Delete Lab Processing Record',
               description: `Are you sure you want to delete the lab processing record for "${lab.titleUniqueId || lab.sampleId || lab.id}"? This action cannot be undone.`,

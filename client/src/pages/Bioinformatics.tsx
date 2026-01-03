@@ -949,7 +949,7 @@ export default function Bioinformatics() {
                 <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                   {biTypeFilter === 'clinical' || biTypeFilter === 'discovery' ? (
                     <TableRow>
-                      {columnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</TableHead>}
+                      {columnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">Unique ID</TableHead>}
                       {columnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
                       {columnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>}
                       {columnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>}
@@ -989,7 +989,7 @@ export default function Bioinformatics() {
                       {columnPrefs.isColumnVisible('modifiedAt') && <TableHead className="whitespace-nowrap font-semibold">Modified at</TableHead>}
                       {columnPrefs.isColumnVisible('modifiedBy') && <TableHead className="whitespace-nowrap font-semibold">Modified by</TableHead>}
                       {columnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>}
-                      {columnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 z-[31] actions-column">Actions</TableHead>}
+                      {columnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 actions-column">Actions</TableHead>}
                     </TableRow>
                   ) : (
                     <TableRow>
@@ -1015,8 +1015,8 @@ export default function Bioinformatics() {
                       if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
                         return (
                           <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className="font-medium sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{r.uniqueId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('projectId') && <TableCell className="sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className={`font-medium sticky left-0 z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1 min-w-[120px]`}>{r.uniqueId ?? '-'}</TableCell>}
+                            {columnPrefs.isColumnVisible('projectId') && <TableCell className={`sticky left-[120px] z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('sampleId') && <TableCell className="py-1">{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('clientId') && <TableCell className="py-1">{(r as any).clientId ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('organisationHospital') && <TableCell className="py-1">{(r as any).organisationHospital ?? '-'}</TableCell>}
@@ -1056,15 +1056,15 @@ export default function Bioinformatics() {
                             {columnPrefs.isColumnVisible('modifiedBy') && <TableCell className="py-1">{(r as any).modifiedBy ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('remarkComment') && <TableCell className="max-w-[220px] truncate pr-4 py-1" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('actions') && (
-                              <TableCell className={`sticky right-0 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right z-30 ${(r as any).alertToReportTeam ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-950'} py-1`}>
-                                <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full bg-white dark:bg-gray-900 px-2 py-1">
+                              <TableCell className={`sticky right-0 z-20 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} py-1`}>
+                                <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full px-2 py-1">
                                   <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit record" onClick={() => openEdit(r)}>
                                     <EditIcon className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="default"
                                     size="sm"
-                                    className={`min-w-[48px] px-2 py-1 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-sm ${(r as any).alertToReportTeam
+                                    className={`min-w-[48px] px-2 py-1 h-7 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-xs ${(r as any).alertToReportTeam
                                       ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
                                       : 'bg-green-500 hover:bg-green-600 text-white'
                                       } disabled:bg-gray-400 disabled:cursor-not-allowed`}
@@ -1201,6 +1201,6 @@ export default function Bioinformatics() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

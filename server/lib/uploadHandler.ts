@@ -143,12 +143,13 @@ export function handleFileUpload(
       fs.renameSync(file!.path, filePath);
     }
 
-    // Return relative path for storage (e.g., "uploads/Progenics_TRF/1764259675840-file.pdf")
+    // Return relative path for storage (e.g., "/uploads/Progenics_TRF/1764259675840-file.pdf")
     const relativePath = path.relative(process.cwd(), filePath).replace(/\\/g, '/');
+    const urlPath = '/' + relativePath; // Ensure it starts with / for proper URL resolution
 
     return {
       success: true,
-      filePath: relativePath,
+      filePath: urlPath,
       filename: uniqueFilename,
       message: `File uploaded successfully to ${category} folder`,
       category,

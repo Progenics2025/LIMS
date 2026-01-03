@@ -720,14 +720,14 @@ export default function ProcessMaster() {
                   {processMasterColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap py-1">Remark/Comment</TableHead>}
                   {processMasterColumnPrefs.isColumnVisible('modifiedBy') && <TableHead className="whitespace-nowrap py-1">Modified By</TableHead>}
                   {processMasterColumnPrefs.isColumnVisible('modifiedAt') && <TableHead className="whitespace-nowrap py-1">Modified At</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap py-1">Actions</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap py-1 sticky right-0 z-40 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleLeads.map((lead: any, i: any) => (
                   <TableRow key={i} className={`${lead.progenicsReportReleaseDate ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                    {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableCell className="whitespace-nowrap sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{lead.uniqueId || '-'}</TableCell>}
-                    {processMasterColumnPrefs.isColumnVisible('projectId') && <TableCell className="whitespace-nowrap sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">{lead.projectId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableCell className={`whitespace-nowrap sticky left-0 z-20 ${lead.progenicsReportReleaseDate ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{lead.uniqueId || '-'}</TableCell>}
+                    {processMasterColumnPrefs.isColumnVisible('projectId') && <TableCell className={`whitespace-nowrap sticky left-[120px] z-20 ${lead.progenicsReportReleaseDate ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{lead.projectId || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableCell className="whitespace-nowrap py-1">{lead.sampleId || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('clientId') && <TableCell className="whitespace-nowrap py-1">{lead.clientId || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="whitespace-nowrap py-1">{lead.organisationHospital || lead.organization || '-'}</TableCell>}
@@ -765,7 +765,7 @@ export default function ProcessMaster() {
                     {processMasterColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="whitespace-nowrap py-1">{lead.remarkComment || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('modifiedBy') && <TableCell className="whitespace-nowrap py-1">{lead.modifiedBy || '-'}</TableCell>}
                     {processMasterColumnPrefs.isColumnVisible('modifiedAt') && <TableCell className="whitespace-nowrap py-1">{lead.modifiedAt ? new Date(lead.modifiedAt).toLocaleDateString() : '-'}</TableCell>}
-                    {processMasterColumnPrefs.isColumnVisible('actions') && <TableCell className="actions-column py-1">
+                    {processMasterColumnPrefs.isColumnVisible('actions') && <TableCell className={`actions-column py-1 sticky right-0 z-20 ${lead.progenicsReportReleaseDate ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 border-gray-200 dark:border-gray-700`}>
                       <div className="flex gap-2">
                         <Button variant="ghost" className="h-7 w-7 p-1" onClick={() => handleEdit(lead)}>
                           <Edit className="h-4 w-4" />

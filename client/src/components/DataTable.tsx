@@ -110,10 +110,23 @@ export function DataTable<T>({
                                         }
 
                                         const span = rowSpanMap[rowIndex]?.[colIndex] ?? 1;
+                                        const isSticky = col.className?.includes('sticky');
+                                        const rowBgClass = rowClassName ? rowClassName(row) : '';
+
+                                        // For sticky cells, we need to apply the row's background color
+                                        // to prevent content bleeding through when scrolling
+                                        const stickyBgClass = isSticky ? (
+                                            rowBgClass.includes('bg-green')
+                                                ? 'bg-green-100 dark:bg-green-900/30'
+                                                : rowBgClass.includes('bg-yellow')
+                                                    ? 'bg-yellow-50 dark:bg-yellow-900/20'
+                                                    : 'bg-white dark:bg-gray-900'
+                                        ) : '';
+
                                         return (
                                             <TableCell
                                                 key={colIndex}
-                                                className={cn("py-1", col.className)}
+                                                className={cn("py-1", col.className, isSticky && stickyBgClass)}
                                                 rowSpan={span > 0 ? span : undefined}
                                             >
                                                 {col.cell

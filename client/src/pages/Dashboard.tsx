@@ -203,25 +203,49 @@ interface PerformanceMetrics {
     }
   };
 
-  // Get activity icon based on type
-  const getActivityIcon = (type: string) => {
+  // Get activity configuration based on type
+  const getActivityConfig = (type: string) => {
     switch (type) {
-      case 'lead': return <UserPlus className="w-4 h-4 text-blue-600" />;
-      case 'sample': return <TestTube className="w-4 h-4 text-green-600" />;
-      case 'report': return <FileText className="w-4 h-4 text-purple-600" />;
-      case 'payment': return <IndianRupee className="w-4 h-4 text-orange-600" />;
-      default: return <Activity className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  // Get activity color based on type
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case 'lead': return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800';
-      case 'sample': return 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
-      case 'report': return 'bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800';
-      case 'payment': return 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800';
-      default: return 'bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-800';
+      case 'lead':
+        return {
+          icon: UserPlus,
+          bg: "bg-blue-50/80 dark:bg-blue-900/20",
+          border: "border-l-blue-500",
+          iconBg: "bg-blue-100 dark:bg-blue-800",
+          color: "text-blue-700 dark:text-blue-300"
+        };
+      case 'sample':
+        return {
+          icon: TestTube,
+          bg: "bg-emerald-50/80 dark:bg-emerald-900/20",
+          border: "border-l-emerald-500",
+          iconBg: "bg-emerald-100 dark:bg-emerald-800",
+          color: "text-emerald-700 dark:text-emerald-300"
+        };
+      case 'report':
+        return {
+          icon: FileText,
+          bg: "bg-violet-50/80 dark:bg-violet-900/20",
+          border: "border-l-violet-500",
+          iconBg: "bg-violet-100 dark:bg-violet-800",
+          color: "text-violet-700 dark:text-violet-300"
+        };
+      case 'payment':
+        return {
+          icon: IndianRupee,
+          bg: "bg-amber-50/80 dark:bg-amber-900/20",
+          border: "border-l-amber-500",
+          iconBg: "bg-amber-100 dark:bg-amber-800",
+          color: "text-amber-700 dark:text-amber-300"
+        };
+      default:
+        return {
+          icon: Activity,
+          bg: "bg-slate-50/80 dark:bg-slate-900/20",
+          border: "border-l-slate-500",
+          iconBg: "bg-slate-100 dark:bg-slate-800",
+          color: "text-slate-700 dark:text-slate-300"
+        };
     }
   };
 
@@ -257,7 +281,7 @@ interface PerformanceMetrics {
         <div className="bg-gradient-to-r from-red-50 to-white border border-red-100 rounded-xl p-4 shadow-sm flex items-center justify-between animate-fade-in">
           <div className="flex items-center gap-4">
             <div className="bg-red-100 p-2 rounded-full">
-              <AlertTriangle className="text-red-600" size={24} />
+              <AlertTriangle className="text-red-600" size={20} />
             </div>
             <div>
               <h4 className="text-red-800 font-bold text-sm">TAT Limit Breached</h4>
@@ -364,7 +388,7 @@ interface PerformanceMetrics {
         {/* Side Widget - Progenics Themed */}
         <div className="bg-gradient-to-b from-[#0B1139] to-[#1a2255] rounded-2xl shadow-lg p-4 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
-            <Dna size={120} />
+            <Dna size={80} />
           </div>
           <h3 className="text-lg font-bold mb-4 relative z-10">Quick Actions</h3>
           <div className="space-y-3 relative z-10">
@@ -458,18 +482,18 @@ interface PerformanceMetrics {
 
         {/* Revenue Summary Cards */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="border-l-4 border-emerald-500 bg-emerald-50/30 dark:bg-emerald-900/10 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="flex-shrink-0 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-                  <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="flex-shrink-0 p-3 rounded-xl bg-emerald-100 dark:bg-emerald-800">
+                  <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-300" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    <dt className="text-sm font-bold text-emerald-700 dark:text-emerald-400 truncate">
                       Total Revenue
                     </dt>
-                    <dd className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <dd className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                       ₹{(revenueSummary.totalRevenue || 0).toLocaleString('en-IN')}
                     </dd>
                   </dl>
@@ -478,18 +502,18 @@ interface PerformanceMetrics {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="flex-shrink-0 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                  <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <div className="flex-shrink-0 p-3 rounded-xl bg-blue-100 dark:bg-blue-800">
+                  <Target className="h-6 w-6 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    <dt className="text-sm font-bold text-blue-700 dark:text-blue-400 truncate">
                       Last Month
                     </dt>
-                    <dd className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <dd className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                       ₹{(revenueSummary.lastMonth || 0).toLocaleString('en-IN')}
                     </dd>
                   </dl>
@@ -498,18 +522,18 @@ interface PerformanceMetrics {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-violet-500 bg-violet-50/30 dark:bg-violet-900/10 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="flex-shrink-0 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                  <LineChart className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                <div className="flex-shrink-0 p-3 rounded-xl bg-violet-100 dark:bg-violet-800">
+                  <LineChart className="h-6 w-6 text-violet-600 dark:text-violet-300" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    <dt className="text-sm font-bold text-violet-700 dark:text-violet-400 truncate">
                       Monthly Growth
                     </dt>
-                    <dd className={`text-2xl font-bold ${revenueSummary.monthlyGrowth >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <dd className={`text-2xl font-bold mt-1 ${revenueSummary.monthlyGrowth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                       {revenueSummary.monthlyGrowth >= 0 ? '+' : ''}{revenueSummary.monthlyGrowth || 0}%
                     </dd>
                   </dl>
@@ -518,18 +542,18 @@ interface PerformanceMetrics {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-amber-500 bg-amber-50/30 dark:bg-amber-900/10 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="flex-shrink-0 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                  <Calendar className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                <div className="flex-shrink-0 p-3 rounded-xl bg-amber-100 dark:bg-amber-800">
+                  <Calendar className="h-6 w-6 text-amber-600 dark:text-amber-300" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    <dt className="text-sm font-bold text-amber-700 dark:text-amber-400 truncate">
                       This Month
                     </dt>
-                    <dd className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <dd className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                       ₹{(revenueSummary.thisMonth || 0).toLocaleString('en-IN')}
                     </dd>
                   </dl>
@@ -592,89 +616,108 @@ interface PerformanceMetrics {
             </CardContent>
           </Card>
 
-          {/* Yearly Revenue Projection */}
-          <Card className="h-fit overflow-hidden">
-            <CardHeader className="py-2 px-3">
-              <CardTitle className="flex items-center text-base">
-                <BarChart3 className="mr-2 h-5 w-5" />
-                Yearly Revenue Outlook
+          {/* Recent Activity - Moved up */}
+          <Card className="h-[400px] flex flex-col border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-gray-900/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center justify-between text-base">
+                <div className="flex items-center">
+                  <Activity className="mr-2 h-4 w-4" />
+                  Recent Activity
+                </div>
+                <Badge variant="outline" className="text-[10px] px-2 py-0 h-5">
+                  Live
+                </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 pb-2">
-              <div style={{ height: '800px', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={yearlyRevenueData} margin={{ top: 10, right: 15, left: 15, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="year" />
-                    <YAxis tickFormatter={formatCurrency} width={55} />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [
-                        formatTooltipCurrency(value),
-                        name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
-                      ]}
-                    />
-                    <Legend 
-                      wrapperStyle={{ paddingTop: '5px', fontSize: '12px' }} 
-                      iconSize={1}
-                    />
-                    <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" />
-                    <Bar dataKey="target" fill="#fbbf24" name="Target Revenue" />
-                  </BarChart>
-                </ResponsiveContainer>
+            <CardContent className="flex-1 min-h-0 pt-0">
+              <div className="space-y-3 h-full overflow-y-auto pr-2 custom-scrollbar">
+                {activities.map((activity: Activity, index: number) => {
+                  const config = getActivityConfig(activity.type);
+                  const Icon = config.icon;
+                  return (
+                    <div
+                      key={activity.id || index}
+                      className={`flex items-start space-x-3 p-2.5 rounded-lg transition-all hover:scale-[1.02] hover:shadow-md duration-200 border-l-4 ${config.border} ${config.bg}`}
+                    >
+                      <div className={`flex-shrink-0 p-1.5 rounded-full ${config.iconBg}`}>
+                        <Icon className={`w-4 h-4 ${config.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs font-bold ${config.color} truncate`}>
+                            {activity.action}
+                          </p>
+                          <span className="text-[10px] text-gray-500 font-medium bg-white/50 px-1.5 py-0.5 rounded-full">
+                            {formatTimeAgo(activity.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 truncate font-medium">
+                          {activity.entity}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {activities.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <Activity className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                    <p className="text-sm">No recent activities</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* Revenue Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Activity className="mr-2 h-5 w-5" />
-                Revenue by Service Category
+          <Card className="h-[400px] flex flex-col border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-gray-900/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center text-base">
+                <Activity className="mr-2 h-4 w-4" />
+                Revenue by Service
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="flex-1 flex flex-col min-h-0 pt-0">
+              <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
                 {revenueBreakdownData.map((item: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between">
+                  <div key={index} className="flex items-center justify-between p-2 hover:bg-white/50 rounded-lg transition-colors">
                     <div className="flex items-center space-x-3">
                       <div
-                        className="w-4 h-4 rounded-full"
+                        className="w-3 h-3 rounded-full shadow-sm"
                         style={{
                           backgroundColor: [
                             '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'
                           ][index]
                         }}
                       />
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
                         {item.category}
                       </span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white">
                         ₹{formatINR(item.revenue)}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-[10px] text-gray-500">
                         {item.percentage}%
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 pt-4 border-t">
-                <div className="h-40">
+              <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800 shrink-0">
+                <div className="h-32">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={revenueBreakdownData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="category" />
-                      <YAxis tickFormatter={formatCurrency} />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="category" tick={{ fontSize: 10 }} interval={0} />
+                      <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 10 }} width={40} />
                       <Tooltip formatter={(value: number) => formatTooltipCurrency(value)} />
                       <Area
                         type="monotone"
                         dataKey="revenue"
                         stroke="#10b981"
                         fill="#10b981"
-                        fillOpacity={0.6}
+                        fillOpacity={0.2}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -687,55 +730,35 @@ interface PerformanceMetrics {
 
       {/* Activity Overview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Activity className="mr-2 h-5 w-5" />
-                Recent Activity
-              </div>
-              <Badge variant="outline" className="text-xs">
-                Live Updates
-              </Badge>
+        {/* Yearly Revenue Outlook - Moved down */}
+        <Card className="h-fit overflow-hidden">
+          <CardHeader className="py-2 px-3">
+            <CardTitle className="flex items-center text-base">
+              <BarChart3 className="mr-2 h-5 w-5" />
+              Yearly Revenue Outlook
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4 h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {activities.map((activity: Activity, index: number) => (
-                <div
-                  key={activity.id || index}
-                  className={`flex items-start space-x-3 p-3 rounded-lg border ${getActivityColor(activity.type)}`}
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getActivityIcon(activity.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {activity.action}
-                      </p>
-                      <Badge variant="outline" className="text-xs ml-2">
-                        {formatTimeAgo(activity.timestamp)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      {activity.entity}
-                    </p>
-                    {activity.details && (
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        {activity.details}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {activities.length === 0 && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <Activity className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                  <p>No recent activities</p>
-                </div>
-              )}
+          <CardContent className="p-0 pb-2">
+            <div style={{ height: '400px', width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={yearlyRevenueData} margin={{ top: 10, right: 15, left: 15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" />
+                  <YAxis tickFormatter={formatCurrency} width={55} />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [
+                      formatTooltipCurrency(value),
+                      name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
+                    ]}
+                  />
+                  <Legend
+                    wrapperStyle={{ paddingTop: '5px', fontSize: '12px' }}
+                    iconSize={1}
+                  />
+                  <Bar dataKey="actual" fill="#10b981" name="Actual Revenue" />
+                  <Bar dataKey="target" fill="#fbbf24" name="Target Revenue" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -873,7 +896,7 @@ const TATStatCard = ({ title, count, icon: Icon, colorClass, bgClass, borderClas
         <h3 className={`text-4xl font-bold mt-2 ${colorClass}`}>{count}</h3>
       </div>
       <div className={`p-3 rounded-xl ${bgClass} ${colorClass} bg-opacity-10`}>
-        <Icon size={24} />
+        <Icon size={20} />
       </div>
     </div>
     <p className="text-xs text-slate-400 font-medium flex items-center gap-1">
