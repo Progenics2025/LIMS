@@ -492,23 +492,15 @@ export class DBStorage implements IStorage {
 
     try {
       // Include the sample row (if any) so UI can show the generated sample_id immediately
-      // Build optional where condition based on role
-      let whereCondition = undefined;
-      if (userRole && userRole.toLowerCase() === 'sales' && userId) {
-        whereCondition = eq(leads.leadCreatedBy, userId);
-      }
+      // NOTE: All users can now see all leads (including TRF files uploaded by any user)
+      // No role-based filtering is applied - visibility is universal for lead data
 
-      // Construct query with conditional where clause
-      let queryBuilder = db
+      // Construct query without role-based filtering
+      const queryBuilder = db
         .select({ lead: leads, user: users, sample: samples })
         .from(leads)
         .leftJoin(samples, eqUtf8Columns(samples.projectId, leads.projectId))
         .leftJoin(users, eq(leads.leadCreatedBy, users.id)) as any;
-
-      // Apply where if condition exists (for sales users only)
-      if (whereCondition) {
-        queryBuilder = queryBuilder.where(whereCondition);
-      }
 
       const rows = await queryBuilder;
 

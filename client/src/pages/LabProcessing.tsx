@@ -247,7 +247,8 @@ export default function LabProcessing() {
   const normalizedLabs = useMemo(() => Array.isArray(labQueue) ? labQueue.map(normalizeLab) : [], [labQueue]);
 
   // Add client-side sorting state
-  const [sortKey, setSortKey] = useState<string | null>(null);
+  // Default sort by sampleId in ascending order
+  const [sortKey, setSortKey] = useState<string | null>('sampleId');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Column configuration for hide/show feature
@@ -784,13 +785,7 @@ export default function LabProcessing() {
       className: "sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
     },
     { id: 'projectId', header: "Project ID", accessorKey: "projectId", className: "sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" },
-    {
-      id: 'sampleId',
-      header: "Sample ID",
-      cell: (lab) => lab.projectId
-        ? `${lab.projectId}_${getSequentialSampleId(lab, labTypeFilter === 'clinical' ? clinicalLabs : discoveryLabs)}`
-        : lab.sampleId ?? '-'
-    },
+    { id: 'sampleId', header: "Sample ID", accessorKey: "sampleId" },
     { id: 'clientId', header: "Client ID", accessorKey: "clientId" },
     { id: 'serviceName', header: "Service name", accessorKey: "serviceName" },
     { id: 'sampleType', header: "Sample Type", accessorKey: "sampleType" },
@@ -1100,8 +1095,8 @@ export default function LabProcessing() {
               <div><Label>Purification QC Status</Label><Input {...editForm.register('purificationQCStatus')} disabled={!labEditable.has('purificationQCStatus')} /></div>
               <div><Label>Purification Process</Label><Input {...editForm.register('purificationProcess')} disabled={!labEditable.has('purificationProcess')} /></div>
 
-              <div><Label>Alert to Bioinformatics Team</Label><div className="pt-2"><Checkbox {...editForm.register('alertToBioinformaticsTeam')} disabled={!labEditable.has('alertToBioinformaticsTeam')} /></div></div>
-              <div><Label>Alert to Technical Lead</Label><div className="pt-2"><Checkbox {...editForm.register('alertToTechnicalLead')} disabled={!labEditable.has('alertToTechnicalLead')} /></div></div>
+              <div><Label>Alert to Bioinformatics Team</Label><div className="pt-2"><Checkbox checked={!!editForm.watch('alertToBioinformaticsTeam')} onCheckedChange={(checked) => editForm.setValue('alertToBioinformaticsTeam', checked as boolean)} disabled={!labEditable.has('alertToBioinformaticsTeam')} /></div></div>
+              <div><Label>Alert to Technical Lead</Label><div className="pt-2"><Checkbox checked={!!editForm.watch('alertToTechnicalLead')} onCheckedChange={(checked) => editForm.setValue('alertToTechnicalLead', checked as boolean)} disabled={!labEditable.has('alertToTechnicalLead')} /></div></div>
 
               <div>
                 <Label>Progenics TRF</Label>

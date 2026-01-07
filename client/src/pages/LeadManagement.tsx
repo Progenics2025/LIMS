@@ -1994,7 +1994,7 @@ export default function LeadManagement() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Lead Type <span className="text-red-500">*</span></Label>
-                      <Select onValueChange={(value) => { editForm.setValue('leadType', value); setEditSelectedLeadType(value); }} defaultValue={editSelectedLeadType}>
+                      <Select onValueChange={(value) => { editForm.setValue('leadType', value); setEditSelectedLeadType(value); }} value={editForm.watch('leadType') || ''}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="individual">Individual Test</SelectItem>
@@ -2023,7 +2023,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>Sales / Responsible Person</Label>
-                      <Select onValueChange={(value) => editForm.setValue('salesResponsiblePerson', value)} defaultValue={editForm.getValues('salesResponsiblePerson') || ''}>
+                      <Select onValueChange={(value) => editForm.setValue('salesResponsiblePerson', value)} value={editForm.watch('salesResponsiblePerson') || ''}>
                         <SelectTrigger><SelectValue placeholder="Select person" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="SHIVA KUMAR Y M">SHIVA KUMAR Y M</SelectItem>
@@ -2045,7 +2045,7 @@ export default function LeadManagement() {
                           setShowCustomSampleType(false);
                           editForm.setValue('sampleType', value);
                         }
-                      }} defaultValue={editForm.getValues('sampleType') || ''}>
+                      }} value={editForm.watch('sampleType') || ''}>
                         <SelectTrigger><SelectValue placeholder="Select Sample Type" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="blood">Blood</SelectItem>
@@ -2223,7 +2223,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>Gender</Label>
-                      <Select onValueChange={(v) => editForm.setValue('gender', v as 'Male' | 'Female' | 'Other')} defaultValue={editForm.getValues('gender') || 'Male'}>
+                      <Select onValueChange={(v) => editForm.setValue('gender', v as 'Male' | 'Female' | 'Other')} value={editForm.watch('gender') || 'Male'}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Male">Male</SelectItem>
@@ -2440,8 +2440,7 @@ export default function LeadManagement() {
                             editForm.setValue('serviceName', value);
                           }
                         }}
-                        value={editForm.getValues('serviceName') || ''}
-                        defaultValue={editForm.getValues('serviceName') || ''}
+                        value={editForm.watch('serviceName') || ''}
                       >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -2474,7 +2473,7 @@ export default function LeadManagement() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
                     <div>
                       <Label>Genetic Counsellor Required</Label>
-                      <Select onValueChange={(value) => editForm.setValue('geneticCounselorRequired', value === 'yes')} defaultValue={editForm.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
+                      <Select onValueChange={(value) => editForm.setValue('geneticCounselorRequired', value === 'yes')} value={editForm.watch('geneticCounselorRequired') ? 'yes' : 'no'}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="yes">Yes</SelectItem>
@@ -2484,7 +2483,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>Nutrition Counsellor Required</Label>
-                      <Select onValueChange={(value) => editForm.setValue('nutritionalCounsellingRequired', value === 'yes')} defaultValue={editForm.getValues('nutritionalCounsellingRequired') ? 'yes' : 'no'}>
+                      <Select onValueChange={(value) => editForm.setValue('nutritionalCounsellingRequired', value === 'yes')} value={editForm.watch('nutritionalCounsellingRequired') ? 'yes' : 'no'}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="yes">Yes</SelectItem>

@@ -3092,12 +3092,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (leadData.sample_type) baseLabProcessData.sample_type = leadData.sample_type;
       if (leadData.no_of_samples) baseLabProcessData.no_of_samples = leadData.no_of_samples;
       if (sampleDeliveryDate) {
-        // Convert ISO date string to DATE format (YYYY-MM-DD)
+        // Validate and convert ISO date string to DATE format (YYYY-MM-DD)
         const dateObj = new Date(sampleDeliveryDate);
-        const year = dateObj.getUTCFullYear();
-        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(dateObj.getUTCDate()).padStart(2, '0');
-        baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
+        // Only use the date if it's valid (not NaN and looks like a valid year)
+        if (!isNaN(dateObj.getTime()) && dateObj.getFullYear() >= 1900 && dateObj.getFullYear() <= 2100) {
+          const year = dateObj.getUTCFullYear();
+          const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getUTCDate()).padStart(2, '0');
+          baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
+        } else {
+          console.warn('Invalid sample delivery date received, skipping:', sampleDeliveryDate);
+        }
       }
 
       baseLabProcessData.created_by = createdBy || leadData.lead_created_by || 'system';

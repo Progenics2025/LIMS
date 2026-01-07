@@ -53,6 +53,22 @@ export default function SampleTracking() {
     'alertToLabprocessTeam', 'remarkComment'
   ]);
 
+  // Helper function to safely parse date strings
+  // Returns null if the date is invalid, preventing "Invalid Date" errors and range errors
+  const safeParseDateToLocal = (dateValue: any): string | null => {
+    if (!dateValue) return null;
+    // If it's already a valid date string starting with a year
+    if (typeof dateValue === 'string') {
+      // Check if it looks like a date (starts with 19 or 20 for years)
+      if (!dateValue.match(/^(19|20)\d{2}/)) {
+        return null; // Not a valid date string
+      }
+    }
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  };
+
   const { data: samples = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/sample-tracking'],
     queryFn: async () => {
@@ -85,9 +101,9 @@ export default function SampleTracking() {
         patientClientPhone: l.patientClientPhone ?? l.patient_client_phone,
         sampleCollectionDate: l.sampleCollectionDate ?? l.sample_collection_date,
         sampleShippedDate: l.sampleShippedDate ?? l.sample_shipped_date,
-        sampleDeliveryDate: l.sampleDeliveryDate ?? l.sample_delivery_date ?? l.deliveryUpTo ?? l.delivery_up_to,
+        sampleDeliveryDate: safeParseDateToLocal(l.sampleDeliveryDate ?? l.sample_delivery_date ?? l.deliveryUpTo ?? l.delivery_up_to),
         sampleReceivedDate: l.sampleReceivedDate ?? l.sample_recevied_date,
-        deliveryUpTo: l.deliveryUpTo ?? l.delivery_up_to,
+        deliveryUpTo: safeParseDateToLocal(l.deliveryUpTo ?? l.delivery_up_to),
         samplePickUpFrom: l.samplePickUpFrom ?? l.sample_pick_up_from,
         trackingId: l.trackingId ?? l.tracking_id,
         courierCompany: l.courierCompany ?? l.courier_company,
@@ -104,9 +120,9 @@ export default function SampleTracking() {
       status: get('status', 'status'),
       sampleCollectionDate: get('sample_collection_date', 'sampleCollectionDate') || lead?.sampleCollectionDate,
       sampleShippedDate: get('sample_shipped_date', 'sampleShippedDate') || lead?.sampleShippedDate,
-      sampleDeliveryDate: get('sample_delivery_date', 'sampleDeliveryDate') || lead?.sampleDeliveryDate,
+      sampleDeliveryDate: safeParseDateToLocal(get('sample_delivery_date', 'sampleDeliveryDate')) || lead?.sampleDeliveryDate,
       samplePickUpFrom: get('sample_pick_up_from', 'samplePickUpFrom') || lead?.samplePickUpFrom,
-      deliveryUpTo: get('delivery_up_to', 'deliveryUpTo') || lead?.deliveryUpTo,
+      deliveryUpTo: safeParseDateToLocal(get('delivery_up_to', 'deliveryUpTo')) || lead?.deliveryUpTo,
       trackingId: get('tracking_id', 'trackingId') || lead?.trackingId,
       courierCompany: get('courier_company', 'courierCompany') || lead?.courierCompany,
       sampleShipmentAmount: get('sample_shipment_amount', 'sampleShipmentAmount'),

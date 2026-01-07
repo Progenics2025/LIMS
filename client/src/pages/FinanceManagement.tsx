@@ -116,7 +116,7 @@ export default function FinanceManagement() {
     modeOfPayment: z.string().optional(),
     utrDetails: z.string().optional(),
     balanceAmountReceivedDate: z.string().optional(),
-    totalAmountReceivedStatus: z.boolean().optional(),
+    totalAmountReceivedStatus: z.string().optional(),
     phlebotomistCharges: z.string().optional(),
     sampleShipmentAmount: z.string().optional(),
     thirdPartyCharges: z.string().optional(),
@@ -167,7 +167,7 @@ export default function FinanceManagement() {
       modeOfPayment: '',
       utrDetails: '',
       balanceAmountReceivedDate: undefined,
-      totalAmountReceivedStatus: false,
+      totalAmountReceivedStatus: '',
       phlebotomistCharges: '',
       sampleShipmentAmount: '',
       thirdPartyCharges: '',
@@ -729,7 +729,15 @@ export default function FinanceManagement() {
               </div>
               <div>
                 <Label htmlFor="totalAmountReceivedStatus">Total Amount Received Status</Label>
-                <Input id="totalAmountReceivedStatus" {...editForm.register('totalAmountReceivedStatus')} disabled={!financeEditable.has('totalAmountReceivedStatus')} />
+                <Select value={editForm.watch('totalAmountReceivedStatus') || ''} onValueChange={(value) => editForm.setValue('totalAmountReceivedStatus', value)} disabled={!financeEditable.has('totalAmountReceivedStatus')}>
+                  <SelectTrigger id="totalAmountReceivedStatus">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="YES">YES</SelectItem>
+                    <SelectItem value="NO">NO</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="utrDetails">UTR Details</Label>
@@ -925,9 +933,9 @@ export default function FinanceManagement() {
                           const projectIdDisplay = record.projectId ?? record.project_id ?? record.sample?.projectId ?? record.sample?.project_id ?? record.sample?.lead?.projectId ?? record.sample?.lead?.project_id ?? record.sample?.lead?.id ?? 'N/A';
                           const uniqueIdDisplay = record.uniqueId ?? (record as any).unique_id ?? record.sample?.lead?.id ?? '-';
                           return (
-                            <TableRow key={record.id} className={`${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                              {financeColumnPrefs.isColumnVisible('uniqueId') && <TableCell className={`min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 ${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{uniqueIdDisplay}</TableCell>}
-                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className={`min-w-[140px] text-gray-900 dark:text-white sticky left-[140px] z-20 ${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{projectIdDisplay}</TableCell>}
+                            <TableRow key={record.id} className={`${record.totalAmountReceivedStatus === 'YES' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
+                              {financeColumnPrefs.isColumnVisible('uniqueId') && <TableCell className={`min-w-[140px] font-medium text-gray-900 dark:text-white sticky left-0 z-20 ${record.totalAmountReceivedStatus === 'YES' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{uniqueIdDisplay}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('projectId') && <TableCell className={`min-w-[140px] text-gray-900 dark:text-white sticky left-[140px] z-20 ${record.totalAmountReceivedStatus === 'YES' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`}>{projectIdDisplay}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.sampleCollectionDate ? new Date(record.sampleCollectionDate).toLocaleDateString() : (record.sample?.lead?.sampleCollectionDate ? new Date(record.sample.lead.sampleCollectionDate).toLocaleDateString() : '-')}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('organisationHospital') && <TableCell className="min-w-[200px] text-gray-900 dark:text-white">{(record.organisationHospital ?? record.sample?.lead?.organisationHospital) || 'N/A'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.clinicianResearcherName ?? record.sample?.lead?.clinicianResearcherName ?? record.sample?.lead?.referredDoctor ?? '-'}</TableCell>}
@@ -972,7 +980,7 @@ export default function FinanceManagement() {
                               {financeColumnPrefs.isColumnVisible('modifiedAt') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{(record.modifiedAt ?? record.modified_at) ? new Date(record.modifiedAt ?? record.modified_at).toLocaleString() : '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('modifiedBy') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.modifiedBy ?? record.modified_by ?? '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="min-w-[220px] text-gray-900 dark:text-white max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">{record.remarkComment ?? record.remark_comment ?? record.comments ?? record.remarks ?? '-'}</TableCell>}
-                              {financeColumnPrefs.isColumnVisible('actions') && <TableCell className={`sticky right-0 z-20 min-w-[150px] ${record.totalAmountReceivedStatus ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 border-gray-200 dark:border-gray-700 overflow-visible p-0 actions-column`}>
+                              {financeColumnPrefs.isColumnVisible('actions') && <TableCell className={`sticky right-0 z-20 min-w-[150px] ${record.totalAmountReceivedStatus === 'YES' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 border-gray-200 dark:border-gray-700 overflow-visible p-0 actions-column`}>
                                 <div className="action-buttons flex space-x-1 items-center justify-center h-full px-2 py-1">
                                   <Button
                                     variant="outline"
