@@ -55,3 +55,8 @@ scripts/**/*.log
 
 # Ignore WES generated reports
 WES report code/wes_report/Images/
+
+# LeadLab LIMS Scripts
+*.pid
+*.log
+cloudflared/*.json
