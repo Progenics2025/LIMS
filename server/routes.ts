@@ -2347,16 +2347,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/nutrition', async (req, res) => {
     try {
       const data = req.body || {};
+
+      // === DATA SYNC VALIDATION (STRICT MODE): Verify parent Bioinformatics record exists ===
+      if (data.project_id) {
+        const [bioRows]: any = await pool.execute(
+          `SELECT COUNT(*) as cnt FROM (
+            SELECT project_id FROM bioinformatics_sheet_discovery WHERE project_id = ?
+            UNION
+            SELECT project_id FROM bioinformatics_sheet_clinical WHERE project_id = ?
+          ) as combined`,
+          [data.project_id, data.project_id]
+        );
+        if (bioRows[0]?.cnt === 0) {
+          console.error(`❌ Data Sync BLOCKED: Nutrition record rejected for ${data.project_id} - no Bioinformatics record exists`);
+          return res.status(400).json({
+            message: 'Cannot create Nutrition record: Bioinformatics record must exist first',
+            error: 'PARENT_RECORD_MISSING',
+            projectId: data.project_id,
+            requiredParent: 'bioinformatics_sheet_discovery OR bioinformatics_sheet_clinical'
+          });
+        } else {
+          console.log(`✅ Data Sync Validation: Bioinformatics record verified for ${data.project_id}`);
+        }
+      }
+
       const keys = Object.keys(data);
       const cols = keys.map(k => `\`${k}\``).join(',');
       const placeholders = keys.map(() => '?').join(',');
       const values = keys.map(k => data[k]);
       const [result]: any = await pool.execute(`INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`, values);
       const insertId = result.insertId || null;
+
+      // === POST-INSERT VALIDATION: Verify record was created ===
       const [rows] = await pool.execute('SELECT * FROM nutritional_management WHERE id = ?', [insertId]);
-      res.json((rows as any)[0] ?? { id: insertId });
+      const insertVerified = (rows as any).length > 0;
+      if (insertVerified) {
+        console.log(`✅ Data Sync Validation: Nutrition record verified with ID ${insertId}`);
+      } else {
+        console.error(`❌ Data Sync Validation FAILED: Nutrition record NOT found for ID ${insertId}`);
+      }
+
+      res.json({ ...(rows as any)[0] ?? { id: insertId }, validation: { insertVerified } });
     } catch (error) {
-      res.status(500).json({ message: 'Failed to create nutrition record' });
+      console.error('Failed to create nutrition record:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to create nutrition record', error: (error as Error).message });
     }
   });
 
@@ -2829,6 +2863,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/bioinfo-discovery-sheet', async (req, res) => {
     try {
       const data = req.body || {};
+
+      // === DATA SYNC VALIDATION (STRICT MODE): Verify parent Lab Processing record exists ===
+      if (data.project_id) {
+        const [labProcessRows]: any = await pool.execute(
+          'SELECT COUNT(*) as cnt FROM labprocess_discovery_sheet WHERE project_id = ?',
+          [data.project_id]
+        );
+        if (labProcessRows[0]?.cnt === 0) {
+          console.error(`❌ Data Sync BLOCKED: Bioinformatics record rejected for ${data.project_id} - no Lab Processing record exists`);
+          return res.status(400).json({
+            message: 'Cannot create Bioinformatics record: Lab Processing record must exist first',
+            error: 'PARENT_RECORD_MISSING',
+            projectId: data.project_id,
+            requiredParent: 'labprocess_discovery_sheet'
+          });
+        } else {
+          console.log(`✅ Data Sync Validation: Lab Processing record verified for ${data.project_id}`);
+        }
+      }
+
       const keys = Object.keys(data);
       const cols = keys.map(k => `\`${k}\``).join(',');
       const placeholders = keys.map(() => '?').join(',');
@@ -2848,6 +2902,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the inserted row ID
       const recordId = result.insertId || data.id;
       console.log('Inserted bioinformatics_sheet_discovery with ID:', recordId);
+
+      // === POST-INSERT VALIDATION: Verify record was actually created ===
+      let insertVerified = false;
+      if (data.sample_id) {
+        const [verifyRows]: any = await pool.execute(
+          'SELECT id FROM bioinformatics_sheet_discovery WHERE sample_id = ? LIMIT 1',
+          [data.sample_id]
+        );
+        insertVerified = verifyRows.length > 0;
+        if (insertVerified) {
+          console.log(`✅ Data Sync Validation: Bioinformatics record verified for sample ${data.sample_id}`);
+        } else {
+          console.error(`❌ Data Sync Validation FAILED: Bioinformatics record NOT found for sample ${data.sample_id}`);
+        }
+      }
 
       // Send email notification to Bioinformatics team
       try {
@@ -2871,16 +2940,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch and return the record by sample_id (most specific identifier)
       if (data.sample_id) {
         const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE sample_id = ? ORDER BY id DESC LIMIT 1', [data.sample_id]);
-        return res.json((rows as any)[0] ?? { id: recordId });
+        return res.json({
+          ...(rows as any)[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
 
       // Fallback: fetch by unique_id (but this will only return ONE record due to UNIQUE constraint)
       if (data.unique_id) {
         const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ? ORDER BY id DESC LIMIT 1', [data.unique_id]);
-        return res.json((rows as any)[0] ?? { id: recordId });
+        return res.json({
+          ...(rows as any)[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
 
-      res.json({ id: recordId });
+      res.json({ id: recordId, validation: { insertVerified } });
     } catch (error) {
       console.error('Failed to create bioinformatics discovery record', (error as Error).message);
       res.status(500).json({ message: 'Failed to create bioinformatics discovery record', error: (error as Error).message });
@@ -2939,29 +3014,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/bioinfo-clinical-sheet', async (req, res) => {
     try {
       const data = req.body || {};
+
+      // === DATA SYNC VALIDATION (STRICT MODE): Verify parent Lab Processing record exists ===
+      if (data.project_id) {
+        const [labProcessRows]: any = await pool.execute(
+          'SELECT COUNT(*) as cnt FROM labprocess_clinical_sheet WHERE project_id = ?',
+          [data.project_id]
+        );
+        if (labProcessRows[0]?.cnt === 0) {
+          console.error(`❌ Data Sync BLOCKED: Bioinformatics Clinical record rejected for ${data.project_id} - no Lab Processing Clinical record exists`);
+          return res.status(400).json({
+            message: 'Cannot create Bioinformatics Clinical record: Lab Processing Clinical record must exist first',
+            error: 'PARENT_RECORD_MISSING',
+            projectId: data.project_id,
+            requiredParent: 'labprocess_clinical_sheet'
+          });
+        } else {
+          console.log(`✅ Data Sync Validation: Lab Processing Clinical record verified for ${data.project_id}`);
+        }
+      }
+
       const keys = Object.keys(data);
       const cols = keys.map(k => `\`${k}\``).join(',');
       const placeholders = keys.map(() => '?').join(',');
       const values = keys.map(k => data[k]);
 
       // 🔑 FIX: Use INSERT IGNORE to create separate records per sample_id
-      // Each sample_id (with suffix _1, _2, _3, _4) must be a SEPARATE bioinformatics record
-      // NOT an upsert on unique_id (which is shared across all samples in a batch)
       const insertQuery = `
         INSERT IGNORE INTO bioinformatics_sheet_clinical (${cols}) 
         VALUES (${placeholders})
       `;
 
       console.log('🔍 Inserting bioinformatics_sheet_clinical record with columns:', keys);
-      console.log('🔍 Request body data:', JSON.stringify(data, null, 2));
-      console.log('🔍 Parsed values for INSERT:', values.map((v, i) => ({ column: keys[i], value: v })));
-
       const [result]: any = await pool.execute(insertQuery, values);
 
       // Get the inserted row ID
       const recordId = result.insertId || data.id;
       console.log('✅ Inserted bioinformatics_sheet_clinical with ID:', recordId);
-      console.log('✅ Insert result affectedRows:', result.affectedRows);
+
+      // === POST-INSERT VALIDATION: Verify record was actually created ===
+      let insertVerified = false;
+      if (data.sample_id) {
+        const [verifyRows]: any = await pool.execute(
+          'SELECT id FROM bioinformatics_sheet_clinical WHERE sample_id = ? LIMIT 1',
+          [data.sample_id]
+        );
+        insertVerified = verifyRows.length > 0;
+        if (insertVerified) {
+          console.log(`✅ Data Sync Validation: Bioinformatics Clinical record verified for sample ${data.sample_id}`);
+        } else {
+          console.error(`❌ Data Sync Validation FAILED: Bioinformatics Clinical record NOT found for sample ${data.sample_id}`);
+        }
+      }
 
       // Send email notification to Bioinformatics team
       try {
@@ -2985,16 +3089,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch and return the record by sample_id (most specific identifier)
       if (data.sample_id) {
         const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE sample_id = ? ORDER BY id DESC LIMIT 1', [data.sample_id]);
-        return res.json((rows as any)[0] ?? { id: recordId });
+        return res.json({
+          ...(rows as any)[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
 
-      // Fallback: fetch by unique_id (but this will only return ONE record due to UNIQUE constraint)
+      // Fallback: fetch by unique_id
       if (data.unique_id) {
         const [rows] = await pool.execute('SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ? ORDER BY id DESC LIMIT 1', [data.unique_id]);
-        return res.json((rows as any)[0] ?? { id: recordId });
+        return res.json({
+          ...(rows as any)[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
 
-      res.json({ id: recordId });
+      res.json({ id: recordId, validation: { insertVerified } });
     } catch (error) {
       console.error('Failed to create bioinformatics clinical record', (error as Error).message);
       res.status(500).json({ message: 'Failed to create bioinformatics clinical record', error: (error as Error).message });
@@ -3161,16 +3271,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Update sample tracking to set alertToLabprocessTeam flag
+      // Verify records were actually created in Lab Processing (Data Sync Validation)
+      let verificationPassed = false;
       try {
-        await pool.execute(
-          'UPDATE sample_tracking SET alert_to_labprocess_team = ?, updated_at = ? WHERE id = ?',
-          [true, new Date(), sampleId]
+        const verifyQuery = isDiscovery
+          ? 'SELECT COUNT(*) as cnt FROM labprocess_discovery_sheet WHERE project_id = ?'
+          : 'SELECT COUNT(*) as cnt FROM labprocess_clinical_sheet WHERE project_id = ?';
+        const [verifyRows]: any = await pool.execute(verifyQuery, [projectId]);
+        const recordCount = verifyRows[0]?.cnt || 0;
+        if (recordCount >= numberOfSamples) {
+          verificationPassed = true;
+          console.log(`✅ Data Sync Validation PASSED: ${recordCount} record(s) verified in ${tableName} for project ${projectId}`);
+        } else {
+          console.error(`❌ Data Sync Validation FAILED: Expected ${numberOfSamples} records, found ${recordCount} in ${tableName}`);
+        }
+      } catch (verifyError) {
+        console.error('Warning: Data sync verification failed', (verifyError as Error).message);
+      }
+
+      // Update sample tracking to set alertToLabprocessTeam flag
+      // NOTE: Removed 'updated_at' column as it doesn't exist in sample_tracking table
+      let sampleTrackingUpdated = false;
+      try {
+        const updateResult: any = await pool.execute(
+          'UPDATE sample_tracking SET alert_to_labprocess_team = 1 WHERE id = ?',
+          [sampleId]
         );
-        console.log('Updated sample_tracking flag for sample:', sampleId);
+        if (updateResult[0]?.affectedRows > 0) {
+          sampleTrackingUpdated = true;
+          console.log('✅ Updated sample_tracking flag for sample:', sampleId);
+        } else {
+          console.warn('⚠️ Warning: Sample tracking record not found for ID:', sampleId);
+        }
       } catch (updateError) {
         console.error('Warning: Failed to update sample_tracking flag', (updateError as Error).message);
-        // Don't fail the entire request if sample update fails
+        // Don't fail the entire request if sample update fails, but log prominently
       }
 
       // Send email notification to Lab Process team
@@ -3216,7 +3351,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recordIds: insertedIds,
         numberOfRecordsCreated: insertedIds.length,
         table: tableName,
-        message: `${insertedIds.length} lab process record(s) created in ${tableName}`
+        message: `${insertedIds.length} lab process record(s) created in ${tableName}`,
+        // Include validation results in response for transparency
+        validation: {
+          labProcessingVerified: verificationPassed,
+          sampleTrackingFlagUpdated: sampleTrackingUpdated
+        }
       });
     } catch (error) {
       console.error('Failed to alert lab process', (error as Error).message);
@@ -5305,6 +5445,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/report_management', async (req, res) => {
     try {
       const body = req.body || {};
+
+      // === DATA SYNC VALIDATION (STRICT MODE): Verify parent Bioinformatics record exists ===
+      if (body.project_id) {
+        const [bioRows]: any = await pool.execute(
+          `SELECT COUNT(*) as cnt FROM (
+            SELECT project_id FROM bioinformatics_sheet_discovery WHERE project_id = ?
+            UNION
+            SELECT project_id FROM bioinformatics_sheet_clinical WHERE project_id = ?
+          ) as combined`,
+          [body.project_id, body.project_id]
+        );
+        if (bioRows[0]?.cnt === 0) {
+          console.error(`❌ Data Sync BLOCKED: Report Management record rejected for ${body.project_id} - no Bioinformatics record exists`);
+          return res.status(400).json({
+            message: 'Cannot create Report Management record: Bioinformatics record must exist first',
+            error: 'PARENT_RECORD_MISSING',
+            projectId: body.project_id,
+            requiredParent: 'bioinformatics_sheet_discovery OR bioinformatics_sheet_clinical'
+          });
+        } else {
+          console.log(`✅ Data Sync Validation: Bioinformatics record verified for ${body.project_id}`);
+        }
+      }
+
       // Build dynamic insert based on provided keys
       const keys = Object.keys(body);
       if (keys.length === 0) return res.status(400).json({ message: 'No data provided' });
@@ -5313,7 +5477,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const values = keys.map(k => body[k]);
       const sql = `INSERT INTO report_management (${cols}, created_at) VALUES (${placeholders}, NOW())`;
       const [result]: any = await pool.execute(sql, values);
-      res.json({ ok: true, insertId: result.insertId });
+
+      // === POST-INSERT VALIDATION: Verify record was created ===
+      const insertId = result.insertId;
+      const [verifyRows]: any = await pool.execute('SELECT id FROM report_management WHERE id = ?', [insertId]);
+      const insertVerified = verifyRows.length > 0;
+      if (insertVerified) {
+        console.log(`✅ Data Sync Validation: Report Management record verified with ID ${insertId}`);
+      } else {
+        console.error(`❌ Data Sync Validation FAILED: Report Management record NOT found for ID ${insertId}`);
+      }
+
+      res.json({ ok: true, insertId: result.insertId, validation: { insertVerified } });
     } catch (error) {
       console.error('POST /api/report_management failed:', (error as Error).message);
       res.status(500).json({ message: 'Failed to create record', error: (error as Error).message });
