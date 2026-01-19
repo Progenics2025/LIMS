@@ -30,6 +30,7 @@ import { z } from "zod";
 import { FilterBar } from "@/components/FilterBar";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
+import { sortData } from '@/lib/utils';
 
 
 const leadFormSchema = insertLeadSchema.extend({
@@ -630,8 +631,8 @@ export default function LeadManagement() {
     const userRole = (user?.role || '').toLowerCase();
     // Admin and Manager can edit all leads
     if (['admin', 'manager'].includes(userRole)) return true;
-    // Sales can edit leads they created
-    if (userRole === 'sales' && lead?.createdBy === user?.id) return true;
+    // Allow Sales to edit leads (UI only) but do not allow delete
+    if (userRole === 'sales') return true;
     return false;
   };
   const canDelete = () => ['admin', 'manager'].includes((user?.role || '').toLowerCase());
@@ -693,8 +694,8 @@ export default function LeadManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<string | null>('leadCreated');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Column configuration for hide/show feature
   const leadColumns: ColumnConfig[] = useMemo(() => [
@@ -792,25 +793,42 @@ export default function LeadManagement() {
   if (page > totalPages) setPage(totalPages);
   const start = (page - 1) * pageSize;
   // Apply sorting
-  const sortedLeads = (() => {
-    if (!sortKey) return filteredLeads;
-    const copy = [...filteredLeads];
-    copy.sort((a: any, b: any) => {
-      const A = a[sortKey];
-      const B = b[sortKey];
-      if (A == null && B == null) return 0;
-      if (A == null) return sortDir === 'asc' ? -1 : 1;
-      if (B == null) return sortDir === 'asc' ? 1 : -1;
-      if (typeof A === 'number' && typeof B === 'number') return sortDir === 'asc' ? A - B : B - A;
-      const sA = String(A).toLowerCase();
-      const sB = String(B).toLowerCase();
-      if (sA < sB) return sortDir === 'asc' ? -1 : 1;
-      if (sA > sB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return copy;
-  })();
+  // Apply sorting
+  const sortedLeads = useMemo(() => {
+    if (filteredLeads.length > 0) {
+      console.log('LeadManagement sort debug:', {
+        sortKey,
+        sortDir,
+        sampleProjectId: filteredLeads[0].projectId,
+        sampleProjectIdType: typeof filteredLeads[0].projectId
+      });
+    }
+    return sortData(filteredLeads, sortKey as keyof any, sortDir);
+  }, [filteredLeads, sortKey, sortDir]);
   const visibleLeads = sortedLeads.slice(start, start + pageSize);
+
+  // Helper function to send email notification
+  const sendEmailNotification = async (subject: string, body: string) => {
+    try {
+      console.log('[LeadManagement] Sending email:', { subject, to: 'digitalsales@progenicslabs.com' });
+      const response = await apiRequest('POST', '/api/email/send', {
+        to: 'digitalsales@progenicslabs.com',
+        subject,
+        body
+      });
+      console.log('[LeadManagement] Email response:', response.status, response.statusText);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[LeadManagement] Email error response:', errorData);
+        return false;
+      }
+      console.log('[LeadManagement] Email sent successfully');
+      return true;
+    } catch (error) {
+      console.error('[LeadManagement] email notification failed:', error);
+      return false;
+    }
+  };
 
   const createLeadMutation = useMutation<any, any, LeadFormData>({
     mutationFn: async (data: LeadFormData) => {
@@ -848,6 +866,20 @@ export default function LeadManagement() {
 
       form.reset();
       toast({ title: "Lead created", description: "New lead has been successfully created" });
+
+      // Send email notification immediately (fire and forget, but log result)
+      try {
+        const emailBody = `New lead created:\n\nPatient: ${variables?.patientClientName || 'N/A'}\nEmail: ${variables?.patientClientEmail || 'N/A'}\nPhone: ${variables?.patientClientPhone || 'N/A'}\nSample Type: ${variables?.sampleType || 'N/A'}\nAmount Quoted: ${variables?.amountQuoted || 'N/A'}`;
+        console.log('[LeadManagement] Attempting to send lead creation email');
+        const emailSent = await sendEmailNotification('New Lead Created', emailBody);
+        if (emailSent) {
+          console.log('[LeadManagement] Lead creation email sent successfully');
+        } else {
+          console.warn('[LeadManagement] Lead creation email failed to send');
+        }
+      } catch (emailError) {
+        console.error('[LeadManagement] Error in email sending:', emailError);
+      }
 
       // GC record auto-creation removed - backend now handles this automatically
       // when geneticCounselorRequired=true is set during lead creation.
@@ -908,6 +940,21 @@ export default function LeadManagement() {
       editForm.reset();
       toast({ title: "Lead updated", description: "Lead has been successfully updated" });
 
+      // Send email notification immediately (fire and forget, but log result)
+      try {
+        const changesSummary = Object.entries(variables?.data || {}).map(([key, value]) => `${key}: ${value}`).join('\n');
+        const emailBody = `Lead Updated (ID: ${variables?.id}):\n\nChanges:\n${changesSummary}`;
+        console.log('[LeadManagement] Attempting to send lead update email');
+        const emailSent = await sendEmailNotification('Lead Updated', emailBody);
+        if (emailSent) {
+          console.log('[LeadManagement] Lead update email sent successfully');
+        } else {
+          console.warn('[LeadManagement] Lead update email failed to send');
+        }
+      } catch (emailError) {
+        console.error('[LeadManagement] Error in email sending:', emailError);
+      }
+
       // GC record auto-creation removed for lead updates.
       // If user enables geneticCounselorRequired on an existing lead that doesn't have a GC record,
       // they should manually create it from the Genetic Counselling page.
@@ -932,15 +979,37 @@ export default function LeadManagement() {
     },
   });
 
-  const updateLeadStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+  const updateLeadStatusMutation = useMutation<any, any, { id: string; status: string } | undefined>({
+    mutationFn: async (vars?: { id: string; status: string }) => {
+      if (!vars) throw new Error('Missing id or status');
+      const { id, status } = vars;
       const response = await apiRequest('PUT', `/api/leads/${id}/status`, { status });
       if (!response.ok) throw new Error('Failed to update lead status');
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any, variables: { id: string; status: string } | undefined) => {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       toast({ title: "Status updated", description: "Lead status has been updated" });
+
+      // Send email notification if status changed to "converted"
+      if (variables?.status === 'converted') {
+        try {
+          const lead = normalizedLeads.find(l => l.id === variables?.id);
+          const emailBody = `Lead Converted (ID: ${variables?.id}):\n\nPatient: ${lead?.patientClientName || 'N/A'}\nEmail: ${lead?.patientClientEmail || 'N/A'}\nPhone: ${lead?.patientClientPhone || 'N/A'}\nAmount: ${lead?.amountQuoted || 'N/A'}`;
+          console.log('[LeadManagement] Attempting to send lead conversion email');
+          sendEmailNotification('Lead Converted', emailBody).then(emailSent => {
+            if (emailSent) {
+              console.log('[LeadManagement] Lead conversion email sent successfully');
+            } else {
+              console.warn('[LeadManagement] Lead conversion email failed to send');
+            }
+          }).catch(emailError => {
+            console.error('[LeadManagement] Error in email sending:', emailError);
+          });
+        } catch (error) {
+          console.error('[LeadManagement] Error preparing conversion email:', error);
+        }
+      }
     },
     onError: (error: any) => {
       toast({ title: "Error updating status", description: error.message, variant: "destructive" });
@@ -982,7 +1051,7 @@ export default function LeadManagement() {
       }
       return body;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       // Refresh leads and samples so Sample Tracking shows the new sample
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
       queryClient.invalidateQueries({ queryKey: ['/api/samples'] });
@@ -1001,6 +1070,17 @@ export default function LeadManagement() {
         title: "Lead converted",
         description: `Lead converted to sample ${data?.sample?.sampleId || '(no id returned)'}`
       });
+      // Send conversion email to sales team
+      try {
+        const leadInfo = data?.lead || data?.sample || {};
+        const emailBody = `Lead Converted:\n\nUnique ID: ${leadInfo.uniqueId || leadInfo.unique_id || '-'}\nSample ID: ${data?.sample?.sampleId || data?.sample?.sample_id || '-'}\nPatient: ${leadInfo.patientClientName || leadInfo.patient_client_name || 'N/A'}\nEmail: ${leadInfo.patientClientEmail || leadInfo.patient_client_email || 'N/A'}\nPhone: ${leadInfo.patientClientPhone || leadInfo.patient_client_phone || 'N/A'}\nAmount: ${leadInfo.amountQuoted || leadInfo.amount_quoted || 'N/A'}`;
+        console.log('[LeadManagement] Attempting to send conversion email');
+        const sent = await sendEmailNotification('Lead Converted', emailBody);
+        if (sent) console.log('[LeadManagement] Conversion email sent successfully');
+        else console.warn('[LeadManagement] Conversion email failed to send');
+      } catch (e) {
+        console.error('[LeadManagement] Error sending conversion email:', e);
+      }
       // Attempt to reconcile/create downstream records (best-effort).
       (async () => {
         try {
@@ -1442,7 +1522,6 @@ export default function LeadManagement() {
                           <SelectItem value="cold">Cold</SelectItem>
                           <SelectItem value="hot">Hot</SelectItem>
                           <SelectItem value="won">Won</SelectItem>
-                          <SelectItem value="converted">Converted</SelectItem>
                           <SelectItem value="closed">Closed</SelectItem>
                         </SelectContent>
                       </Select>
@@ -2016,7 +2095,6 @@ export default function LeadManagement() {
                           <SelectItem value="cold">Cold</SelectItem>
                           <SelectItem value="hot">Hot</SelectItem>
                           <SelectItem value="won">Won</SelectItem>
-                          <SelectItem value="converted">Converted</SelectItem>
                           <SelectItem value="closed">Closed</SelectItem>
                         </SelectContent>
                       </Select>

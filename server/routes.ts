@@ -335,8 +335,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Configure Nodemailer Transporter
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true, // true for 465, false for other ports
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465', // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -351,6 +351,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('SMTP Server is ready to take our messages');
     }
   });
+
+  // Create a global transporter for email sending (reusable across endpoints)
+  const emailTransporter = transporter;
 
   // Route: Send OTP
   app.post('/api/auth/send-otp', async (req, res) => {
@@ -3226,70 +3229,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/process-master', async (req, res) => {
     try {
       // Comprehensive query that aggregates data from all source tables
-      // This ensures real-time updates when any section is modified
-      // NOTE: sample_tracking table does NOT have sample_id, service_name, sample_type, no_of_samples, tat, logistic_status, progenics_trf columns
-      // These come from labprocess tables or lead_management
+      // Using subqueries instead of JOINs to avoid row multiplication when labprocess tables have multiple samples per unique_id
+      // NOTE: COLLATE clause added to fix collation mismatch between tables
       const query = `
         SELECT 
           pm.id,
           pm.unique_id,
           pm.project_id,
-          -- Get sample_id from labprocess tables (where it's actually stored)
-          COALESCE(lpd.sample_id, lpc.sample_id, pm.sample_id) as sample_id,
-          pm.client_id,
-          COALESCE(st.organisation_hospital, pm.organisation_hospital) as organisation_hospital,
-          COALESCE(st.clinician_researcher_name, pm.clinician_researcher_name) as clinician_researcher_name,
+          pm.sample_id,
+          -- Get client_id from labprocess tables (where it's actually stored)
+          COALESCE(
+            (SELECT lpd2.client_id FROM labprocess_discovery_sheet lpd2 WHERE lpd2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc2.client_id FROM labprocess_clinical_sheet lpc2 WHERE lpc2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.client_id
+          ) as client_id,
+          COALESCE(
+            (SELECT st2.organisation_hospital FROM sample_tracking st2 WHERE st2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.organisation_hospital
+          ) as organisation_hospital,
+          COALESCE(
+            (SELECT st3.clinician_researcher_name FROM sample_tracking st3 WHERE st3.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.clinician_researcher_name
+          ) as clinician_researcher_name,
           pm.speciality,
           pm.clinician_researcher_email,
-          COALESCE(st.clinician_researcher_phone, pm.clinician_researcher_phone) as clinician_researcher_phone,
+          COALESCE(
+            (SELECT st4.clinician_researcher_phone FROM sample_tracking st4 WHERE st4.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.clinician_researcher_phone
+          ) as clinician_researcher_phone,
           pm.clinician_researcher_address,
-          COALESCE(st.patient_client_name, pm.patient_client_name) as patient_client_name,
+          COALESCE(
+            (SELECT st5.patient_client_name FROM sample_tracking st5 WHERE st5.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.patient_client_name
+          ) as patient_client_name,
           pm.age,
           pm.gender,
           pm.patient_client_email,
-          COALESCE(st.patient_client_phone, pm.patient_client_phone) as patient_client_phone,
+          COALESCE(
+            (SELECT st6.patient_client_phone FROM sample_tracking st6 WHERE st6.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.patient_client_phone
+          ) as patient_client_phone,
           pm.patient_client_address,
-          COALESCE(st.sample_collection_date, pm.sample_collection_date) as sample_collection_date,
-          COALESCE(st.sample_recevied_date, pm.sample_recevied_date) as sample_recevied_date,
-          COALESCE(lpd.service_name, lpc.service_name, pm.service_name) as service_name,
-          COALESCE(lpd.sample_type, lpc.sample_type, pm.sample_type) as sample_type,
-          COALESCE(lpd.no_of_samples, lpc.no_of_samples, pm.no_of_samples) as no_of_samples,
+          COALESCE(
+            (SELECT st7.sample_collection_date FROM sample_tracking st7 WHERE st7.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sample_collection_date
+          ) as sample_collection_date,
+          COALESCE(
+            (SELECT st8.sample_recevied_date FROM sample_tracking st8 WHERE st8.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sample_recevied_date
+          ) as sample_recevied_date,
+          COALESCE(
+            (SELECT lpd3.service_name FROM labprocess_discovery_sheet lpd3 WHERE lpd3.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc3.service_name FROM labprocess_clinical_sheet lpc3 WHERE lpc3.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.service_name
+          ) as service_name,
+          COALESCE(
+            (SELECT lpd4.sample_type FROM labprocess_discovery_sheet lpd4 WHERE lpd4.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc4.sample_type FROM labprocess_clinical_sheet lpc4 WHERE lpc4.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.sample_type
+          ) as sample_type,
+          COALESCE(
+            (SELECT lpd5.no_of_samples FROM labprocess_discovery_sheet lpd5 WHERE lpd5.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc5.no_of_samples FROM labprocess_clinical_sheet lpc5 WHERE lpc5.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.no_of_samples
+          ) as no_of_samples,
           pm.tat,
-          COALESCE(st.sales_responsible_person, pm.sales_responsible_person) as sales_responsible_person,
-          COALESCE(lpd.progenics_trf, lpc.progenics_trf, pm.progenics_trf) as progenics_trf,
-          COALESCE(st.third_party_trf, pm.third_party_trf) as third_party_trf,
+          COALESCE(
+            (SELECT st9.sales_responsible_person FROM sample_tracking st9 WHERE st9.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sales_responsible_person
+          ) as sales_responsible_person,
+          COALESCE(
+            (SELECT lpd6.progenics_trf FROM labprocess_discovery_sheet lpd6 WHERE lpd6.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc6.progenics_trf FROM labprocess_clinical_sheet lpc6 WHERE lpc6.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.progenics_trf
+          ) as progenics_trf,
+          COALESCE(
+            (SELECT st10.third_party_trf FROM sample_tracking st10 WHERE st10.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.third_party_trf
+          ) as third_party_trf,
           pm.progenics_report,
-          COALESCE(st.sample_sent_to_third_party_date, pm.sample_sent_to_third_party_date) as sample_sent_to_third_party_date,
-          COALESCE(st.third_party_name, pm.third_party_name) as third_party_name,
-          COALESCE(st.third_party_report, pm.third_party_report) as third_party_report,
+          COALESCE(
+            (SELECT st11.sample_sent_to_third_party_date FROM sample_tracking st11 WHERE st11.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sample_sent_to_third_party_date
+          ) as sample_sent_to_third_party_date,
+          COALESCE(
+            (SELECT st12.third_party_name FROM sample_tracking st12 WHERE st12.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.third_party_name
+          ) as third_party_name,
+          COALESCE(
+            (SELECT st13.third_party_report FROM sample_tracking st13 WHERE st13.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.third_party_report
+          ) as third_party_report,
           pm.results_raw_data_received_from_third_party_date,
-          -- Get real-time status from respective tables
           pm.logistic_status,
           COALESCE(
-            CASE 
-              WHEN fs.total_amount_received_status = 1 OR fs.total_amount_received_status = true THEN 'Completed'
-              WHEN fs.payment_receipt_amount > 0 THEN 'Partial'
-              ELSE pm.finance_status
-            END,
+            (SELECT 
+              CASE 
+                WHEN fs2.total_amount_received_status = 1 OR fs2.total_amount_received_status = true THEN 'Completed'
+                WHEN fs2.payment_receipt_amount > 0 THEN 'Partial'
+                ELSE NULL
+              END
+            FROM finance_sheet fs2 WHERE fs2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
             pm.finance_status
           ) as finance_status,
           COALESCE(
-            CASE 
-              WHEN lpd.extraction_qc_status IS NOT NULL THEN lpd.extraction_qc_status
-              WHEN lpc.extraction_qc_status IS NOT NULL THEN lpc.extraction_qc_status
-              ELSE pm.lab_process_status
-            END,
+            (SELECT lpd7.extraction_qc_status FROM labprocess_discovery_sheet lpd7 WHERE lpd7.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc7.extraction_qc_status FROM labprocess_clinical_sheet lpc7 WHERE lpc7.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
             pm.lab_process_status
           ) as lab_process_status,
           COALESCE(
-            CASE 
-              WHEN bid.analysis_status IS NOT NULL THEN bid.analysis_status
-              WHEN bic.analysis_status IS NOT NULL THEN bic.analysis_status
-              ELSE pm.bioinformatics_status
-            END,
+            (SELECT bid2.analysis_status FROM bioinformatics_sheet_discovery bid2 WHERE bid2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT bic2.analysis_status FROM bioinformatics_sheet_clinical bic2 WHERE bic2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
             pm.bioinformatics_status
           ) as bioinformatics_status,
-          COALESCE(nm.counselling_status, pm.nutritional_management_status) as nutritional_management_status,
+          COALESCE(
+            (SELECT nm2.counselling_status FROM nutritional_management nm2 WHERE nm2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.nutritional_management_status
+          ) as nutritional_management_status,
           pm.progenics_report_release_date,
           pm.Remark_Comment,
           pm.created_at,
@@ -3297,13 +3353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           pm.modified_at,
           pm.modified_by
         FROM process_master_sheet pm
-        LEFT JOIN sample_tracking st ON pm.unique_id = st.unique_id
-        LEFT JOIN finance_sheet fs ON pm.unique_id = fs.unique_id
-        LEFT JOIN labprocess_discovery_sheet lpd ON pm.unique_id = lpd.unique_id
-        LEFT JOIN labprocess_clinical_sheet lpc ON pm.unique_id = lpc.unique_id
-        LEFT JOIN bioinformatics_sheet_discovery bid ON pm.unique_id = bid.unique_id
-        LEFT JOIN bioinformatics_sheet_clinical bic ON pm.unique_id = bic.unique_id
-        LEFT JOIN nutritional_management nm ON pm.unique_id = nm.unique_id
         ORDER BY pm.created_at DESC
       `;
 
@@ -3937,6 +3986,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Failed to delete nutrition record', (error as Error).message);
       res.status(500).json({ message: 'Failed to delete nutrition record' });
+    }
+  });
+
+  // ============================================================================
+  // Genetic Counselling ID Generation Endpoint
+  // Generates GC-specific unique_id and project_id
+  // ============================================================================
+  app.post('/api/genetic-counselling/generate-ids', async (req, res) => {
+    try {
+      console.log('[GC ID Generation] Request received');
+      // Generate unique_id (GC format: GCYYMMDDHHMMSS)
+      function padZero(num: number): string {
+        return String(num).padStart(2, '0');
+      }
+
+      const now = new Date();
+      const yy = padZero(now.getFullYear() % 100);
+      const mm = padZero(now.getMonth() + 1);
+      const dd = padZero(now.getDate());
+      const hh = padZero(now.getHours());
+      const min = padZero(now.getMinutes());
+      const ss = padZero(now.getSeconds());
+
+      const timestamp = `${yy}${mm}${dd}${hh}${min}${ss}`;
+      const unique_id = `GC${timestamp}`;
+
+      // Generate project_id (GC format: GCYYMMDDHHMMSS)
+      const project_id = `GC${timestamp}`;
+
+      console.log('[GC ID Generation] Generated unique_id:', unique_id, 'project_id:', project_id);
+      const responseData = { unique_id, project_id };
+      console.log('[GC ID Generation] Sending response:', JSON.stringify(responseData));
+      res.json(responseData);
+    } catch (error) {
+      console.error('[GC ID Generation] Error:', (error as Error).message);
+      console.error('[GC ID Generation] Stack:', (error as Error).stack);
+      res.status(500).json({ message: 'Failed to generate GC IDs', error: (error as Error).message });
     }
   });
 
@@ -5117,13 +5203,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------------
+  // Email API
+  // Send email notifications
+  // -----------------------------
+  app.post('/api/email/send', async (req, res) => {
+    try {
+      const { to, subject, body } = req.body;
+
+      // Validate input
+      if (!to || !subject || !body) {
+        return res.status(400).json({ message: 'Missing required fields: to, subject, body' });
+      }
+
+      // Send email using the global emailTransporter (Zoho SMTP)
+      const mailOptions = {
+        from: process.env.SMTP_USER || 'itsupportprogenics@progenicslaboratories.in',
+        to,
+        subject,
+        text: body,
+      };
+
+      await emailTransporter.sendMail(mailOptions);
+      console.log(`📧 Email sent successfully to: ${to}`);
+      res.json({ ok: true, message: 'Email sent successfully' });
+    } catch (error) {
+      console.error('Failed to send email:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to send email', error: (error as Error).message });
+    }
+  });
+
+  // -----------------------------
   // Report Management API
   // CRUD endpoints for `report_management` table
   // -----------------------------
   app.get('/api/report_management', async (req, res) => {
     try {
-      const [rows] = await pool.execute('SELECT * FROM report_management ORDER BY created_at DESC LIMIT 500');
-      res.json(rows);
+      // Join with lab process sheets to get client_id and correct unique_id
+      // report_management.sample_id is like "25DS00067_1" where prefix is the business unique_id
+      // labprocess tables have unique_id field which matches this prefix
+      // We join on project_id and extract the matching unique_id and client_id
+      // Note: COLLATE clause added to fix collation mismatch between tables
+      const query = `
+        SELECT 
+          rm.*,
+          -- Get client_id from lab process sheets - use subquery to get first match
+          (
+            SELECT lpd2.client_id 
+            FROM labprocess_discovery_sheet lpd2 
+            WHERE lpd2.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as discovery_client_id,
+          (
+            SELECT lpc2.client_id 
+            FROM labprocess_clinical_sheet lpc2 
+            WHERE lpc2.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as clinical_client_id,
+          -- Get the business unique_id from lab process sheets
+          (
+            SELECT lpd3.unique_id 
+            FROM labprocess_discovery_sheet lpd3 
+            WHERE lpd3.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as discovery_unique_id,
+          (
+            SELECT lpc3.unique_id 
+            FROM labprocess_clinical_sheet lpc3 
+            WHERE lpc3.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as clinical_unique_id
+        FROM report_management rm
+        ORDER BY rm.created_at DESC 
+        LIMIT 500
+      `;
+      const [rows]: any = await pool.execute(query);
+      // Post-process to merge discovery/clinical fields
+      const processedRows = rows.map((row: any) => ({
+        ...row,
+        client_id: row.discovery_client_id || row.clinical_client_id || null,
+        display_unique_id: row.discovery_unique_id || row.clinical_unique_id || null,
+      }));
+      res.json(processedRows);
     } catch (error) {
       console.error('GET /api/report_management failed:', (error as Error).message);
       res.status(500).json({ message: 'Failed to fetch report_management records' });
