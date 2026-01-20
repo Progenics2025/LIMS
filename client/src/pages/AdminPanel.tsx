@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { z } from "zod";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
+import { sortData } from '@/lib/utils';
 
 const userFormSchema = insertUserSchema.extend({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -51,6 +52,8 @@ export default function AdminPanel() {
     queryKey: ['/api/users'],
   });
   const [users, setUsers] = useState<User[]>(usersData);
+  const [sortKey, setSortKey] = useState<keyof User | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Keep local users in sync with query data
   React.useEffect(() => {
@@ -466,16 +469,16 @@ export default function AdminPanel() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {adminColumnPrefs.isColumnVisible('name') && <TableHead className="py-1">Name</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('email') && <TableHead className="py-1">Email</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('role') && <TableHead className="py-1">Role</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('status') && <TableHead className="py-1">Status</TableHead>}
-                    {adminColumnPrefs.isColumnVisible('lastLogin') && <TableHead className="py-1">Last Login</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('name') && <TableHead onClick={() => { setSortKey('name'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer py-1">Name{sortKey === 'name' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('email') && <TableHead onClick={() => { setSortKey('email'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer py-1">Email{sortKey === 'email' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('role') && <TableHead onClick={() => { setSortKey('role'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer py-1">Role{sortKey === 'role' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('status') && <TableHead onClick={() => { setSortKey('isActive'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer py-1">Status{sortKey === 'isActive' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {adminColumnPrefs.isColumnVisible('lastLogin') && <TableHead onClick={() => { setSortKey('lastLogin'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer py-1">Last Login{sortKey === 'lastLogin' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                     {adminColumnPrefs.isColumnVisible('actions') && <TableHead className="py-1">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {sortData(users, sortKey, sortDir).map((user) => (
                     <TableRow key={user.id}>
                       {adminColumnPrefs.isColumnVisible('name') && <TableCell className="py-1">
                         <div className="flex items-center">

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { FilterBar } from "@/components/FilterBar";
@@ -232,6 +232,8 @@ export default function GeneticCounselling() {
 
   const form = useForm<GCRecord>({
     defaultValues: {
+      unique_id: '',
+      project_id: '',
       approval_from_head: false,
       potential_patient_for_testing_in_future: false,
       extended_family_testing_requirement: false,
@@ -383,9 +385,34 @@ export default function GeneticCounselling() {
           queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
           toast({ title: 'Updated', description: 'Record updated' });
         } else {
-          console.log('[GC onSave] Creating new record');
+          console.log('[GC onSave] Creating new record with initial data:', data);
+          // Generate unique_id from server (only at creation time)
+          let generatedUniqueId = '';
+          try {
+            const idRes = await fetch('/api/genetic-counselling/generate-ids', { method: 'POST' });
+            console.log('[GC onSave] ID generation response status:', idRes.status);
+            if (idRes.ok) {
+              const idData = await idRes.json();
+              generatedUniqueId = idData.unique_id;
+              data.unique_id = generatedUniqueId;
+              data.project_id = '';
+              console.log('[GC onSave] Generated unique_id:', generatedUniqueId, 'Setting project_id to empty');
+            } else {
+              console.error('[GC onSave] ID generation failed with status:', idRes.status);
+            }
+          } catch (e) {
+            console.error('[GC onSave] Failed to generate unique_id from server:', e);
+          }
+          
+          // Ensure unique_id is set
+          if (!data.unique_id || data.unique_id === '') {
+            console.warn('[GC onSave] unique_id is empty, using fallback');
+            data.unique_id = generatedUniqueId || '';
+          }
+          
           // Set created_by to current user's name
           data.created_by = user?.name || user?.email || 'system';
+          console.log('[GC onSave] About to submit record with data:', data);
           const res = await fetch('/api/genetic-counselling-sheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
           console.log('[GC onSave] POST response status:', res.status);
           if (!res.ok) {
@@ -866,16 +893,9 @@ export default function GeneticCounselling() {
             {/* Hidden ID field for updates */}
             {editing && <Input type="hidden" {...form.register('id')} />}
 
-            {/* Unique ID and Project ID fields */}
-            <div>
-              <Label>Unique ID</Label>
-              <Input {...form.register('unique_id', { required: 'Unique ID is required' })} placeholder="e.g., GC_001" disabled={!!editing} />
-            </div>
-
-            <div>
-              <Label>Project ID</Label>
-              <Input {...form.register('project_id')} placeholder="e.g., PG251202001" disabled={!!editing} />
-            </div>
+            {/* Hidden unique_id and project_id fields - auto-generated on submit */}
+            <Input type="hidden" {...form.register('unique_id')} />
+            <Input type="hidden" {...form.register('project_id')} />
 
             <div>
               <Label>Counselling date</Label>
@@ -904,14 +924,20 @@ export default function GeneticCounselling() {
 
             <div>
               <Label>Gender</Label>
-              <Select value={form.watch('gender') || ''} onValueChange={(v) => form.setValue('gender', v)} disabled={!!editing}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Gender" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Male">Male</SelectItem>
-                  <SelectItem value="Female">Female</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="gender"
+                control={form.control}
+                render={({ field }) => (
+                  <Select value={String(field.value || '')} onValueChange={field.onChange} disabled={!!editing}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Gender" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div>
@@ -939,14 +965,20 @@ export default function GeneticCounselling() {
 
             <div>
               <Label>Payment status</Label>
-              <Select value={String(form.getValues('payment_status') || '')} onValueChange={(v) => form.setValue('payment_status', v)}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Payment status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Paid">Paid</SelectItem>
-                  <SelectItem value="Partial Paid">Partial Paid</SelectItem>
-                  <SelectItem value="Unpaid">Unpaid</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="payment_status"
+                control={form.control}
+                render={({ field }) => (
+                  <Select value={String(field.value || '')} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Payment status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Paid">Paid</SelectItem>
+                      <SelectItem value="Partial Paid">Partial Paid</SelectItem>
+                      <SelectItem value="Unpaid">Unpaid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div>
@@ -1000,14 +1032,38 @@ export default function GeneticCounselling() {
 
             <div>
               <Label>Counselling type</Label>
-              <Select value={String(form.getValues('counseling_type') || '')} onValueChange={(v) => form.setValue('counseling_type', v)}>
-                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Pre-test">Pre-test</SelectItem>
-                  <SelectItem value="Post-test">Post-test</SelectItem>
-                  <SelectItem value="Follow-up">Follow-up</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="counseling_type"
+                control={form.control}
+                render={({ field }) => (
+                  <Select 
+                    value={String(field.value || '')} 
+                    onValueChange={async (value) => {
+                      field.onChange(value);
+                      // Generate project_id when transitioning to Post-test (if not already set)
+                      if (value === 'Post-test' && (!form.getValues('project_id') || form.getValues('project_id') === '')) {
+                        try {
+                          const idRes = await fetch('/api/genetic-counselling/generate-ids', { method: 'POST' });
+                          if (idRes.ok) {
+                            const { project_id } = await idRes.json();
+                            form.setValue('project_id', project_id);
+                            console.log('[GC Form] Generated project_id on Post-test transition:', project_id);
+                          }
+                        } catch (e) {
+                          console.error('[GC Form] Failed to generate project_id:', e);
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Type" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pre-test">Pre-test</SelectItem>
+                      <SelectItem value="Post-test">Post-test</SelectItem>
+                      <SelectItem value="Follow-up">Follow-up</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div>
@@ -1027,14 +1083,20 @@ export default function GeneticCounselling() {
 
             <div>
               <Label>Testing status</Label>
-              <Select value={String(form.getValues('testing_status') || '')} onValueChange={(v) => form.setValue('testing_status', v)}>
-                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Testing status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Not started">Not started</SelectItem>
-                  <SelectItem value="In progress">In progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="testing_status"
+                control={form.control}
+                render={({ field }) => (
+                  <Select value={String(field.value || '')} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Testing status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Not started">Not started</SelectItem>
+                      <SelectItem value="In progress">In progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             <div>
@@ -1088,26 +1150,6 @@ export default function GeneticCounselling() {
             <div>
               <Label>Sales/Responsible person</Label>
               <Input {...form.register('sales_responsible_person')} disabled={!!editing} />
-            </div>
-
-            <div>
-              <Label>Created at</Label>
-              <Input {...form.register('created_at')} type="datetime-local" disabled />
-            </div>
-
-            <div>
-              <Label>Created by</Label>
-              <Input {...form.register('created_by')} disabled />
-            </div>
-
-            <div>
-              <Label>Modified at</Label>
-              <Input {...form.register('modified_at')} type="datetime-local" disabled />
-            </div>
-
-            <div>
-              <Label>Modified by</Label>
-              <Input {...form.register('modified_by')} disabled />
             </div>
 
             <div>

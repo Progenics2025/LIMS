@@ -18,6 +18,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { FilterBar } from "@/components/FilterBar";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
+import { sortData } from '@/lib/utils';
 
 type BIRecord = {
   id: string;
@@ -78,14 +79,14 @@ export default function Bioinformatics() {
   const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [reportStatusFilter, setReportStatusFilter] = useState<string>('all');
-  // BI type filter: 'all' | 'clinical' | 'discovery'
+  // BI type filter: 'all' | 'clinical' | 'discovery' - Optional filtering, shows all by default
   const [biTypeFilter, setBiTypeFilter] = useState<'all' | 'clinical' | 'discovery'>('all');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(25);
 
-  // Sorting state (per-column)
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Sorting state (per-column) - Default to createdAt descending (newest first)
+  const [sortKey, setSortKey] = useState<string | null>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Column configuration for hide/show feature
   const bioinformaticsColumns: ColumnConfig[] = useMemo(() => [
@@ -370,24 +371,9 @@ export default function Bioinformatics() {
   if (page > totalPages) setPage(totalPages);
   const start = (page - 1) * pageSize;
   // Apply sorting
-  const sortedRows = (() => {
-    if (!sortKey) return typeFilteredRows;
-    const copy = [...typeFilteredRows];
-    copy.sort((a: any, b: any) => {
-      const A = (a as any)[sortKey];
-      const B = (b as any)[sortKey];
-      if (A == null && B == null) return 0;
-      if (A == null) return sortDir === 'asc' ? -1 : 1;
-      if (B == null) return sortDir === 'asc' ? 1 : -1;
-      if (typeof A === 'number' && typeof B === 'number') return sortDir === 'asc' ? A - B : B - A;
-      const sA = String(A).toLowerCase();
-      const sB = String(B).toLowerCase();
-      if (sA < sB) return sortDir === 'asc' ? -1 : 1;
-      if (sA > sB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return copy;
-  })();
+  const sortedRows = useMemo(() => {
+    return sortData(typeFilteredRows, sortKey as keyof BIRecord | null, sortDir);
+  }, [typeFilteredRows, sortKey, sortDir]);
 
   const visibleRows = sortedRows.slice(start, start + pageSize);
 
@@ -832,7 +818,7 @@ export default function Bioinformatics() {
           <div className="w-12 h-12 rounded-md bg-emerald-50 flex items-center justify-center mb-3">
             <Activity className="w-6 h-6 text-emerald-600" />
           </div>
-          <div className="text-2xl font-extrabold">{biTypeFilter === 'all' ? '-' : typeFilteredRows.length}</div>
+          <div className="text-2xl font-extrabold">{typeFilteredRows.length}</div>
           <div className="text-sm text-muted-foreground mt-1">Total Analyses</div>
         </div>
 
@@ -840,7 +826,7 @@ export default function Bioinformatics() {
           <div className="w-12 h-12 rounded-md bg-orange-50 flex items-center justify-center mb-3">
             <Clock className="w-6 h-6 text-orange-600" />
           </div>
-          <div className="text-2xl font-extrabold">{biTypeFilter === 'all' ? '-' : typeFilteredRows.filter((r) => r.analysisStatus === 'pending').length}</div>
+          <div className="text-2xl font-extrabold">{typeFilteredRows.filter((r) => r.analysisStatus === 'pending').length}</div>
           <div className="text-sm text-muted-foreground mt-1">Pending</div>
         </div>
 
@@ -848,7 +834,7 @@ export default function Bioinformatics() {
           <div className="w-12 h-12 rounded-md bg-amber-50 flex items-center justify-center mb-3">
             <Cpu className="w-6 h-6 text-amber-600" />
           </div>
-          <div className="text-2xl font-extrabold">{biTypeFilter === 'all' ? '-' : typeFilteredRows.filter((r) => r.analysisStatus === 'running').length}</div>
+          <div className="text-2xl font-extrabold">{typeFilteredRows.filter((r) => r.analysisStatus === 'running').length}</div>
           <div className="text-sm text-muted-foreground mt-1">Running</div>
         </div>
 
@@ -856,7 +842,7 @@ export default function Bioinformatics() {
           <div className="w-12 h-12 rounded-md bg-sky-50 flex items-center justify-center mb-3">
             <CheckCircle className="w-6 h-6 text-sky-600" />
           </div>
-          <div className="text-2xl font-extrabold">{biTypeFilter === 'all' ? '-' : typeFilteredRows.filter((r) => r.analysisStatus === 'completed').length}</div>
+          <div className="text-2xl font-extrabold">{typeFilteredRows.filter((r) => r.analysisStatus === 'completed').length}</div>
           <div className="text-sm text-muted-foreground mt-1">Completed</div>
         </div>
       </div>
@@ -928,93 +914,77 @@ export default function Bioinformatics() {
           </FilterBar>
 
           {/* Column Visibility Settings */}
-          {(biTypeFilter === 'clinical' || biTypeFilter === 'discovery') && (
-            <div className="mt-2">
-              <ColumnSettings
-                columns={bioinformaticsColumns}
-                isColumnVisible={columnPrefs.isColumnVisible}
-                toggleColumn={columnPrefs.toggleColumn}
-                resetToDefaults={columnPrefs.resetToDefaults}
-                showAllColumns={columnPrefs.showAllColumns}
-                showCompactView={columnPrefs.showCompactView}
-                visibleCount={columnPrefs.visibleCount}
-                totalCount={columnPrefs.totalCount}
-              />
-            </div>
-          )}
+          <div className="mt-2">
+            <ColumnSettings
+              columns={bioinformaticsColumns}
+              isColumnVisible={columnPrefs.isColumnVisible}
+              toggleColumn={columnPrefs.toggleColumn}
+              resetToDefaults={columnPrefs.resetToDefaults}
+              showAllColumns={columnPrefs.showAllColumns}
+              showCompactView={columnPrefs.showCompactView}
+              visibleCount={columnPrefs.visibleCount}
+              totalCount={columnPrefs.totalCount}
+            />
+          </div>
 
           <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
             <div className="max-h-[60vh] overflow-y-auto">
               <Table className="leads-table">
                 <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                  {biTypeFilter === 'clinical' || biTypeFilter === 'discovery' ? (
-                    <TableRow>
-                      {columnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">Unique ID</TableHead>}
-                      {columnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</TableHead>}
-                      {columnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap font-semibold">Sample ID</TableHead>}
-                      {columnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap font-semibold">Client ID</TableHead>}
-                      {columnPrefs.isColumnVisible('organisationHospital') && <TableHead className="whitespace-nowrap font-semibold">Organisation/Hospital</TableHead>}
-                      {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="whitespace-nowrap font-semibold">Clinician/Researcher name</TableHead>}
-                      {columnPrefs.isColumnVisible('patientClientName') && <TableHead className="whitespace-nowrap font-semibold">Patient/Client name</TableHead>}
-                      {columnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap font-semibold">Age</TableHead>}
-                      {columnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap font-semibold">Gender</TableHead>}
-                      {columnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap font-semibold">Service name</TableHead>}
-                      {columnPrefs.isColumnVisible('noOfSamples') && <TableHead className="whitespace-nowrap font-semibold">No of Samples</TableHead>}
-                      {columnPrefs.isColumnVisible('sequencingStatus') && <TableHead className="whitespace-nowrap font-semibold">Sequencing status</TableHead>}
-                      {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableHead className="whitespace-nowrap font-semibold">Sequencing data storage date</TableHead>}
-                      {columnPrefs.isColumnVisible('basecalling') && <TableHead className="whitespace-nowrap font-semibold">Basecalling</TableHead>}
-                      {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableHead className="whitespace-nowrap font-semibold">Basecalling data storage date</TableHead>}
-                      {columnPrefs.isColumnVisible('workflowType') && <TableHead className="whitespace-nowrap font-semibold">Workflow type</TableHead>}
-                      {columnPrefs.isColumnVisible('analysisStatus') && <TableHead className="whitespace-nowrap font-semibold">Analysis status</TableHead>}
-                      {columnPrefs.isColumnVisible('analysisDate') && <TableHead className="whitespace-nowrap font-semibold">Analysis date</TableHead>}
-                      {columnPrefs.isColumnVisible('thirdPartyName') && <TableHead className="whitespace-nowrap font-semibold">Third party Name</TableHead>}
-                      {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead className="whitespace-nowrap font-semibold">Sample sent to third party Date</TableHead>}
-                      {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead className="whitespace-nowrap font-semibold">Third party TRF</TableHead>}
-                      {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableHead className="whitespace-nowrap font-semibold">Results/Raw data received date</TableHead>}
-                      {columnPrefs.isColumnVisible('thirdPartyReport') && <TableHead className="whitespace-nowrap font-semibold">Third party report</TableHead>}
-                      {columnPrefs.isColumnVisible('tat') && <TableHead className="whitespace-nowrap font-semibold">TAT</TableHead>}
-                      {columnPrefs.isColumnVisible('vcfFileLink') && <TableHead className="whitespace-nowrap font-semibold">VCF file link</TableHead>}
-                      {columnPrefs.isColumnVisible('cnvStatus') && <TableHead className="whitespace-nowrap font-semibold">CNV status</TableHead>}
-                      {columnPrefs.isColumnVisible('progenicsRawData') && <TableHead className="whitespace-nowrap font-semibold">Progenics raw data</TableHead>}
-                      {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableHead className="whitespace-nowrap font-semibold">Progenics raw data size</TableHead>}
-                      {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableHead className="whitespace-nowrap font-semibold">Progenics raw data link</TableHead>}
-                      {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableHead className="whitespace-nowrap font-semibold">Analysis HTML link</TableHead>}
-                      {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableHead className="whitespace-nowrap font-semibold">Relative abundance sheet</TableHead>}
-                      {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableHead className="whitespace-nowrap font-semibold">Data analysis sheet</TableHead>}
-                      {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableHead className="whitespace-nowrap font-semibold">Database/Tools information</TableHead>}
-                      {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableHead className="whitespace-nowrap font-semibold">Alert to Technical lead</TableHead>}
-                      {columnPrefs.isColumnVisible('alertToReportTeam') && <TableHead className="whitespace-nowrap font-semibold">Alert to Report team</TableHead>}
-                      {columnPrefs.isColumnVisible('createdAt') && <TableHead className="whitespace-nowrap font-semibold">Created at</TableHead>}
-                      {columnPrefs.isColumnVisible('createdBy') && <TableHead className="whitespace-nowrap font-semibold">Created by</TableHead>}
-                      {columnPrefs.isColumnVisible('modifiedAt') && <TableHead className="whitespace-nowrap font-semibold">Modified at</TableHead>}
-                      {columnPrefs.isColumnVisible('modifiedBy') && <TableHead className="whitespace-nowrap font-semibold">Modified by</TableHead>}
-                      {columnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap font-semibold">Remark/Comment</TableHead>}
+                  <TableRow>
+                      {columnPrefs.isColumnVisible('uniqueId') && <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('projectId') && <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('sampleId') && <TableHead onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample ID{sortKey === 'sampleId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('clientId') && <TableHead onClick={() => { setSortKey('clientId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Client ID{sortKey === 'clientId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('organisationHospital') && <TableHead onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation/Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Clinician/Researcher name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('age') && <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('gender') && <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('serviceName') && <TableHead onClick={() => { setSortKey('serviceName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Service name{sortKey === 'serviceName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('noOfSamples') && <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('sequencingStatus') && <TableHead onClick={() => { setSortKey('sequencingStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sequencing status{sortKey === 'sequencingStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableHead onClick={() => { setSortKey('sequencingDataStorageDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sequencing data storage date{sortKey === 'sequencingDataStorageDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('basecalling') && <TableHead onClick={() => { setSortKey('basecalling'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Basecalling{sortKey === 'basecalling' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableHead onClick={() => { setSortKey('basecallingDataStorageDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Basecalling data storage date{sortKey === 'basecallingDataStorageDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('workflowType') && <TableHead onClick={() => { setSortKey('workflowType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Workflow type{sortKey === 'workflowType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('analysisStatus') && <TableHead onClick={() => { setSortKey('analysisStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis status{sortKey === 'analysisStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('analysisDate') && <TableHead onClick={() => { setSortKey('analysisDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis date{sortKey === 'analysisDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('thirdPartyName') && <TableHead onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead onClick={() => { setSortKey('sampleSentToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample sent to third party Date{sortKey === 'sampleSentToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead onClick={() => { setSortKey('thirdPartyTrf'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party TRF{sortKey === 'thirdPartyTrf' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableHead onClick={() => { setSortKey('resultsRawDataReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Results/Raw data received date{sortKey === 'resultsRawDataReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('thirdPartyReport') && <TableHead onClick={() => { setSortKey('thirdPartyReport'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party report{sortKey === 'thirdPartyReport' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">TAT{sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('vcfFileLink') && <TableHead onClick={() => { setSortKey('vcfFileLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">VCF file link{sortKey === 'vcfFileLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('cnvStatus') && <TableHead onClick={() => { setSortKey('cnvStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">CNV status{sortKey === 'cnvStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('progenicsRawData') && <TableHead onClick={() => { setSortKey('progenicsRawData'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data{sortKey === 'progenicsRawData' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableHead onClick={() => { setSortKey('progenicsRawDataSize'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data size{sortKey === 'progenicsRawDataSize' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableHead onClick={() => { setSortKey('progenicsRawDataLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data link{sortKey === 'progenicsRawDataLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableHead onClick={() => { setSortKey('analysisHtmlLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis HTML link{sortKey === 'analysisHtmlLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableHead onClick={() => { setSortKey('relativeAbundanceSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Relative abundance sheet{sortKey === 'relativeAbundanceSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableHead onClick={() => { setSortKey('dataAnalysisSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Data analysis sheet{sortKey === 'dataAnalysisSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableHead onClick={() => { setSortKey('databaseToolsInformation'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Database/Tools information{sortKey === 'databaseToolsInformation' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableHead onClick={() => { setSortKey('alertToTechnicalLead'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Alert to Technical lead{sortKey === 'alertToTechnicalLead' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('alertToReportTeam') && <TableHead onClick={() => { setSortKey('alertToReportTeam'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Alert to Report team{sortKey === 'alertToReportTeam' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('createdAt') && <TableHead onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created at{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('createdBy') && <TableHead onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created by{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('modifiedAt') && <TableHead onClick={() => { setSortKey('modifiedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modifiedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('modifiedBy') && <TableHead onClick={() => { setSortKey('modifiedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modifiedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                      {columnPrefs.isColumnVisible('remarkComment') && <TableHead onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                       {columnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 actions-column">Actions</TableHead>}
                     </TableRow>
-                  ) : (
-                    <TableRow>
-                      <TableHead colSpan={3} className="whitespace-nowrap font-semibold text-left text-gray-600">Select "Clinical" or "Discovery" to view the corresponding table</TableHead>
-                    </TableRow>
-                  )}
                 </TableHeader>
                 <TableBody>
-                  {biTypeFilter === 'all' ? (
-                    <TableRow>
-                      <TableCell colSpan={41} className="text-center py-8 text-muted-foreground">
-                        Select "Clinical" or "Discovery" to view the corresponding table
-                      </TableCell>
-                    </TableRow>
-                  ) : visibleRows.length === 0 ? (
+                  {visibleRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={41} className="text-center py-8 text-muted-foreground">
                         {typeFilteredRows.length === 0 ? "No bioinformatics records found" : "No records match your search criteria"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    visibleRows.map((r) => {
-                      if (biTypeFilter === 'clinical' || biTypeFilter === 'discovery') {
-                        return (
-                          <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
+                    visibleRows.map((r) => (
+                      <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
                             {columnPrefs.isColumnVisible('uniqueId') && <TableCell className={`font-medium sticky left-0 z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1 min-w-[120px]`}>{r.uniqueId ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('projectId') && <TableCell className={`sticky left-[120px] z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
                             {columnPrefs.isColumnVisible('sampleId') && <TableCell className="py-1">{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
@@ -1082,13 +1052,8 @@ export default function Bioinformatics() {
                                 </div>
                               </TableCell>
                             )}
-                          </TableRow>
-                        );
-                      }
-
-                      // should not reach here because we only render rows for clinical or discovery
-                      return null;
-                    })
+                      </TableRow>
+                    ))
                   )}
                 </TableBody>
               </Table>

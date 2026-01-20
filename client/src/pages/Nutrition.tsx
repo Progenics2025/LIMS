@@ -29,6 +29,7 @@ import { PDFViewer } from '@/components/PDFViewer';
 import { FilterBar } from "@/components/FilterBar";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
+import { sortData } from "@/lib/utils";
 
 
 async function apiRequest(method: string, url: string, data?: any) {
@@ -132,6 +133,8 @@ export default function Nutrition() {
   const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [editFormValues, setEditFormValues] = useState<any>({});
   const queryClient = useQueryClient();
   const deleteConfirmation = useConfirmationDialog();
@@ -308,12 +311,16 @@ export default function Nutrition() {
     return matchesSearch && matchesDate;
   });
 
+  const sortedRecords = useMemo(() => {
+    return sortData(filteredRecords, sortKey as keyof NutritionRecord | null, sortDir);
+  }, [filteredRecords, sortKey, sortDir]);
+
   // Pagination calculations
-  const totalRecords = filteredRecords.length;
+  const totalRecords = sortedRecords.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
   const startIdx = (currentPage - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, totalRecords);
-  const paginatedRecords = filteredRecords.slice(startIdx, endIdx);
+  const paginatedRecords = sortedRecords.slice(startIdx, endIdx);
 
   // Ensure currentPage stays within bounds when filters or pageSize change
   useEffect(() => {
@@ -443,30 +450,30 @@ export default function Nutrition() {
               <table className="leads-table w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-30">
                   <tr>
-                    {nutritionColumnPrefs.isColumnVisible('uniqueId') && <th className="min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold sticky left-0 z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID</th>}
-                    {nutritionColumnPrefs.isColumnVisible('projectId') && <th className="min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID</th>}
-                    {nutritionColumnPrefs.isColumnVisible('sampleId') && <th className="min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold">Sample ID</th>}
-                    {nutritionColumnPrefs.isColumnVisible('serviceName') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Service name</th>}
-                    {nutritionColumnPrefs.isColumnVisible('patientClientName') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Patient/Client name</th>}
-                    {nutritionColumnPrefs.isColumnVisible('age') && <th className="min-w-[80px] px-4 py-1 text-left whitespace-nowrap font-semibold">Age</th>}
-                    {nutritionColumnPrefs.isColumnVisible('gender') && <th className="min-w-[100px] px-4 py-1 text-left whitespace-nowrap font-semibold">Gender</th>}
-                    {nutritionColumnPrefs.isColumnVisible('progenicsTrf') && <th className="min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold">Progenics TRF</th>}
-                    {nutritionColumnPrefs.isColumnVisible('questionnaire') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Questionnaire</th>}
-                    {nutritionColumnPrefs.isColumnVisible('questionnaireCallRecording') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Questionnaire Call recording</th>}
-                    {nutritionColumnPrefs.isColumnVisible('dataAnalysisSheet') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Data analysis sheet</th>}
-                    {nutritionColumnPrefs.isColumnVisible('progenicsReport') && <th className="min-w-[140px] px-4 py-1 text-left whitespace-nowrap font-semibold">Progenics Report</th>}
-                    {nutritionColumnPrefs.isColumnVisible('nutritionChart') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Nutrition Chart</th>}
-                    {nutritionColumnPrefs.isColumnVisible('counsellingSessionDate') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Counselling session date</th>}
-                    {nutritionColumnPrefs.isColumnVisible('furtherCounsellingRequired') && <th className="min-w-[160px] px-4 py-1 text-left whitespace-nowrap font-semibold">Further counselling required</th>}
-                    {nutritionColumnPrefs.isColumnVisible('counsellingStatus') && <th className="min-w-[140px] px-4 py-1 text-left whitespace-nowrap font-semibold">Counselling status</th>}
-                    {nutritionColumnPrefs.isColumnVisible('counsellingSessionRecording') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Counselling session recording</th>}
-                    {nutritionColumnPrefs.isColumnVisible('alertToTechnicalLead') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Alert to Technical lead</th>}
-                    {nutritionColumnPrefs.isColumnVisible('alertToReportTeam') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Alert to Report team</th>}
-                    {nutritionColumnPrefs.isColumnVisible('createdAt') && <th className="min-w-[140px] px-4 py-1 text-left whitespace-nowrap font-semibold">Created at</th>}
-                    {nutritionColumnPrefs.isColumnVisible('createdBy') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Created by</th>}
-                    {nutritionColumnPrefs.isColumnVisible('modifiedAt') && <th className="min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Modified at</th>}
-                    {nutritionColumnPrefs.isColumnVisible('modifiedBy') && <th className="min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Modified by</th>}
-                    {nutritionColumnPrefs.isColumnVisible('remarksComment') && <th className="min-w-[200px] px-4 py-1 text-left whitespace-nowrap font-semibold">Remark/Comment</th>}
+                    {nutritionColumnPrefs.isColumnVisible('uniqueId') && <th onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold sticky left-0 z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('projectId') && <th onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-gray-50 dark:bg-gray-800 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('sampleId') && <th onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold">Sample ID{sortKey === 'sampleId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('serviceName') && <th onClick={() => { setSortKey('serviceName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Service name{sortKey === 'serviceName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('patientClientName') && <th onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('age') && <th onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[80px] px-4 py-1 text-left whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('gender') && <th onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[100px] px-4 py-1 text-left whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('progenicsTrf') && <th onClick={() => { setSortKey('progenicsTrf'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[120px] px-4 py-1 text-left whitespace-nowrap font-semibold">Progenics TRF{sortKey === 'progenicsTrf' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('questionnaire') && <th onClick={() => { setSortKey('questionnaire'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Questionnaire{sortKey === 'questionnaire' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('questionnaireCallRecording') && <th onClick={() => { setSortKey('questionnaireCallRecording'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Questionnaire Call recording{sortKey === 'questionnaireCallRecording' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('dataAnalysisSheet') && <th onClick={() => { setSortKey('dataAnalysisSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Data analysis sheet{sortKey === 'dataAnalysisSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('progenicsReport') && <th onClick={() => { setSortKey('progenicsReport'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[140px] px-4 py-1 text-left whitespace-nowrap font-semibold">Progenics Report{sortKey === 'progenicsReport' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('nutritionChart') && <th onClick={() => { setSortKey('nutritionChart'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Nutrition Chart{sortKey === 'nutritionChart' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('counsellingSessionDate') && <th onClick={() => { setSortKey('counsellingSessionDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Counselling session date{sortKey === 'counsellingSessionDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('furtherCounsellingRequired') && <th onClick={() => { setSortKey('furtherCounsellingRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[160px] px-4 py-1 text-left whitespace-nowrap font-semibold">Further counselling required{sortKey === 'furtherCounsellingRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('counsellingStatus') && <th onClick={() => { setSortKey('counsellingStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[140px] px-4 py-1 text-left whitespace-nowrap font-semibold">Counselling status{sortKey === 'counsellingStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('counsellingSessionRecording') && <th onClick={() => { setSortKey('counsellingSessionRecording'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Counselling session recording{sortKey === 'counsellingSessionRecording' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('alertToTechnicalLead') && <th onClick={() => { setSortKey('alertToTechnicalLead'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Alert to Technical lead{sortKey === 'alertToTechnicalLead' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('alertToReportTeam') && <th onClick={() => { setSortKey('alertToReportTeam'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Alert to Report team{sortKey === 'alertToReportTeam' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('createdAt') && <th onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[140px] px-4 py-1 text-left whitespace-nowrap font-semibold">Created at{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('createdBy') && <th onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Created by{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('modifiedAt') && <th onClick={() => { setSortKey('modifiedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[150px] px-4 py-1 text-left whitespace-nowrap font-semibold">Modified at{sortKey === 'modifiedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('modifiedBy') && <th onClick={() => { setSortKey('modifiedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[130px] px-4 py-1 text-left whitespace-nowrap font-semibold">Modified by{sortKey === 'modifiedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
+                    {nutritionColumnPrefs.isColumnVisible('remarksComment') && <th onClick={() => { setSortKey('remarksComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer min-w-[200px] px-4 py-1 text-left whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remarksComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</th>}
                     {nutritionColumnPrefs.isColumnVisible('actions') && <th className="sticky right-0 z-40 bg-gray-50 dark:bg-gray-800 px-4 py-1 text-left whitespace-nowrap font-semibold min-w-[100px] border-l-2 actions-column">Actions</th>}
                   </tr>
                 </thead>

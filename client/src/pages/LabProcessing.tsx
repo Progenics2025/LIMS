@@ -70,8 +70,8 @@ export default function LabProcessing() {
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [dateFilterField, setDateFilterField] = useState<string>('createdAt');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  // Lab type filter: 'all' | 'clinical' | 'discovery' - Default to 'discovery' to show data immediately
-  const [labTypeFilter, setLabTypeFilter] = useState<'all' | 'clinical' | 'discovery'>('discovery');
+  // Lab type filter: 'all' | 'clinical' | 'discovery' - Default to 'all' to show combined table sorted by newest first
+  const [labTypeFilter, setLabTypeFilter] = useState<'all' | 'clinical' | 'discovery'>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
 
@@ -247,16 +247,17 @@ export default function LabProcessing() {
   const normalizedLabs = useMemo(() => Array.isArray(labQueue) ? labQueue.map(normalizeLab) : [], [labQueue]);
 
   // Add client-side sorting state
-  // Default sort by sampleId in ascending order
-  const [sortKey, setSortKey] = useState<string | null>('sampleId');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Default sort by createdAt in descending order so newest records appear first
+  // Natural sort for sampleId is applied when user clicks Sample ID column
+  const [sortKey, setSortKey] = useState<string | null>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Column configuration for hide/show feature
   const labColumns: ColumnConfig[] = useMemo(() => [
     { id: 'uniqueId', label: 'Unique ID', canHide: false },
     { id: 'projectId', label: 'Project ID', defaultVisible: true },
     { id: 'sampleId', label: 'Sample ID', defaultVisible: true },
-    { id: 'clientId', label: 'Client ID', defaultVisible: false },
+    { id: 'clientId', label: 'Client ID', defaultVisible: true },
     { id: 'serviceName', label: 'Service Name', defaultVisible: true },
     { id: 'sampleType', label: 'Sample Type', defaultVisible: true },
     { id: 'sampleDeliveryDate', label: 'Sample Received Date', defaultVisible: true },
@@ -383,23 +384,96 @@ export default function LabProcessing() {
   if (page > totalPages) setPage(totalPages);
   const start = (page - 1) * pageSize;
 
+  // Extract project ID prefix and numeric suffix from sample ID
+  // Sample IDs follow the pattern: PROJECT_ID_NUMBER (e.g., DG260119123456_1)
+  const extractSampleIdParts = (sampleId: string) => {
+    const match = sampleId?.match(/^(.+?)_(\d+)$/);
+    if (match) {
+      return { prefix: match[1], num: parseInt(match[2], 10) };
+    }
+    return { prefix: sampleId || '', num: 0 };
+  };
+
+  // Multi-level sort: Groups samples by project, newest projects first, 
+  // then _1, _2, _3 in order within each project
   const sortedLabs = (() => {
-    if (!sortKey) return labsToDisplay;
     const copy = [...labsToDisplay];
-    copy.sort((a: any, b: any) => {
-      const A = a[sortKey];
-      const B = b[sortKey];
-      if (A == null && B == null) return 0;
-      if (A == null) return sortDir === 'asc' ? -1 : 1;
-      if (B == null) return sortDir === 'asc' ? 1 : -1;
-      if (typeof A === 'number' && typeof B === 'number') return sortDir === 'asc' ? A - B : B - A;
-      const sA = String(A).toLowerCase();
-      const sB = String(B).toLowerCase();
-      if (sA < sB) return sortDir === 'asc' ? -1 : 1;
-      if (sA > sB) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+
+    // If user clicked a specific column, use that sorting
+    if (sortKey && sortKey !== 'createdAt') {
+      copy.sort((a: any, b: any) => {
+        const A = a[sortKey];
+        const B = b[sortKey];
+        if (A == null && B == null) return 0;
+        if (A == null) return sortDir === 'asc' ? -1 : 1;
+        if (B == null) return sortDir === 'asc' ? 1 : -1;
+        if (typeof A === 'number' && typeof B === 'number') return sortDir === 'asc' ? A - B : B - A;
+
+        // Use natural sort for sampleId to handle _1, _2, _10 correctly
+        if (sortKey === 'sampleId') {
+          const partsA = extractSampleIdParts(String(A));
+          const partsB = extractSampleIdParts(String(B));
+          // First compare by prefix (project ID)
+          if (partsA.prefix < partsB.prefix) return sortDir === 'asc' ? -1 : 1;
+          if (partsA.prefix > partsB.prefix) return sortDir === 'asc' ? 1 : -1;
+          // If same prefix, compare by number suffix
+          return sortDir === 'asc' ? partsA.num - partsB.num : partsB.num - partsA.num;
+        }
+
+        const sA = String(A).toLowerCase();
+        const sB = String(B).toLowerCase();
+        if (sA < sB) return sortDir === 'asc' ? -1 : 1;
+        if (sA > sB) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return copy;
+    }
+
+    // Default sort: Newest projects first, but keep _1, _2, _3 grouped together
+    // Step 1: Group records by project ID (sampleId prefix)
+    const projectGroups: Map<string, any[]> = new Map();
+    copy.forEach((lab: any) => {
+      const sampleId = lab.sampleId || lab.projectId || '';
+      const { prefix } = extractSampleIdParts(sampleId);
+      if (!projectGroups.has(prefix)) {
+        projectGroups.set(prefix, []);
+      }
+      projectGroups.get(prefix)!.push(lab);
     });
-    return copy;
+
+    // Step 2: Sort samples within each project by suffix number (_1, _2, _3...)
+    projectGroups.forEach((labs, key) => {
+      labs.sort((a: any, b: any) => {
+        const partsA = extractSampleIdParts(a.sampleId || '');
+        const partsB = extractSampleIdParts(b.sampleId || '');
+        return partsA.num - partsB.num; // _1, _2, _3 order
+      });
+    });
+
+    // Step 3: Sort project groups by newest first (based on earliest createdAt in group)
+    const sortedGroups = Array.from(projectGroups.entries()).sort((a, b) => {
+      // Get the newest createdAt from each group
+      const getNewestDate = (labs: any[]) => {
+        let newest = new Date(0);
+        labs.forEach(lab => {
+          const d = new Date(lab.createdAt || 0);
+          if (d > newest) newest = d;
+        });
+        return newest;
+      };
+      const dateA = getNewestDate(a[1]);
+      const dateB = getNewestDate(b[1]);
+      // Descending order (newest first)
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    // Step 4: Flatten back into a single array
+    const result: any[] = [];
+    sortedGroups.forEach(([, labs]) => {
+      result.push(...labs);
+    });
+
+    return result;
   })();
 
   const visibleLabs = sortedLabs.slice(start, start + pageSize);
@@ -780,56 +854,249 @@ export default function LabProcessing() {
   const allColumns: (ColumnDef<any> & { id: string })[] = [
     {
       id: 'uniqueId',
-      header: "Unique ID",
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('uniqueId'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Unique ID {sortKey === 'uniqueId' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
       accessorKey: "uniqueId",
       className: "sticky left-0 z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
     },
-    { id: 'projectId', header: "Project ID", accessorKey: "projectId", className: "sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" },
-    { id: 'sampleId', header: "Sample ID", accessorKey: "sampleId" },
-    { id: 'clientId', header: "Client ID", accessorKey: "clientId" },
-    { id: 'serviceName', header: "Service name", accessorKey: "serviceName" },
-    { id: 'sampleType', header: "Sample Type", accessorKey: "sampleType" },
+    {
+      id: 'projectId',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('projectId'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Project ID {sortKey === 'projectId' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "projectId",
+      className: "sticky left-[120px] z-20 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+    },
+    {
+      id: 'sampleId',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('sampleId'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Sample ID {sortKey === 'sampleId' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "sampleId"
+    },
+    {
+      id: 'clientId',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('clientId'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Client ID {sortKey === 'clientId' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "clientId"
+    },
+    {
+      id: 'serviceName',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('serviceName'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Service name {sortKey === 'serviceName' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "serviceName"
+    },
+    {
+      id: 'sampleType',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('sampleType'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Sample Type {sortKey === 'sampleType' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "sampleType"
+    },
     {
       id: 'sampleDeliveryDate',
-      header: "Sample received date",
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('sampleDeliveryDate'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Sample received date {sortKey === 'sampleDeliveryDate' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
       cell: (lab) => lab.sampleDeliveryDate ? new Date(lab.sampleDeliveryDate).toLocaleDateString() : '-'
     },
-    { id: 'extractionProtocol', header: "Extraction protocol", accessorKey: "extractionProtocol" },
-    { id: 'extractionQualityCheck', header: "Extraction quality check", accessorKey: "extractionQualityCheck" },
-    { id: 'extractionQCStatus', header: "Extraction QC status", accessorKey: "extractionQCStatus" },
-    { id: 'extractionProcess', header: "Extraction process", accessorKey: "extractionProcess" },
-    { id: 'libraryPreparationProtocol', header: "Library preparation protocol", accessorKey: "libraryPreparationProtocol" },
-    { id: 'libraryPreparationQualityCheck', header: "Library preparation quality check", accessorKey: "libraryPreparationQualityCheck" },
-    { id: 'libraryQCStatus', header: "Library preparation QC status", accessorKey: "libraryQCStatus" },
-    { id: 'libraryProcess', header: "Library preparation process", accessorKey: "libraryProcess" },
-    { id: 'purificationProtocol', header: "Purification protocol", accessorKey: "purificationProtocol" },
-    { id: 'purificationQualityCheck', header: "Purification quality check", accessorKey: "purificationQualityCheck" },
-    { id: 'purificationQCStatus', header: "Purification QC status", accessorKey: "purificationQCStatus" },
-    { id: 'purificationProcess', header: "Purification process", accessorKey: "purificationProcess" },
+    {
+      id: 'extractionProtocol',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('extractionProtocol'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Extraction protocol {sortKey === 'extractionProtocol' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "extractionProtocol"
+    },
+    {
+      id: 'extractionQualityCheck',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('extractionQualityCheck'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Extraction quality check {sortKey === 'extractionQualityCheck' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "extractionQualityCheck"
+    },
+    {
+      id: 'extractionQCStatus',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('extractionQCStatus'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Extraction QC status {sortKey === 'extractionQCStatus' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "extractionQCStatus"
+    },
+    {
+      id: 'extractionProcess',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('extractionProcess'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Extraction process {sortKey === 'extractionProcess' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "extractionProcess"
+    },
+    {
+      id: 'libraryPreparationProtocol',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('libraryPreparationProtocol'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Library preparation protocol {sortKey === 'libraryPreparationProtocol' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "libraryPreparationProtocol"
+    },
+    {
+      id: 'libraryPreparationQualityCheck',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('libraryPreparationQualityCheck'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Library preparation quality check {sortKey === 'libraryPreparationQualityCheck' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "libraryPreparationQualityCheck"
+    },
+    {
+      id: 'libraryQCStatus',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('libraryQCStatus'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Library preparation QC status {sortKey === 'libraryQCStatus' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "libraryQCStatus"
+    },
+    {
+      id: 'libraryProcess',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('libraryProcess'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Library preparation process {sortKey === 'libraryProcess' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "libraryProcess"
+    },
+    {
+      id: 'purificationProtocol',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('purificationProtocol'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Purification protocol {sortKey === 'purificationProtocol' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "purificationProtocol"
+    },
+    {
+      id: 'purificationQualityCheck',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('purificationQualityCheck'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Purification quality check {sortKey === 'purificationQualityCheck' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "purificationQualityCheck"
+    },
+    {
+      id: 'purificationQCStatus',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('purificationQCStatus'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Purification QC status {sortKey === 'purificationQCStatus' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "purificationQCStatus"
+    },
+    {
+      id: 'purificationProcess',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('purificationProcess'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Purification process {sortKey === 'purificationProcess' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "purificationProcess"
+    },
     {
       id: 'alertToBioinformaticsTeam',
-      header: "Alert to Bioinformatics team",
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('alertToBioinformaticsTeam'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Alert to Bioinformatics team {sortKey === 'alertToBioinformaticsTeam' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
       cell: (lab) => lab.alertToBioinformaticsTeam ? 'Yes' : 'No'
     },
     {
       id: 'alertToTechnicalLead',
-      header: "Alert to Technical lead",
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('alertToTechnicalLead'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Alert to Technical lead {sortKey === 'alertToTechnicalLead' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
       cell: (lab) => lab.alertToTechnicalLead ? 'Yes' : 'No'
     },
-    { id: 'progenicsTrf', header: "Progenics TRF", accessorKey: "progenicsTrf" },
+    {
+      id: 'progenicsTrf',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('progenicsTrf'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Progenics TRF {sortKey === 'progenicsTrf' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "progenicsTrf"
+    },
     {
       id: 'createdAt',
-      header: "Created at",
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('createdAt'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Created at {sortKey === 'createdAt' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
       cell: (lab) => lab.createdAt ? new Date(lab.createdAt).toLocaleString() : '-'
     },
-    { id: 'createdBy', header: "Created by", accessorKey: "createdBy" },
+    {
+      id: 'createdBy',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('createdBy'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Created by {sortKey === 'createdBy' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "createdBy"
+    },
     {
       id: 'modifiedAt',
-      header: "Modified at",
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('modifiedAt'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Modified at {sortKey === 'modifiedAt' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
       cell: (lab) => lab.modifiedAt ? new Date(lab.modifiedAt).toLocaleString() : '-'
     },
-    { id: 'modifiedBy', header: "Modified by", accessorKey: "modifiedBy" },
-    { id: 'remarksComment', header: "Remark/Comment", accessorKey: "remarksComment" },
+    {
+      id: 'modifiedBy',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('modifiedBy'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Modified by {sortKey === 'modifiedBy' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "modifiedBy"
+    },
+    {
+      id: 'remarksComment',
+      header: (
+        <div className="flex items-center cursor-pointer" onClick={() => { setSortKey('remarksComment'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }}>
+          Remark/Comment {sortKey === 'remarksComment' && (sortDir === 'asc' ? '▲' : '▼')}
+        </div>
+      ),
+      accessorKey: "remarksComment"
+    },
     {
       id: 'actions',
       header: "Actions",

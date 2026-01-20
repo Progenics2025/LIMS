@@ -53,7 +53,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   lab: ['leads','samples','lab'],
   genetic_counselling: ['leads','samples'],
   genetic: ['leads','samples'],
-  sales: ['leads','samples','reports'],
+  sales: ['leads','samples','reports','genetic'],
   bioinformatics: ['leads','samples','lab'],
   };
 

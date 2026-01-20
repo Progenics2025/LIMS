@@ -101,7 +101,7 @@ var init_schema = __esm({
       geneticCounselorRequired: boolean("genetic_counselor_required").default(false),
       nutritionalCounsellingRequired: boolean("nutritional_counselling_required").default(false),
       samplePickUpFrom: varchar("sample_pick_up_from", { length: 500 }),
-      deliveryUpTo: timestamp("delivery_up_to", { mode: "date" }),
+      deliveryUpTo: varchar("delivery_up_to", { length: 255 }),
       sampleCollectionDate: timestamp("sample_collection_date", { mode: "date" }),
       sampleShippedDate: timestamp("sample_shipped_date", { mode: "date" }),
       sampleReceivedDate: timestamp("sample_recevied_date", { mode: "date" }),
@@ -504,7 +504,7 @@ var init_schema = __esm({
       leadModified: true
     }).extend({
       // Preprocess date fields: convert empty strings to null, then coerce to Date
-      deliveryUpTo: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
+      deliveryUpTo: z.string().nullable().optional(),
       sampleCollectionDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional(),
       sampleReceivedDate: z.preprocess(emptyToNull, z.coerce.date().nullable()).optional()
     });
@@ -1128,14 +1128,7 @@ var DBStorage = class {
       ];
     }
     try {
-      let whereCondition = void 0;
-      if (userRole && userRole.toLowerCase() === "sales" && userId) {
-        whereCondition = eq(leads.leadCreatedBy, userId);
-      }
-      let queryBuilder = db.select({ lead: leads, user: users, sample: samples }).from(leads).leftJoin(samples, eqUtf8Columns(samples.projectId, leads.projectId)).leftJoin(users, eq(leads.leadCreatedBy, users.id));
-      if (whereCondition) {
-        queryBuilder = queryBuilder.where(whereCondition);
-      }
+      const queryBuilder = db.select({ lead: leads, user: users, sample: samples }).from(leads).leftJoin(samples, eqUtf8Columns(samples.projectId, leads.projectId)).leftJoin(users, eq(leads.leadCreatedBy, users.id));
       const rows = await queryBuilder;
       return rows.map((row) => {
         const leadObj = { ...row.lead };
@@ -3270,9 +3263,10 @@ function handleFileUpload(file, category, userId) {
       fs.renameSync(file.path, filePath);
     }
     const relativePath = path.relative(process.cwd(), filePath).replace(/\\/g, "/");
+    const urlPath = "/" + relativePath;
     return {
       success: true,
-      filePath: relativePath,
+      filePath: urlPath,
       filename: uniqueFilename,
       message: `File uploaded successfully to ${category} folder`,
       category,
@@ -3346,7 +3340,6 @@ function normalizeDateFields(obj) {
     "sampleReceivedToThirdPartyDate",
     "leadCreated",
     "leadModified",
-    "deliveryUpTo",
     "sampleReceivedDate"
   ];
   const tryParseDate = (val) => {
@@ -3502,8 +3495,8 @@ async function registerRoutes(app2) {
   const otpStore = /* @__PURE__ */ new Map();
   const transporter2 = nodemailer2.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "465"),
-    secure: true,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
     // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
@@ -3517,6 +3510,7 @@ async function registerRoutes(app2) {
       console.log("SMTP Server is ready to take our messages");
     }
   });
+  const emailTransporter = transporter2;
   app2.post("/api/auth/send-otp", async (req, res) => {
     try {
       const { email, type } = req.body;
@@ -5690,10 +5684,14 @@ async function registerRoutes(app2) {
       if (leadData.no_of_samples) baseLabProcessData.no_of_samples = leadData.no_of_samples;
       if (sampleDeliveryDate) {
         const dateObj = new Date(sampleDeliveryDate);
-        const year = dateObj.getUTCFullYear();
-        const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
-        const day = String(dateObj.getUTCDate()).padStart(2, "0");
-        baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
+        if (!isNaN(dateObj.getTime()) && dateObj.getFullYear() >= 1900 && dateObj.getFullYear() <= 2100) {
+          const year = dateObj.getUTCFullYear();
+          const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(dateObj.getUTCDate()).padStart(2, "0");
+          baseLabProcessData.sample_received_date = `${year}-${month}-${day}`;
+        } else {
+          console.warn("Invalid sample delivery date received, skipping:", sampleDeliveryDate);
+        }
       }
       baseLabProcessData.created_by = createdBy || leadData.lead_created_by || "system";
       baseLabProcessData.created_at = /* @__PURE__ */ new Date();
@@ -6394,6 +6392,33 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Failed to delete nutrition record", error.message);
       res.status(500).json({ message: "Failed to delete nutrition record" });
+    }
+  });
+  app2.post("/api/genetic-counselling/generate-ids", async (req, res) => {
+    try {
+      let padZero3 = function(num) {
+        return String(num).padStart(2, "0");
+      };
+      var padZero2 = padZero3;
+      console.log("[GC ID Generation] Request received");
+      const now = /* @__PURE__ */ new Date();
+      const yy = padZero3(now.getFullYear() % 100);
+      const mm = padZero3(now.getMonth() + 1);
+      const dd = padZero3(now.getDate());
+      const hh = padZero3(now.getHours());
+      const min = padZero3(now.getMinutes());
+      const ss = padZero3(now.getSeconds());
+      const timestamp2 = `${yy}${mm}${dd}${hh}${min}${ss}`;
+      const unique_id = `GC${timestamp2}`;
+      const project_id = `GC${timestamp2}`;
+      console.log("[GC ID Generation] Generated unique_id:", unique_id, "project_id:", project_id);
+      const responseData = { unique_id, project_id };
+      console.log("[GC ID Generation] Sending response:", JSON.stringify(responseData));
+      res.json(responseData);
+    } catch (error) {
+      console.error("[GC ID Generation] Error:", error.message);
+      console.error("[GC ID Generation] Stack:", error.stack);
+      res.status(500).json({ message: "Failed to generate GC IDs", error: error.message });
     }
   });
   app2.get("/api/genetic-counselling-sheet", async (_req, res) => {
@@ -7382,6 +7407,26 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to import clients" });
     }
   });
+  app2.post("/api/email/send", async (req, res) => {
+    try {
+      const { to, subject, body } = req.body;
+      if (!to || !subject || !body) {
+        return res.status(400).json({ message: "Missing required fields: to, subject, body" });
+      }
+      const mailOptions = {
+        from: process.env.SMTP_USER || "itsupportprogenics@progenicslaboratories.in",
+        to,
+        subject,
+        text: body
+      };
+      await emailTransporter.sendMail(mailOptions);
+      console.log(`\u{1F4E7} Email sent successfully to: ${to}`);
+      res.json({ ok: true, message: "Email sent successfully" });
+    } catch (error) {
+      console.error("Failed to send email:", error.message);
+      res.status(500).json({ message: "Failed to send email", error: error.message });
+    }
+  });
   app2.get("/api/report_management", async (req, res) => {
     try {
       const [rows] = await pool.execute("SELECT * FROM report_management ORDER BY created_at DESC LIMIT 500");
@@ -7536,7 +7581,7 @@ async function setupVite(app2, server) {
     appType: "custom"
   });
   app2.use(vite.middlewares);
-  app2.use("*", async (req, res, next) => {
+  app2.get("*", async (req, res, next) => {
     const url = req.originalUrl;
     try {
       const clientTemplate = path4.resolve(__dirname2, "..", "client", "index.html");
@@ -7561,7 +7606,7 @@ function serveStatic(app2) {
     );
   }
   app2.use(express.static(distPath));
-  app2.use("*", (_req, res) => {
+  app2.get("*", (_req, res) => {
     res.sendFile(path4.resolve(distPath, "index.html"));
   });
 }
@@ -7965,6 +8010,62 @@ var LeadManagementModule = class extends AbstractModule {
           });
         }
         const lead = await this.storage.createLead(result.data);
+        console.log("Lead geneticCounselorRequired check:", lead.geneticCounselorRequired, "Type:", typeof lead.geneticCounselorRequired);
+        if (lead.geneticCounselorRequired === true) {
+          try {
+            const [existingGC] = await pool.execute(
+              "SELECT id FROM genetic_counselling_records WHERE unique_id = ? LIMIT 1",
+              [lead.uniqueId]
+            );
+            if (existingGC && existingGC.length > 0) {
+              console.log("GC record already exists for unique_id:", lead.uniqueId, "- skipping auto-creation");
+            } else {
+              console.log("TRIGGERING genetic counselling auto-creation for lead:", lead.id);
+              const gcData = {
+                unique_id: lead.uniqueId || "",
+                project_id: lead.projectId || null,
+                patient_client_name: lead.patientClientName || null,
+                patient_client_address: lead.patientClientAddress || null,
+                age: lead.age ? Number(lead.age) : null,
+                gender: lead.gender || null,
+                patient_client_email: lead.patientClientEmail || null,
+                patient_client_phone: lead.patientClientPhone || null,
+                clinician_researcher_name: lead.clinicianResearcherName || null,
+                organisation_hospital: lead.organisationHospital || null,
+                speciality: lead.speciality || null,
+                service_name: lead.serviceName || null,
+                budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
+                sample_type: lead.sampleType || null,
+                sales_responsible_person: lead.salesResponsiblePerson || null,
+                created_by: lead.leadCreatedBy || "system",
+                created_at: /* @__PURE__ */ new Date()
+              };
+              console.log("Auto-creating genetic counselling record with data:", {
+                unique_id: gcData.unique_id,
+                patient_client_name: gcData.patient_client_name,
+                patient_client_address: gcData.patient_client_address,
+                age: gcData.age,
+                service_name: gcData.service_name,
+                sample_type: gcData.sample_type
+              });
+              const keys = Object.keys(gcData);
+              const cols = keys.map((k) => `\`${k}\``).join(",");
+              const placeholders = keys.map(() => "?").join(",");
+              const values = keys.map((k) => gcData[k]);
+              console.log("Executing SQL:", `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
+              console.log("With values:", values);
+              const [result2] = await pool.execute(
+                `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+                values
+              );
+              console.log("SQL execution result:", result2);
+              console.log("Auto-created genetic counselling record for lead:", lead.id, "GC Record ID:", result2.insertId);
+            }
+          } catch (err) {
+            console.error("Failed to auto-create genetic counselling record for lead:", err.message);
+            console.error("Stack trace:", err.stack);
+          }
+        }
         console.log("Lead nutritionalCounsellingRequired check:", lead.nutritionalCounsellingRequired, "Type:", typeof lead.nutritionalCounsellingRequired);
         if (lead.nutritionalCounsellingRequired === true) {
           try {
@@ -8007,54 +8108,6 @@ var LeadManagementModule = class extends AbstractModule {
             }
           } catch (err) {
             console.error("Failed to auto-create nutritional record for lead:", err.message);
-            console.error("Stack trace:", err.stack);
-          }
-        }
-        console.log("Lead geneticCounselorRequired check:", lead.geneticCounselorRequired, "Lead keys:", Object.keys(lead).filter((k) => k.includes("genetic")));
-        if (lead.geneticCounselorRequired) {
-          try {
-            console.log("TRIGGERING genetic counselling auto-creation for lead:", lead.id);
-            const gcData = {
-              unique_id: lead.uniqueId || "",
-              project_id: lead.projectId || null,
-              patient_client_name: lead.patientClientName || null,
-              patient_client_address: lead.patientClientAddress || null,
-              age: lead.age ? Number(lead.age) : null,
-              gender: lead.gender || null,
-              patient_client_email: lead.patientClientEmail || null,
-              patient_client_phone: lead.patientClientPhone || null,
-              clinician_researcher_name: lead.clinicianResearcherName || null,
-              organisation_hospital: lead.organisationHospital || null,
-              speciality: lead.speciality || null,
-              service_name: lead.serviceName || null,
-              budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
-              sample_type: lead.sampleType || null,
-              sales_responsible_person: lead.salesResponsiblePerson || null,
-              created_by: lead.leadCreatedBy || "system",
-              created_at: /* @__PURE__ */ new Date()
-            };
-            console.log("Auto-creating genetic counselling record with data:", {
-              unique_id: gcData.unique_id,
-              patient_client_name: gcData.patient_client_name,
-              patient_client_address: gcData.patient_client_address,
-              age: gcData.age,
-              service_name: gcData.service_name,
-              sample_type: gcData.sample_type
-            });
-            const keys = Object.keys(gcData);
-            const cols = keys.map((k) => `\`${k}\``).join(",");
-            const placeholders = keys.map(() => "?").join(",");
-            const values = keys.map((k) => gcData[k]);
-            console.log("Executing SQL:", `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
-            console.log("With values:", values);
-            const [result2] = await pool.execute(
-              `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
-              values
-            );
-            console.log("SQL execution result:", result2);
-            console.log("Auto-created genetic counselling record for lead:", lead.id, "GC Record ID:", result2.insertId);
-          } catch (err) {
-            console.error("Failed to auto-create genetic counselling record for lead:", err.message);
             console.error("Stack trace:", err.stack);
           }
         }

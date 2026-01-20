@@ -21,6 +21,7 @@ import { PDFViewer } from '@/components/PDFViewer';
 import { FilterBar } from "@/components/FilterBar";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
+import { sortData } from "@/lib/utils";
 
 
 function normalizeLead(l: any) {
@@ -171,6 +172,9 @@ export default function ProcessMaster() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
+  // Sorting state - Default to createdAt descending (newest first)
+  const [sortKey, setSortKey] = useState<string | null>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [isSaving, setIsSaving] = useState(false);
 
   // Column configuration for hide/show feature
@@ -377,12 +381,16 @@ export default function ProcessMaster() {
     return matchesSearch && matchesDate;
   });
 
+  const sortedLeads = useMemo(() => {
+    return sortData(filteredLeads, sortKey as any, sortDir);
+  }, [filteredLeads, sortKey, sortDir]);
+
   // Pagination logic
-  const totalFiltered = filteredLeads.length;
+  const totalFiltered = sortedLeads.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   if (page > totalPages) setPage(totalPages);
   const start = (page - 1) * pageSize;
-  const visibleLeads = filteredLeads.slice(start, start + pageSize);
+  const visibleLeads = sortedLeads.slice(start, start + pageSize);
 
   const handleEdit = (lead: any) => {
     setEditingLead({ ...lead });
@@ -681,45 +689,45 @@ export default function ProcessMaster() {
             <Table className="leads-table w-full">
               <TableHeader className="sticky top-0 z-30 bg-white dark:bg-gray-900">
                 <TableRow>
-                  {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableHead className="whitespace-nowrap sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">Unique ID</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('projectId') && <TableHead className="whitespace-nowrap sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">Project ID</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableHead className="whitespace-nowrap py-1">Sample ID</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('clientId') && <TableHead className="whitespace-nowrap py-1">Client ID</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableHead className="whitespace-nowrap py-1">Organisation/Hospital</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead className="whitespace-nowrap py-1">Clinician/Researcher name</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('specialty') && <TableHead className="whitespace-nowrap py-1">Speciality</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead className="whitespace-nowrap py-1">Clinician/Researcher Email</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead className="whitespace-nowrap py-1">Clinician/Researcher Phone</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead className="whitespace-nowrap py-1">Clinician/Researcher address</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('patientClientName') && <TableHead className="whitespace-nowrap py-1">Patient/Client name</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap py-1">Age</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap py-1">Gender</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="whitespace-nowrap py-1">Patient/Client email</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="whitespace-nowrap py-1">Patient/Client phone</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="whitespace-nowrap py-1">Patient/Client address</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableHead className="whitespace-nowrap py-1">Sample collection date</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead className="whitespace-nowrap py-1">Sample recevied date</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap py-1">Service name</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('sampleType') && <TableHead className="whitespace-nowrap py-1">Sample Type</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('noOfSamples') && <TableHead className="whitespace-nowrap py-1">No of Samples</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('tat') && <TableHead className="whitespace-nowrap py-1">TAT</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead className="whitespace-nowrap py-1">Sales/Responsible person</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead className="whitespace-nowrap py-1">Progenics TRF</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead className="whitespace-nowrap py-1">Third Party TRF</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('progenicsReport') && <TableHead className="whitespace-nowrap py-1">Progenics Report</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead className="whitespace-nowrap py-1">Sample Sent To Third Party Date</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('thirdPartyName') && <TableHead className="whitespace-nowrap py-1">Third Party Name</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('thirdPartyReport') && <TableHead className="whitespace-nowrap py-1">Third Party Report</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('resultsRawDataReceivedFromThirdPartyDate') && <TableHead className="whitespace-nowrap py-1">Results/Raw Data Received From Third Party Date</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('logisticStatus') && <TableHead className="whitespace-nowrap py-1">Logistic Status</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('financeStatus') && <TableHead className="whitespace-nowrap py-1">Finance Status</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('labProcessStatus') && <TableHead className="whitespace-nowrap py-1">Lab Process Status</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('bioinformaticsStatus') && <TableHead className="whitespace-nowrap py-1">Bioinformatics Status</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('nutritionalManagementStatus') && <TableHead className="whitespace-nowrap py-1">Nutritional Management Status</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('progenicsReportReleaseDate') && <TableHead className="whitespace-nowrap py-1">Progenics Report Release Date</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('remarkComment') && <TableHead className="whitespace-nowrap py-1">Remark/Comment</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('modifiedBy') && <TableHead className="whitespace-nowrap py-1">Modified By</TableHead>}
-                  {processMasterColumnPrefs.isColumnVisible('modifiedAt') && <TableHead className="whitespace-nowrap py-1">Modified At</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('uniqueId') && <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('projectId') && <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleId') && <TableHead onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Sample ID{sortKey === 'sampleId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clientId') && <TableHead onClick={() => { setSortKey('clientId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Client ID{sortKey === 'clientId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('organisationHospital') && <TableHead onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Organisation/Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Clinician/Researcher name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('specialty') && <TableHead onClick={() => { setSortKey('specialty'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Speciality{sortKey === 'specialty' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherEmail') && <TableHead onClick={() => { setSortKey('clinicianResearcherEmail'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Clinician/Researcher Email{sortKey === 'clinicianResearcherEmail' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherPhone') && <TableHead onClick={() => { setSortKey('clinicianResearcherPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Clinician/Researcher Phone{sortKey === 'clinicianResearcherPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('clinicianResearcherAddress') && <TableHead onClick={() => { setSortKey('clinicianResearcherAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Clinician/Researcher address{sortKey === 'clinicianResearcherAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Patient/Client name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('age') && <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('gender') && <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead onClick={() => { setSortKey('patientClientEmail'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Patient/Client email{sortKey === 'patientClientEmail' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead onClick={() => { setSortKey('patientClientPhone'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Patient/Client phone{sortKey === 'patientClientPhone' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead onClick={() => { setSortKey('patientClientAddress'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Patient/Client address{sortKey === 'patientClientAddress' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleCollectionDate') && <TableHead onClick={() => { setSortKey('sampleCollectionDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Sample collection date{sortKey === 'sampleCollectionDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleReceivedDate') && <TableHead onClick={() => { setSortKey('sampleReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Sample recevied date{sortKey === 'sampleReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('serviceName') && <TableHead onClick={() => { setSortKey('serviceName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Service name{sortKey === 'serviceName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleType') && <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('noOfSamples') && <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">TAT{sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableHead onClick={() => { setSortKey('salesResponsiblePerson'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Sales/Responsible person{sortKey === 'salesResponsiblePerson' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('progenicsTrf') && <TableHead onClick={() => { setSortKey('progenicsTrf'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Progenics TRF{sortKey === 'progenicsTrf' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead onClick={() => { setSortKey('thirdPartyTrf'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Third Party TRF{sortKey === 'thirdPartyTrf' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('progenicsReport') && <TableHead onClick={() => { setSortKey('progenicsReport'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Progenics Report{sortKey === 'progenicsReport' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead onClick={() => { setSortKey('sampleSentToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Sample Sent To Third Party Date{sortKey === 'sampleSentToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('thirdPartyName') && <TableHead onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Third Party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('thirdPartyReport') && <TableHead onClick={() => { setSortKey('thirdPartyReport'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Third Party Report{sortKey === 'thirdPartyReport' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('resultsRawDataReceivedFromThirdPartyDate') && <TableHead onClick={() => { setSortKey('resultsRawDataReceivedFromThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Results/Raw Data Received From Third Party Date{sortKey === 'resultsRawDataReceivedFromThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('logisticStatus') && <TableHead onClick={() => { setSortKey('logisticStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Logistic Status{sortKey === 'logisticStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('financeStatus') && <TableHead onClick={() => { setSortKey('financeStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Finance Status{sortKey === 'financeStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('labProcessStatus') && <TableHead onClick={() => { setSortKey('labProcessStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Lab Process Status{sortKey === 'labProcessStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('bioinformaticsStatus') && <TableHead onClick={() => { setSortKey('bioinformaticsStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Bioinformatics Status{sortKey === 'bioinformaticsStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('nutritionalManagementStatus') && <TableHead onClick={() => { setSortKey('nutritionalManagementStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Nutritional Management Status{sortKey === 'nutritionalManagementStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('progenicsReportReleaseDate') && <TableHead onClick={() => { setSortKey('progenicsReportReleaseDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Progenics Report Release Date{sortKey === 'progenicsReportReleaseDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('remarkComment') && <TableHead onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('modifiedBy') && <TableHead onClick={() => { setSortKey('modifiedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Modified By{sortKey === 'modifiedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                  {processMasterColumnPrefs.isColumnVisible('modifiedAt') && <TableHead onClick={() => { setSortKey('modifiedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap py-1">Modified At{sortKey === 'modifiedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {processMasterColumnPrefs.isColumnVisible('actions') && <TableHead className="actions-column whitespace-nowrap py-1 sticky right-0 z-40 bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700">Actions</TableHead>}
                 </TableRow>
               </TableHeader>

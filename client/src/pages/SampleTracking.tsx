@@ -150,9 +150,9 @@ export default function SampleTracking() {
 
   const normalizedSamples = useMemo(() => Array.isArray(samples) ? samples.map(normalizeSample) : [], [samples]);
 
-  // Sorting state
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Sorting state - Default to createdAt descending (newest first)
+  const [sortKey, setSortKey] = useState<string | null>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Column configuration for hide/show feature
   const sampleColumns: ColumnConfig[] = useMemo(() => [

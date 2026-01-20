@@ -47,8 +47,9 @@ export default function ReportManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [dateFilterField, setDateFilterField] = useState<string>('created_at');
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Sorting state - Default to created_at descending (newest first)
+  const [sortKey, setSortKey] = useState<string | null>('created_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Column configuration for hide/show feature
   const reportColumns: ColumnConfig[] = useMemo(() => [

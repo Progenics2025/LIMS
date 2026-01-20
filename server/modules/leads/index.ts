@@ -136,6 +136,73 @@ export class LeadManagementModule extends AbstractModule {
 
         const lead = await this.storage.createLead(result.data);
 
+        // Auto-create genetic counselling record if required (with project_id)
+        console.log('Lead geneticCounselorRequired check:', lead.geneticCounselorRequired, 'Type:', typeof lead.geneticCounselorRequired);
+        if (lead.geneticCounselorRequired === true) {
+          try {
+            // Check if GC record already exists for this unique_id
+            const [existingGC] = await pool.execute(
+              'SELECT id FROM genetic_counselling_records WHERE unique_id = ? LIMIT 1',
+              [lead.uniqueId]
+            ) as [any[], any];
+
+            if (existingGC && existingGC.length > 0) {
+              console.log('GC record already exists for unique_id:', lead.uniqueId, '- skipping auto-creation');
+            } else {
+              console.log('TRIGGERING genetic counselling auto-creation for lead:', lead.id);
+
+              const gcData = {
+                unique_id: lead.uniqueId || '',
+                project_id: lead.projectId || null,
+                patient_client_name: lead.patientClientName || null,
+                patient_client_address: lead.patientClientAddress || null,
+                age: lead.age ? Number(lead.age) : null,
+                gender: lead.gender || null,
+                patient_client_email: lead.patientClientEmail || null,
+                patient_client_phone: lead.patientClientPhone || null,
+                clinician_researcher_name: lead.clinicianResearcherName || null,
+                organisation_hospital: lead.organisationHospital || null,
+                speciality: lead.speciality || null,
+                service_name: lead.serviceName || null,
+                budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
+                sample_type: lead.sampleType || null,
+                sales_responsible_person: lead.salesResponsiblePerson || null,
+                created_by: lead.leadCreatedBy || 'system',
+                created_at: new Date(),
+              };
+
+              console.log('Auto-creating genetic counselling record with data:', {
+                unique_id: gcData.unique_id,
+                patient_client_name: gcData.patient_client_name,
+                patient_client_address: gcData.patient_client_address,
+                age: gcData.age,
+                service_name: gcData.service_name,
+                sample_type: gcData.sample_type
+              });
+
+              const keys = Object.keys(gcData);
+              const cols = keys.map(k => `\`${k}\``).join(',');
+              const placeholders = keys.map(() => '?').join(',');
+              const values = keys.map(k => gcData[k as keyof typeof gcData]);
+
+              console.log('Executing SQL:', `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
+              console.log('With values:', values);
+
+              const [result]: any = await pool.execute(
+                `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
+                values
+              );
+
+              console.log('SQL execution result:', result);
+              console.log('Auto-created genetic counselling record for lead:', lead.id, 'GC Record ID:', result.insertId);
+            }
+          } catch (err) {
+            console.error('Failed to auto-create genetic counselling record for lead:', (err as Error).message);
+            console.error('Stack trace:', (err as Error).stack);
+            // Don't fail the request if genetic counselling record creation fails
+          }
+        }
+
         // Auto-create nutritional management record if required
         console.log('Lead nutritionalCounsellingRequired check:', lead.nutritionalCounsellingRequired, 'Type:', typeof lead.nutritionalCounsellingRequired);
         if (lead.nutritionalCounsellingRequired === true) {
@@ -189,63 +256,6 @@ export class LeadManagementModule extends AbstractModule {
             console.error('Failed to auto-create nutritional record for lead:', (err as Error).message);
             console.error('Stack trace:', (err as Error).stack);
             // Don't fail the request if nutritional record creation fails
-          }
-        }
-
-        // Auto-create related records if required
-        console.log('Lead geneticCounselorRequired check:', lead.geneticCounselorRequired, 'Lead keys:', Object.keys(lead).filter(k => k.includes('genetic')));
-        if (lead.geneticCounselorRequired) {
-          try {
-            console.log('TRIGGERING genetic counselling auto-creation for lead:', lead.id);
-
-            const gcData = {
-              unique_id: lead.uniqueId || '',
-              project_id: lead.projectId || null,
-              patient_client_name: lead.patientClientName || null,
-              patient_client_address: lead.patientClientAddress || null,
-              age: lead.age ? Number(lead.age) : null,
-              gender: lead.gender || null,
-              patient_client_email: lead.patientClientEmail || null,
-              patient_client_phone: lead.patientClientPhone || null,
-              clinician_researcher_name: lead.clinicianResearcherName || null,
-              organisation_hospital: lead.organisationHospital || null,
-              speciality: lead.speciality || null,
-              service_name: lead.serviceName || null,
-              budget: lead.amountQuoted ? Number(lead.amountQuoted) : null,
-              sample_type: lead.sampleType || null,
-              sales_responsible_person: lead.salesResponsiblePerson || null,
-              created_by: lead.leadCreatedBy || 'system',
-              created_at: new Date(),
-            };
-
-            console.log('Auto-creating genetic counselling record with data:', {
-              unique_id: gcData.unique_id,
-              patient_client_name: gcData.patient_client_name,
-              patient_client_address: gcData.patient_client_address,
-              age: gcData.age,
-              service_name: gcData.service_name,
-              sample_type: gcData.sample_type
-            });
-
-            const keys = Object.keys(gcData);
-            const cols = keys.map(k => `\`${k}\``).join(',');
-            const placeholders = keys.map(() => '?').join(',');
-            const values = keys.map(k => gcData[k as keyof typeof gcData]);
-
-            console.log('Executing SQL:', `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`);
-            console.log('With values:', values);
-
-            const [result]: any = await pool.execute(
-              `INSERT INTO genetic_counselling_records (${cols}) VALUES (${placeholders})`,
-              values
-            );
-
-            console.log('SQL execution result:', result);
-            console.log('Auto-created genetic counselling record for lead:', lead.id, 'GC Record ID:', result.insertId);
-          } catch (err) {
-            console.error('Failed to auto-create genetic counselling record for lead:', (err as Error).message);
-            console.error('Stack trace:', (err as Error).stack);
-            // Don't fail the request if genetic counselling record creation fails
           }
         }
 
