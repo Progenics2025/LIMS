@@ -752,7 +752,7 @@ export default function LeadManagement() {
   // Derived filtered leads (apply role filter + search + status)
   const filteredLeads = roleFilteredLeads.filter((lead) => {
     // 1. Status Filter
-    if (statusFilter && statusFilter !== 'all' && String(lead.status) !== String(statusFilter)) {
+    if (statusFilter && statusFilter !== 'all' && String(lead.status).toLowerCase() !== String(statusFilter).toLowerCase()) {
       return false;
     }
 
@@ -3003,7 +3003,23 @@ export default function LeadManagement() {
             setPageSize={setPageSize}
             setPage={setPage}
             placeholder="Search Unique ID / Project ID / Patient Name / Phone..."
-          />
+          >
+            <div className="w-full md:w-[200px]">
+              <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }}>
+                <SelectTrigger className="bg-white dark:bg-gray-900">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="quoted">Quoted</SelectItem>
+                  <SelectItem value="cold">Cold</SelectItem>
+                  <SelectItem value="hot">Hot</SelectItem>
+                  <SelectItem value="converted">Converted</SelectItem>
+                  <SelectItem value="won">Won</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </FilterBar>
 
           {/* Column Visibility Settings */}
           <div className="mt-2 mb-2 px-4">

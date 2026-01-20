@@ -32,6 +32,7 @@ __export(schema_exports, {
   insertProcessMasterSheetSchema: () => insertProcessMasterSheetSchema,
   insertRecycleBinSchema: () => insertRecycleBinSchema,
   insertReportSchema: () => insertReportSchema,
+  insertRevenueTargetSchema: () => insertRevenueTargetSchema,
   insertSalesActivitySchema: () => insertSalesActivitySchema,
   insertSampleSchema: () => insertSampleSchema,
   insertUserSchema: () => insertUserSchema,
@@ -47,6 +48,7 @@ __export(schema_exports, {
   processMasterSheet: () => processMasterSheet,
   recycleBin: () => recycleBin,
   reports: () => reports,
+  revenueTargets: () => revenueTargets,
   salesActivities: () => salesActivities,
   samples: () => samples,
   users: () => users
@@ -55,7 +57,7 @@ import { sql } from "drizzle-orm";
 import { mysqlTable, varchar, text, int, timestamp, boolean, decimal, json, bigint } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var emptyToNull, users, leads, leadTrfs, samples, labProcessing, labProcessDiscoverySheet, labProcessClinicalSheet, reports, geneticCounselling, financeRecords, logisticsTracking, pricing, salesActivities, clients, notifications, recycleBin, insertRecycleBinSchema, insertUserSchema, insertLeadSchema, insertSampleSchema, insertLabProcessingSchema, insertLabProcessDiscoverySheetSchema, insertLabProcessClinicalSheetSchema, insertReportSchema, insertGeneticCounsellingSchema, insertFinanceRecordSchema, insertLogisticsTrackingSchema, insertPricingSchema, insertSalesActivitySchema, insertClientSchema, insertNotificationSchema, bioinformaticsSheetClinical, insertBioinformaticsSheetClinicalSchema, bioinformaticsSheetDiscovery, insertBioinformaticsSheetDiscoverySchema, nutritionalManagement, insertNutritionalManagementSchema, processMasterSheet, insertProcessMasterSheetSchema;
+var emptyToNull, users, leads, leadTrfs, samples, labProcessing, labProcessDiscoverySheet, labProcessClinicalSheet, reports, geneticCounselling, financeRecords, logisticsTracking, pricing, salesActivities, clients, notifications, recycleBin, insertRecycleBinSchema, insertUserSchema, insertLeadSchema, insertSampleSchema, insertLabProcessingSchema, insertLabProcessDiscoverySheetSchema, insertLabProcessClinicalSheetSchema, insertReportSchema, insertGeneticCounsellingSchema, insertFinanceRecordSchema, insertLogisticsTrackingSchema, insertPricingSchema, insertSalesActivitySchema, insertClientSchema, insertNotificationSchema, bioinformaticsSheetClinical, insertBioinformaticsSheetClinicalSchema, bioinformaticsSheetDiscovery, insertBioinformaticsSheetDiscoverySchema, nutritionalManagement, insertNutritionalManagementSchema, processMasterSheet, insertProcessMasterSheetSchema, revenueTargets, insertRevenueTargetSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -786,6 +788,14 @@ var init_schema = __esm({
       createdAt: true,
       modifiedAt: true
     });
+    revenueTargets = mysqlTable("revenue_targets", {
+      id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+      periodType: varchar("period_type", { length: 50 }).notNull().unique(),
+      // weekly, monthly, yearly
+      targetAmount: decimal("target_amount", { precision: 12, scale: 2 }).notNull(),
+      updatedAt: timestamp("updated_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`)
+    });
+    insertRevenueTargetSchema = createInsertSchema(revenueTargets);
   }
 });
 
@@ -5073,6 +5083,27 @@ async function registerRoutes(app2) {
   app2.post("/api/nutrition", async (req, res) => {
     try {
       const data = req.body || {};
+      if (data.project_id) {
+        const [bioRows] = await pool.execute(
+          `SELECT COUNT(*) as cnt FROM (
+            SELECT project_id FROM bioinformatics_sheet_discovery WHERE project_id = ?
+            UNION
+            SELECT project_id FROM bioinformatics_sheet_clinical WHERE project_id = ?
+          ) as combined`,
+          [data.project_id, data.project_id]
+        );
+        if (bioRows[0]?.cnt === 0) {
+          console.error(`\u274C Data Sync BLOCKED: Nutrition record rejected for ${data.project_id} - no Bioinformatics record exists`);
+          return res.status(400).json({
+            message: "Cannot create Nutrition record: Bioinformatics record must exist first",
+            error: "PARENT_RECORD_MISSING",
+            projectId: data.project_id,
+            requiredParent: "bioinformatics_sheet_discovery OR bioinformatics_sheet_clinical"
+          });
+        } else {
+          console.log(`\u2705 Data Sync Validation: Bioinformatics record verified for ${data.project_id}`);
+        }
+      }
       const keys = Object.keys(data);
       const cols = keys.map((k) => `\`${k}\``).join(",");
       const placeholders = keys.map(() => "?").join(",");
@@ -5080,9 +5111,16 @@ async function registerRoutes(app2) {
       const [result] = await pool.execute(`INSERT INTO nutritional_management (${cols}) VALUES (${placeholders})`, values);
       const insertId = result.insertId || null;
       const [rows] = await pool.execute("SELECT * FROM nutritional_management WHERE id = ?", [insertId]);
-      res.json(rows[0] ?? { id: insertId });
+      const insertVerified = rows.length > 0;
+      if (insertVerified) {
+        console.log(`\u2705 Data Sync Validation: Nutrition record verified with ID ${insertId}`);
+      } else {
+        console.error(`\u274C Data Sync Validation FAILED: Nutrition record NOT found for ID ${insertId}`);
+      }
+      res.json({ ...rows[0] ?? { id: insertId }, validation: { insertVerified } });
     } catch (error) {
-      res.status(500).json({ message: "Failed to create nutrition record" });
+      console.error("Failed to create nutrition record:", error.message);
+      res.status(500).json({ message: "Failed to create nutrition record", error: error.message });
     }
   });
   app2.put("/api/nutrition/:id", async (req, res) => {
@@ -5479,6 +5517,23 @@ async function registerRoutes(app2) {
   app2.post("/api/bioinfo-discovery-sheet", async (req, res) => {
     try {
       const data = req.body || {};
+      if (data.project_id) {
+        const [labProcessRows] = await pool.execute(
+          "SELECT COUNT(*) as cnt FROM labprocess_discovery_sheet WHERE project_id = ?",
+          [data.project_id]
+        );
+        if (labProcessRows[0]?.cnt === 0) {
+          console.error(`\u274C Data Sync BLOCKED: Bioinformatics record rejected for ${data.project_id} - no Lab Processing record exists`);
+          return res.status(400).json({
+            message: "Cannot create Bioinformatics record: Lab Processing record must exist first",
+            error: "PARENT_RECORD_MISSING",
+            projectId: data.project_id,
+            requiredParent: "labprocess_discovery_sheet"
+          });
+        } else {
+          console.log(`\u2705 Data Sync Validation: Lab Processing record verified for ${data.project_id}`);
+        }
+      }
       const keys = Object.keys(data);
       const cols = keys.map((k) => `\`${k}\``).join(",");
       const placeholders = keys.map(() => "?").join(",");
@@ -5491,6 +5546,19 @@ async function registerRoutes(app2) {
       const [result] = await pool.execute(insertQuery, values);
       const recordId = result.insertId || data.id;
       console.log("Inserted bioinformatics_sheet_discovery with ID:", recordId);
+      let insertVerified = false;
+      if (data.sample_id) {
+        const [verifyRows] = await pool.execute(
+          "SELECT id FROM bioinformatics_sheet_discovery WHERE sample_id = ? LIMIT 1",
+          [data.sample_id]
+        );
+        insertVerified = verifyRows.length > 0;
+        if (insertVerified) {
+          console.log(`\u2705 Data Sync Validation: Bioinformatics record verified for sample ${data.sample_id}`);
+        } else {
+          console.error(`\u274C Data Sync Validation FAILED: Bioinformatics record NOT found for sample ${data.sample_id}`);
+        }
+      }
       try {
         await emailAlertService.sendBioinformaticsAlert({
           alertType: "bioinformatics",
@@ -5509,13 +5577,19 @@ async function registerRoutes(app2) {
       }
       if (data.sample_id) {
         const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE sample_id = ? ORDER BY id DESC LIMIT 1", [data.sample_id]);
-        return res.json(rows[0] ?? { id: recordId });
+        return res.json({
+          ...rows[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
       if (data.unique_id) {
         const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_discovery WHERE unique_id = ? ORDER BY id DESC LIMIT 1", [data.unique_id]);
-        return res.json(rows[0] ?? { id: recordId });
+        return res.json({
+          ...rows[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
-      res.json({ id: recordId });
+      res.json({ id: recordId, validation: { insertVerified } });
     } catch (error) {
       console.error("Failed to create bioinformatics discovery record", error.message);
       res.status(500).json({ message: "Failed to create bioinformatics discovery record", error: error.message });
@@ -5565,6 +5639,23 @@ async function registerRoutes(app2) {
   app2.post("/api/bioinfo-clinical-sheet", async (req, res) => {
     try {
       const data = req.body || {};
+      if (data.project_id) {
+        const [labProcessRows] = await pool.execute(
+          "SELECT COUNT(*) as cnt FROM labprocess_clinical_sheet WHERE project_id = ?",
+          [data.project_id]
+        );
+        if (labProcessRows[0]?.cnt === 0) {
+          console.error(`\u274C Data Sync BLOCKED: Bioinformatics Clinical record rejected for ${data.project_id} - no Lab Processing Clinical record exists`);
+          return res.status(400).json({
+            message: "Cannot create Bioinformatics Clinical record: Lab Processing Clinical record must exist first",
+            error: "PARENT_RECORD_MISSING",
+            projectId: data.project_id,
+            requiredParent: "labprocess_clinical_sheet"
+          });
+        } else {
+          console.log(`\u2705 Data Sync Validation: Lab Processing Clinical record verified for ${data.project_id}`);
+        }
+      }
       const keys = Object.keys(data);
       const cols = keys.map((k) => `\`${k}\``).join(",");
       const placeholders = keys.map(() => "?").join(",");
@@ -5574,12 +5665,22 @@ async function registerRoutes(app2) {
         VALUES (${placeholders})
       `;
       console.log("\u{1F50D} Inserting bioinformatics_sheet_clinical record with columns:", keys);
-      console.log("\u{1F50D} Request body data:", JSON.stringify(data, null, 2));
-      console.log("\u{1F50D} Parsed values for INSERT:", values.map((v, i) => ({ column: keys[i], value: v })));
       const [result] = await pool.execute(insertQuery, values);
       const recordId = result.insertId || data.id;
       console.log("\u2705 Inserted bioinformatics_sheet_clinical with ID:", recordId);
-      console.log("\u2705 Insert result affectedRows:", result.affectedRows);
+      let insertVerified = false;
+      if (data.sample_id) {
+        const [verifyRows] = await pool.execute(
+          "SELECT id FROM bioinformatics_sheet_clinical WHERE sample_id = ? LIMIT 1",
+          [data.sample_id]
+        );
+        insertVerified = verifyRows.length > 0;
+        if (insertVerified) {
+          console.log(`\u2705 Data Sync Validation: Bioinformatics Clinical record verified for sample ${data.sample_id}`);
+        } else {
+          console.error(`\u274C Data Sync Validation FAILED: Bioinformatics Clinical record NOT found for sample ${data.sample_id}`);
+        }
+      }
       try {
         await emailAlertService.sendBioinformaticsAlert({
           alertType: "bioinformatics",
@@ -5598,13 +5699,19 @@ async function registerRoutes(app2) {
       }
       if (data.sample_id) {
         const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE sample_id = ? ORDER BY id DESC LIMIT 1", [data.sample_id]);
-        return res.json(rows[0] ?? { id: recordId });
+        return res.json({
+          ...rows[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
       if (data.unique_id) {
         const [rows] = await pool.execute("SELECT * FROM bioinformatics_sheet_clinical WHERE unique_id = ? ORDER BY id DESC LIMIT 1", [data.unique_id]);
-        return res.json(rows[0] ?? { id: recordId });
+        return res.json({
+          ...rows[0] ?? { id: recordId },
+          validation: { insertVerified }
+        });
       }
-      res.json({ id: recordId });
+      res.json({ id: recordId, validation: { insertVerified } });
     } catch (error) {
       console.error("Failed to create bioinformatics clinical record", error.message);
       res.status(500).json({ message: "Failed to create bioinformatics clinical record", error: error.message });
@@ -5732,12 +5839,32 @@ async function registerRoutes(app2) {
           throw insertError;
         }
       }
+      let verificationPassed = false;
       try {
-        await pool.execute(
-          "UPDATE sample_tracking SET alert_to_labprocess_team = ?, updated_at = ? WHERE id = ?",
-          [true, /* @__PURE__ */ new Date(), sampleId]
+        const verifyQuery = isDiscovery ? "SELECT COUNT(*) as cnt FROM labprocess_discovery_sheet WHERE project_id = ?" : "SELECT COUNT(*) as cnt FROM labprocess_clinical_sheet WHERE project_id = ?";
+        const [verifyRows] = await pool.execute(verifyQuery, [projectId]);
+        const recordCount = verifyRows[0]?.cnt || 0;
+        if (recordCount >= numberOfSamples) {
+          verificationPassed = true;
+          console.log(`\u2705 Data Sync Validation PASSED: ${recordCount} record(s) verified in ${tableName} for project ${projectId}`);
+        } else {
+          console.error(`\u274C Data Sync Validation FAILED: Expected ${numberOfSamples} records, found ${recordCount} in ${tableName}`);
+        }
+      } catch (verifyError) {
+        console.error("Warning: Data sync verification failed", verifyError.message);
+      }
+      let sampleTrackingUpdated = false;
+      try {
+        const updateResult = await pool.execute(
+          "UPDATE sample_tracking SET alert_to_labprocess_team = 1 WHERE id = ?",
+          [sampleId]
         );
-        console.log("Updated sample_tracking flag for sample:", sampleId);
+        if (updateResult[0]?.affectedRows > 0) {
+          sampleTrackingUpdated = true;
+          console.log("\u2705 Updated sample_tracking flag for sample:", sampleId);
+        } else {
+          console.warn("\u26A0\uFE0F Warning: Sample tracking record not found for ID:", sampleId);
+        }
       } catch (updateError) {
         console.error("Warning: Failed to update sample_tracking flag", updateError.message);
       }
@@ -5779,7 +5906,12 @@ async function registerRoutes(app2) {
         recordIds: insertedIds,
         numberOfRecordsCreated: insertedIds.length,
         table: tableName,
-        message: `${insertedIds.length} lab process record(s) created in ${tableName}`
+        message: `${insertedIds.length} lab process record(s) created in ${tableName}`,
+        // Include validation results in response for transparency
+        validation: {
+          labProcessingVerified: verificationPassed,
+          sampleTrackingFlagUpdated: sampleTrackingUpdated
+        }
       });
     } catch (error) {
       console.error("Failed to alert lab process", error.message);
@@ -5793,62 +5925,116 @@ async function registerRoutes(app2) {
           pm.id,
           pm.unique_id,
           pm.project_id,
-          -- Get sample_id from labprocess tables (where it's actually stored)
-          COALESCE(lpd.sample_id, lpc.sample_id, pm.sample_id) as sample_id,
-          pm.client_id,
-          COALESCE(st.organisation_hospital, pm.organisation_hospital) as organisation_hospital,
-          COALESCE(st.clinician_researcher_name, pm.clinician_researcher_name) as clinician_researcher_name,
+          pm.sample_id,
+          -- Get client_id from labprocess tables (where it's actually stored)
+          COALESCE(
+            (SELECT lpd2.client_id FROM labprocess_discovery_sheet lpd2 WHERE lpd2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc2.client_id FROM labprocess_clinical_sheet lpc2 WHERE lpc2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.client_id
+          ) as client_id,
+          COALESCE(
+            (SELECT st2.organisation_hospital FROM sample_tracking st2 WHERE st2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.organisation_hospital
+          ) as organisation_hospital,
+          COALESCE(
+            (SELECT st3.clinician_researcher_name FROM sample_tracking st3 WHERE st3.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.clinician_researcher_name
+          ) as clinician_researcher_name,
           pm.speciality,
           pm.clinician_researcher_email,
-          COALESCE(st.clinician_researcher_phone, pm.clinician_researcher_phone) as clinician_researcher_phone,
+          COALESCE(
+            (SELECT st4.clinician_researcher_phone FROM sample_tracking st4 WHERE st4.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.clinician_researcher_phone
+          ) as clinician_researcher_phone,
           pm.clinician_researcher_address,
-          COALESCE(st.patient_client_name, pm.patient_client_name) as patient_client_name,
+          COALESCE(
+            (SELECT st5.patient_client_name FROM sample_tracking st5 WHERE st5.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.patient_client_name
+          ) as patient_client_name,
           pm.age,
           pm.gender,
           pm.patient_client_email,
-          COALESCE(st.patient_client_phone, pm.patient_client_phone) as patient_client_phone,
+          COALESCE(
+            (SELECT st6.patient_client_phone FROM sample_tracking st6 WHERE st6.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.patient_client_phone
+          ) as patient_client_phone,
           pm.patient_client_address,
-          COALESCE(st.sample_collection_date, pm.sample_collection_date) as sample_collection_date,
-          COALESCE(st.sample_recevied_date, pm.sample_recevied_date) as sample_recevied_date,
-          COALESCE(lpd.service_name, lpc.service_name, pm.service_name) as service_name,
-          COALESCE(lpd.sample_type, lpc.sample_type, pm.sample_type) as sample_type,
-          COALESCE(lpd.no_of_samples, lpc.no_of_samples, pm.no_of_samples) as no_of_samples,
+          COALESCE(
+            (SELECT st7.sample_collection_date FROM sample_tracking st7 WHERE st7.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sample_collection_date
+          ) as sample_collection_date,
+          COALESCE(
+            (SELECT st8.sample_recevied_date FROM sample_tracking st8 WHERE st8.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sample_recevied_date
+          ) as sample_recevied_date,
+          COALESCE(
+            (SELECT lpd3.service_name FROM labprocess_discovery_sheet lpd3 WHERE lpd3.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc3.service_name FROM labprocess_clinical_sheet lpc3 WHERE lpc3.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.service_name
+          ) as service_name,
+          COALESCE(
+            (SELECT lpd4.sample_type FROM labprocess_discovery_sheet lpd4 WHERE lpd4.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc4.sample_type FROM labprocess_clinical_sheet lpc4 WHERE lpc4.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.sample_type
+          ) as sample_type,
+          COALESCE(
+            (SELECT lpd5.no_of_samples FROM labprocess_discovery_sheet lpd5 WHERE lpd5.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc5.no_of_samples FROM labprocess_clinical_sheet lpc5 WHERE lpc5.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.no_of_samples
+          ) as no_of_samples,
           pm.tat,
-          COALESCE(st.sales_responsible_person, pm.sales_responsible_person) as sales_responsible_person,
-          COALESCE(lpd.progenics_trf, lpc.progenics_trf, pm.progenics_trf) as progenics_trf,
-          COALESCE(st.third_party_trf, pm.third_party_trf) as third_party_trf,
+          COALESCE(
+            (SELECT st9.sales_responsible_person FROM sample_tracking st9 WHERE st9.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sales_responsible_person
+          ) as sales_responsible_person,
+          COALESCE(
+            (SELECT lpd6.progenics_trf FROM labprocess_discovery_sheet lpd6 WHERE lpd6.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc6.progenics_trf FROM labprocess_clinical_sheet lpc6 WHERE lpc6.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.progenics_trf
+          ) as progenics_trf,
+          COALESCE(
+            (SELECT st10.third_party_trf FROM sample_tracking st10 WHERE st10.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.third_party_trf
+          ) as third_party_trf,
           pm.progenics_report,
-          COALESCE(st.sample_sent_to_third_party_date, pm.sample_sent_to_third_party_date) as sample_sent_to_third_party_date,
-          COALESCE(st.third_party_name, pm.third_party_name) as third_party_name,
-          COALESCE(st.third_party_report, pm.third_party_report) as third_party_report,
+          COALESCE(
+            (SELECT st11.sample_sent_to_third_party_date FROM sample_tracking st11 WHERE st11.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.sample_sent_to_third_party_date
+          ) as sample_sent_to_third_party_date,
+          COALESCE(
+            (SELECT st12.third_party_name FROM sample_tracking st12 WHERE st12.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.third_party_name
+          ) as third_party_name,
+          COALESCE(
+            (SELECT st13.third_party_report FROM sample_tracking st13 WHERE st13.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1), 
+            pm.third_party_report
+          ) as third_party_report,
           pm.results_raw_data_received_from_third_party_date,
-          -- Get real-time status from respective tables
           pm.logistic_status,
           COALESCE(
-            CASE 
-              WHEN fs.total_amount_received_status = 1 OR fs.total_amount_received_status = true THEN 'Completed'
-              WHEN fs.payment_receipt_amount > 0 THEN 'Partial'
-              ELSE pm.finance_status
-            END,
+            (SELECT 
+              CASE 
+                WHEN fs2.total_amount_received_status = 1 OR fs2.total_amount_received_status = true THEN 'Completed'
+                WHEN fs2.payment_receipt_amount > 0 THEN 'Partial'
+                ELSE NULL
+              END
+            FROM finance_sheet fs2 WHERE fs2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
             pm.finance_status
           ) as finance_status,
           COALESCE(
-            CASE 
-              WHEN lpd.extraction_qc_status IS NOT NULL THEN lpd.extraction_qc_status
-              WHEN lpc.extraction_qc_status IS NOT NULL THEN lpc.extraction_qc_status
-              ELSE pm.lab_process_status
-            END,
+            (SELECT lpd7.extraction_qc_status FROM labprocess_discovery_sheet lpd7 WHERE lpd7.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT lpc7.extraction_qc_status FROM labprocess_clinical_sheet lpc7 WHERE lpc7.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
             pm.lab_process_status
           ) as lab_process_status,
           COALESCE(
-            CASE 
-              WHEN bid.analysis_status IS NOT NULL THEN bid.analysis_status
-              WHEN bic.analysis_status IS NOT NULL THEN bic.analysis_status
-              ELSE pm.bioinformatics_status
-            END,
+            (SELECT bid2.analysis_status FROM bioinformatics_sheet_discovery bid2 WHERE bid2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            (SELECT bic2.analysis_status FROM bioinformatics_sheet_clinical bic2 WHERE bic2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
             pm.bioinformatics_status
           ) as bioinformatics_status,
-          COALESCE(nm.counselling_status, pm.nutritional_management_status) as nutritional_management_status,
+          COALESCE(
+            (SELECT nm2.counselling_status FROM nutritional_management nm2 WHERE nm2.unique_id COLLATE utf8mb4_unicode_ci = pm.unique_id COLLATE utf8mb4_unicode_ci LIMIT 1),
+            pm.nutritional_management_status
+          ) as nutritional_management_status,
           pm.progenics_report_release_date,
           pm.Remark_Comment,
           pm.created_at,
@@ -5856,13 +6042,6 @@ async function registerRoutes(app2) {
           pm.modified_at,
           pm.modified_by
         FROM process_master_sheet pm
-        LEFT JOIN sample_tracking st ON pm.unique_id = st.unique_id
-        LEFT JOIN finance_sheet fs ON pm.unique_id = fs.unique_id
-        LEFT JOIN labprocess_discovery_sheet lpd ON pm.unique_id = lpd.unique_id
-        LEFT JOIN labprocess_clinical_sheet lpc ON pm.unique_id = lpc.unique_id
-        LEFT JOIN bioinformatics_sheet_discovery bid ON pm.unique_id = bid.unique_id
-        LEFT JOIN bioinformatics_sheet_clinical bic ON pm.unique_id = bic.unique_id
-        LEFT JOIN nutritional_management nm ON pm.unique_id = nm.unique_id
         ORDER BY pm.created_at DESC
       `;
       const [rows] = await pool.execute(query);
@@ -6396,18 +6575,17 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/genetic-counselling/generate-ids", async (req, res) => {
     try {
-      let padZero3 = function(num) {
+      console.log("[GC ID Generation] Request received");
+      const padZero2 = (num) => {
         return String(num).padStart(2, "0");
       };
-      var padZero2 = padZero3;
-      console.log("[GC ID Generation] Request received");
       const now = /* @__PURE__ */ new Date();
-      const yy = padZero3(now.getFullYear() % 100);
-      const mm = padZero3(now.getMonth() + 1);
-      const dd = padZero3(now.getDate());
-      const hh = padZero3(now.getHours());
-      const min = padZero3(now.getMinutes());
-      const ss = padZero3(now.getSeconds());
+      const yy = padZero2(now.getFullYear() % 100);
+      const mm = padZero2(now.getMonth() + 1);
+      const dd = padZero2(now.getDate());
+      const hh = padZero2(now.getHours());
+      const min = padZero2(now.getMinutes());
+      const ss = padZero2(now.getSeconds());
       const timestamp2 = `${yy}${mm}${dd}${hh}${min}${ss}`;
       const unique_id = `GC${timestamp2}`;
       const project_id = `GC${timestamp2}`;
@@ -6862,6 +7040,14 @@ async function registerRoutes(app2) {
       const now = /* @__PURE__ */ new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
+      const [targetRows] = await pool.execute("SELECT period_type, target_amount FROM revenue_targets");
+      const targets = {};
+      targets["weekly"] = 5e4;
+      targets["monthly"] = 2e5;
+      targets["yearly"] = 24e5;
+      for (const row of targetRows) {
+        targets[row.period_type] = parseFloat(row.target_amount);
+      }
       const weeklyData = [];
       for (let i = 11; i >= 0; i--) {
         const weekStart = new Date(now);
@@ -6880,8 +7066,8 @@ async function registerRoutes(app2) {
         weeklyData.push({
           week: weekLabel,
           actual: Math.round(actual),
-          target: 5e4
-          // Default weekly target
+          target: targets["weekly"]
+          // Use dynamic target
         });
       }
       const monthlyData = [];
@@ -6899,8 +7085,8 @@ async function registerRoutes(app2) {
         monthlyData.push({
           month: `${monthNames[targetMonth]} ${targetYear}`,
           actual: Math.round(actual),
-          target: 2e5
-          // Default monthly target
+          target: targets["monthly"]
+          // Use dynamic target
         });
       }
       const yearlyData = [];
@@ -6916,8 +7102,8 @@ async function registerRoutes(app2) {
         yearlyData.push({
           year: targetYear.toString(),
           actual: Math.round(actual),
-          target: 24e5
-          // Default yearly target
+          target: targets["yearly"]
+          // Use dynamic target
         });
       }
       const serviceBreakdown = {};
@@ -6959,14 +7145,41 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch revenue analytics" });
     }
   });
-  function getRandomColor(seed) {
+  app2.post("/api/dashboard/revenue-targets", async (req, res) => {
+    try {
+      const { weekly, monthly, yearly } = req.body;
+      if (weekly !== void 0) {
+        await pool.execute(
+          "INSERT INTO revenue_targets (period_type, target_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount)",
+          ["weekly", weekly]
+        );
+      }
+      if (monthly !== void 0) {
+        await pool.execute(
+          "INSERT INTO revenue_targets (period_type, target_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount)",
+          ["monthly", monthly]
+        );
+      }
+      if (yearly !== void 0) {
+        await pool.execute(
+          "INSERT INTO revenue_targets (period_type, target_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount)",
+          ["yearly", yearly]
+        );
+      }
+      res.json({ message: "Targets updated successfully" });
+    } catch (error) {
+      console.error("Failed to update revenue targets:", error);
+      res.status(500).json({ message: "Failed to update revenue targets" });
+    }
+  });
+  const getRandomColor = (seed) => {
     const colors = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
       hash = seed.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
-  }
+  };
   app2.get("/api/finance/stats", async (req, res) => {
     try {
       const stats = await storage.getFinanceStats();
@@ -7429,8 +7642,46 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/report_management", async (req, res) => {
     try {
-      const [rows] = await pool.execute("SELECT * FROM report_management ORDER BY created_at DESC LIMIT 500");
-      res.json(rows);
+      const query = `
+        SELECT 
+          rm.*,
+          -- Get client_id from lab process sheets - use subquery to get first match
+          (
+            SELECT lpd2.client_id 
+            FROM labprocess_discovery_sheet lpd2 
+            WHERE lpd2.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as discovery_client_id,
+          (
+            SELECT lpc2.client_id 
+            FROM labprocess_clinical_sheet lpc2 
+            WHERE lpc2.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as clinical_client_id,
+          -- Get the business unique_id from lab process sheets
+          (
+            SELECT lpd3.unique_id 
+            FROM labprocess_discovery_sheet lpd3 
+            WHERE lpd3.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as discovery_unique_id,
+          (
+            SELECT lpc3.unique_id 
+            FROM labprocess_clinical_sheet lpc3 
+            WHERE lpc3.project_id COLLATE utf8mb4_unicode_ci = rm.project_id COLLATE utf8mb4_unicode_ci
+            LIMIT 1
+          ) as clinical_unique_id
+        FROM report_management rm
+        ORDER BY rm.created_at DESC 
+        LIMIT 500
+      `;
+      const [rows] = await pool.execute(query);
+      const processedRows = rows.map((row) => ({
+        ...row,
+        client_id: row.discovery_client_id || row.clinical_client_id || null,
+        display_unique_id: row.discovery_unique_id || row.clinical_unique_id || null
+      }));
+      res.json(processedRows);
     } catch (error) {
       console.error("GET /api/report_management failed:", error.message);
       res.status(500).json({ message: "Failed to fetch report_management records" });
@@ -7450,6 +7701,27 @@ async function registerRoutes(app2) {
   app2.post("/api/report_management", async (req, res) => {
     try {
       const body = req.body || {};
+      if (body.project_id) {
+        const [bioRows] = await pool.execute(
+          `SELECT COUNT(*) as cnt FROM (
+            SELECT project_id FROM bioinformatics_sheet_discovery WHERE project_id = ?
+            UNION
+            SELECT project_id FROM bioinformatics_sheet_clinical WHERE project_id = ?
+          ) as combined`,
+          [body.project_id, body.project_id]
+        );
+        if (bioRows[0]?.cnt === 0) {
+          console.error(`\u274C Data Sync BLOCKED: Report Management record rejected for ${body.project_id} - no Bioinformatics record exists`);
+          return res.status(400).json({
+            message: "Cannot create Report Management record: Bioinformatics record must exist first",
+            error: "PARENT_RECORD_MISSING",
+            projectId: body.project_id,
+            requiredParent: "bioinformatics_sheet_discovery OR bioinformatics_sheet_clinical"
+          });
+        } else {
+          console.log(`\u2705 Data Sync Validation: Bioinformatics record verified for ${body.project_id}`);
+        }
+      }
       const keys = Object.keys(body);
       if (keys.length === 0) return res.status(400).json({ message: "No data provided" });
       const cols = keys.map((k) => `\`${k}\``).join(",");
@@ -7457,7 +7729,15 @@ async function registerRoutes(app2) {
       const values = keys.map((k) => body[k]);
       const sql3 = `INSERT INTO report_management (${cols}, created_at) VALUES (${placeholders}, NOW())`;
       const [result] = await pool.execute(sql3, values);
-      res.json({ ok: true, insertId: result.insertId });
+      const insertId = result.insertId;
+      const [verifyRows] = await pool.execute("SELECT id FROM report_management WHERE id = ?", [insertId]);
+      const insertVerified = verifyRows.length > 0;
+      if (insertVerified) {
+        console.log(`\u2705 Data Sync Validation: Report Management record verified with ID ${insertId}`);
+      } else {
+        console.error(`\u274C Data Sync Validation FAILED: Report Management record NOT found for ID ${insertId}`);
+      }
+      res.json({ ok: true, insertId: result.insertId, validation: { insertVerified } });
     } catch (error) {
       console.error("POST /api/report_management failed:", error.message);
       res.status(500).json({ message: "Failed to create record", error: error.message });

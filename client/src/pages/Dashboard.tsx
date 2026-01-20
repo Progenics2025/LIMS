@@ -1,8 +1,21 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "@/components/ui/currency-input";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   UserPlus,
   TestTube,
@@ -64,6 +77,45 @@ interface PerformanceMetrics {
 }export default function Dashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [isTargetDialogOpen, setIsTargetDialogOpen] = useState(false);
+  const [targetInputs, setTargetInputs] = useState({
+    weekly: "",
+    monthly: "",
+    yearly: ""
+  });
+
+  const updateTargetsMutation = useMutation({
+    mutationFn: async (targets: any) => {
+      const res = await apiRequest("POST", "/api/dashboard/revenue-targets", targets);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/revenue-analytics"] });
+      toast({
+        title: "Targets updated",
+        description: "Revenue targets have been successfully updated.",
+      });
+      setIsTargetDialogOpen(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update revenue targets.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleUpdateTargets = () => {
+    updateTargetsMutation.mutate({
+      weekly: targetInputs.weekly ? parseFloat(targetInputs.weekly) : undefined,
+      monthly: targetInputs.monthly ? parseFloat(targetInputs.monthly) : undefined,
+      yearly: targetInputs.yearly ? parseFloat(targetInputs.yearly) : undefined,
+    });
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -567,11 +619,72 @@ interface PerformanceMetrics {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Monthly Revenue Trend */}
           <Card className="lg:col-span-2">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center">
                 <LineChart className="mr-2 h-5 w-5" />
                 Monthly Revenue Trends & Projections
               </CardTitle>
+              <Dialog open={isTargetDialogOpen} onOpenChange={setIsTargetDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Set Targets
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Set Revenue Targets</DialogTitle>
+                    <DialogDescription>
+                      Set the target revenue amounts for different periods.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="weekly-target" className="text-right">
+                        Weekly
+                      </Label>
+                      <Input
+                        id="weekly-target"
+                        type="number"
+                        placeholder="e.g. 50000"
+                        className="col-span-3"
+                        value={targetInputs.weekly}
+                        onChange={(e) => setTargetInputs({ ...targetInputs, weekly: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="monthly-target" className="text-right">
+                        Monthly
+                      </Label>
+                      <Input
+                        id="monthly-target"
+                        type="number"
+                        placeholder="e.g. 200000"
+                        className="col-span-3"
+                        value={targetInputs.monthly}
+                        onChange={(e) => setTargetInputs({ ...targetInputs, monthly: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="yearly-target" className="text-right">
+                        Yearly
+                      </Label>
+                      <Input
+                        id="yearly-target"
+                        type="number"
+                        placeholder="e.g. 2400000"
+                        className="col-span-3"
+                        value={targetInputs.yearly}
+                        onChange={(e) => setTargetInputs({ ...targetInputs, yearly: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" onClick={handleUpdateTargets} disabled={updateTargetsMutation.isPending}>
+                      {updateTargetsMutation.isPending ? "Saving..." : "Save changes"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <div className="h-80">
@@ -595,9 +708,8 @@ interface PerformanceMetrics {
                     />
                     <YAxis tickFormatter={formatCurrency} />
                     <Tooltip
-                      formatter={(value: number, name: string) => [
-                        formatTooltipCurrency(value),
-                        name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
+                      formatter={(value: number) => [
+                        formatTooltipCurrency(value)
                       ]}
                     />
                     <Legend iconSize={1} wrapperStyle={{ fontSize: '13px' }} />
@@ -746,9 +858,8 @@ interface PerformanceMetrics {
                   <XAxis dataKey="year" />
                   <YAxis tickFormatter={formatCurrency} width={55} />
                   <Tooltip
-                    formatter={(value: number, name: string) => [
-                      formatTooltipCurrency(value),
-                      name === 'actual' ? 'Actual Revenue' : 'Target Revenue'
+                    formatter={(value: number) => [
+                      formatTooltipCurrency(value)
                     ]}
                   />
                   <Legend

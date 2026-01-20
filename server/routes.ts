@@ -4137,9 +4137,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('[GC ID Generation] Request received');
       // Generate unique_id (GC format: GCYYMMDDHHMMSS)
-      function padZero(num: number): string {
+      const padZero = (num: number): string => {
         return String(num).padStart(2, '0');
-      }
+      };
 
       const now = new Date();
       const yy = padZero(now.getFullYear() % 100);
@@ -4703,6 +4703,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth();
 
+      // Get revenue targets
+      const [targetRows]: any = await pool.execute('SELECT period_type, target_amount FROM revenue_targets');
+      const targets: Record<string, number> = {};
+
+      // Default fallback values
+      targets['weekly'] = 50000;
+      targets['monthly'] = 200000;
+      targets['yearly'] = 2400000;
+
+      // Override with DB values
+      for (const row of targetRows) {
+        targets[row.period_type] = parseFloat(row.target_amount);
+      }
+
       // Weekly data (last 12 weeks)
       const weeklyData: { week: string; actual: number; target: number }[] = [];
       for (let i = 11; i >= 0; i--) {
@@ -4724,7 +4738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weeklyData.push({
           week: weekLabel,
           actual: Math.round(actual),
-          target: 50000 // Default weekly target
+          target: targets['weekly'] // Use dynamic target
         });
       }
 
@@ -4746,7 +4760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         monthlyData.push({
           month: `${monthNames[targetMonth]} ${targetYear}`,
           actual: Math.round(actual),
-          target: 200000 // Default monthly target
+          target: targets['monthly'] // Use dynamic target
         });
       }
 
@@ -4766,7 +4780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         yearlyData.push({
           year: targetYear.toString(),
           actual: Math.round(actual),
-          target: 2400000 // Default yearly target
+          target: targets['yearly'] // Use dynamic target
         });
       }
 
@@ -4822,15 +4836,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update Revenue Targets API
+  app.post("/api/dashboard/revenue-targets", async (req, res) => {
+    try {
+      const { weekly, monthly, yearly } = req.body;
+
+      // Upsert weekly
+      if (weekly !== undefined) {
+        await pool.execute(
+          'INSERT INTO revenue_targets (period_type, target_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount)',
+          ['weekly', weekly]
+        );
+      }
+
+      // Upsert monthly
+      if (monthly !== undefined) {
+        await pool.execute(
+          'INSERT INTO revenue_targets (period_type, target_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount)',
+          ['monthly', monthly]
+        );
+      }
+
+      // Upsert yearly
+      if (yearly !== undefined) {
+        await pool.execute(
+          'INSERT INTO revenue_targets (period_type, target_amount) VALUES (?, ?) ON DUPLICATE KEY UPDATE target_amount = VALUES(target_amount)',
+          ['yearly', yearly]
+        );
+      }
+
+      res.json({ message: "Targets updated successfully" });
+    } catch (error) {
+      console.error('Failed to update revenue targets:', error);
+      res.status(500).json({ message: "Failed to update revenue targets" });
+    }
+  });
+
   // Helper function for chart colors
-  function getRandomColor(seed: string): string {
+  // Helper function for chart colors
+  const getRandomColor = (seed: string): string => {
     const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
     let hash = 0;
     for (let i = 0; i < seed.length; i++) {
       hash = seed.charCodeAt(i) + ((hash << 5) - hash);
     }
     return colors[Math.abs(hash) % colors.length];
-  }
+  };
 
   // Finance routes
   app.get("/api/finance/stats", async (req, res) => {

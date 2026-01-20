@@ -852,3 +852,13 @@ export type LabProcessingWithSample = LabProcessing & { sample: Sample & { lead:
 export type ReportWithSample = Report & { sample: Sample & { lead: Lead } };
 export type FinanceRecordWithSample = FinanceRecord & { sample: Sample & { lead: Lead } };
 export type LogisticsTrackingWithSample = LogisticsTracking & { sample: Sample & { lead: Lead } };
+
+// Revenue targets table
+export const revenueTargets = mysqlTable("revenue_targets", {
+  id: bigint("id", { mode: "number", unsigned: true }).primaryKey().autoincrement(),
+  periodType: varchar("period_type", { length: 50 }).notNull().unique(), // weekly, monthly, yearly
+  targetAmount: decimal("target_amount", { precision: 12, scale: 2 }).notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertRevenueTargetSchema = createInsertSchema(revenueTargets);
