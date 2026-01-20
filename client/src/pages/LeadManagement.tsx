@@ -764,7 +764,12 @@ export default function LeadManagement() {
         (String(lead.uniqueId || '')).toLowerCase().includes(q) ||
         (String(lead.projectId || '')).toLowerCase().includes(q) ||
         (String(lead.patientClientName || '')).toLowerCase().includes(q) ||
-        (String(lead.patientClientPhone || '')).toLowerCase().includes(q)
+        (String(lead.patientClientPhone || '')).toLowerCase().includes(q) ||
+        (String(lead.sampleId || '')).toLowerCase().includes(q) ||
+        (String(lead.organisationHospital || '')).toLowerCase().includes(q) ||
+        (String(lead.clinicianResearcherName || '')).toLowerCase().includes(q) ||
+        (String(lead.serviceName || '')).toLowerCase().includes(q) ||
+        (String(lead.status || '')).toLowerCase().includes(q)
       );
     }
 

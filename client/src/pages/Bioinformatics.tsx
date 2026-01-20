@@ -348,21 +348,7 @@ export default function Bioinformatics() {
     return true;
   });
 
-  // Helper function to get sequential sample ID counter for a given project
-  const getSequentialSampleId = (record: BIRecord, recordsToCheck: BIRecord[]): number => {
-    const projectId = (record as any).projectId || (record as any)._raw?.project_id || '';
-    if (!projectId) return 1;
 
-    // Count how many records exist for this project ID in the current view
-    const sameProjectRecords = recordsToCheck.filter((r: any) => {
-      const pid = (r as any).projectId || (r as any)._raw?.project_id || '';
-      return pid === projectId;
-    });
-
-    // Find the index of the current record in the list
-    const index = sameProjectRecords.findIndex((r: any) => r.id === record.id);
-    return index >= 0 ? index + 1 : 1;
-  };
 
   // Pagination calculations (after applying BI type filter)
   const totalFiltered = typeFilteredRows.length;
@@ -932,48 +918,48 @@ export default function Bioinformatics() {
               <Table className="leads-table">
                 <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
                   <TableRow>
-                      {columnPrefs.isColumnVisible('uniqueId') && <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('projectId') && <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('sampleId') && <TableHead onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample ID{sortKey === 'sampleId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('clientId') && <TableHead onClick={() => { setSortKey('clientId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Client ID{sortKey === 'clientId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('organisationHospital') && <TableHead onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation/Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Clinician/Researcher name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('age') && <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('gender') && <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('serviceName') && <TableHead onClick={() => { setSortKey('serviceName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Service name{sortKey === 'serviceName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('noOfSamples') && <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('sequencingStatus') && <TableHead onClick={() => { setSortKey('sequencingStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sequencing status{sortKey === 'sequencingStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableHead onClick={() => { setSortKey('sequencingDataStorageDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sequencing data storage date{sortKey === 'sequencingDataStorageDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('basecalling') && <TableHead onClick={() => { setSortKey('basecalling'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Basecalling{sortKey === 'basecalling' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableHead onClick={() => { setSortKey('basecallingDataStorageDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Basecalling data storage date{sortKey === 'basecallingDataStorageDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('workflowType') && <TableHead onClick={() => { setSortKey('workflowType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Workflow type{sortKey === 'workflowType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('analysisStatus') && <TableHead onClick={() => { setSortKey('analysisStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis status{sortKey === 'analysisStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('analysisDate') && <TableHead onClick={() => { setSortKey('analysisDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis date{sortKey === 'analysisDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('thirdPartyName') && <TableHead onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead onClick={() => { setSortKey('sampleSentToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample sent to third party Date{sortKey === 'sampleSentToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead onClick={() => { setSortKey('thirdPartyTrf'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party TRF{sortKey === 'thirdPartyTrf' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableHead onClick={() => { setSortKey('resultsRawDataReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Results/Raw data received date{sortKey === 'resultsRawDataReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('thirdPartyReport') && <TableHead onClick={() => { setSortKey('thirdPartyReport'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party report{sortKey === 'thirdPartyReport' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">TAT{sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('vcfFileLink') && <TableHead onClick={() => { setSortKey('vcfFileLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">VCF file link{sortKey === 'vcfFileLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('cnvStatus') && <TableHead onClick={() => { setSortKey('cnvStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">CNV status{sortKey === 'cnvStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('progenicsRawData') && <TableHead onClick={() => { setSortKey('progenicsRawData'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data{sortKey === 'progenicsRawData' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableHead onClick={() => { setSortKey('progenicsRawDataSize'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data size{sortKey === 'progenicsRawDataSize' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableHead onClick={() => { setSortKey('progenicsRawDataLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data link{sortKey === 'progenicsRawDataLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableHead onClick={() => { setSortKey('analysisHtmlLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis HTML link{sortKey === 'analysisHtmlLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableHead onClick={() => { setSortKey('relativeAbundanceSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Relative abundance sheet{sortKey === 'relativeAbundanceSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableHead onClick={() => { setSortKey('dataAnalysisSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Data analysis sheet{sortKey === 'dataAnalysisSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableHead onClick={() => { setSortKey('databaseToolsInformation'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Database/Tools information{sortKey === 'databaseToolsInformation' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableHead onClick={() => { setSortKey('alertToTechnicalLead'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Alert to Technical lead{sortKey === 'alertToTechnicalLead' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('alertToReportTeam') && <TableHead onClick={() => { setSortKey('alertToReportTeam'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Alert to Report team{sortKey === 'alertToReportTeam' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('createdAt') && <TableHead onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created at{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('createdBy') && <TableHead onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created by{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('modifiedAt') && <TableHead onClick={() => { setSortKey('modifiedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modifiedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('modifiedBy') && <TableHead onClick={() => { setSortKey('modifiedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modifiedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('remarkComment') && <TableHead onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
-                      {columnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 actions-column">Actions</TableHead>}
-                    </TableRow>
+                    {columnPrefs.isColumnVisible('uniqueId') && <TableHead onClick={() => { setSortKey('uniqueId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">Unique ID{sortKey === 'uniqueId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('projectId') && <TableHead onClick={() => { setSortKey('projectId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Project ID{sortKey === 'projectId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('sampleId') && <TableHead onClick={() => { setSortKey('sampleId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample ID{sortKey === 'sampleId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('clientId') && <TableHead onClick={() => { setSortKey('clientId'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Client ID{sortKey === 'clientId' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('organisationHospital') && <TableHead onClick={() => { setSortKey('organisationHospital'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Organisation/Hospital{sortKey === 'organisationHospital' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableHead onClick={() => { setSortKey('clinicianResearcherName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Clinician/Researcher name{sortKey === 'clinicianResearcherName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Patient/Client name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('age') && <TableHead onClick={() => { setSortKey('age'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Age{sortKey === 'age' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('gender') && <TableHead onClick={() => { setSortKey('gender'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Gender{sortKey === 'gender' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('serviceName') && <TableHead onClick={() => { setSortKey('serviceName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Service name{sortKey === 'serviceName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('noOfSamples') && <TableHead onClick={() => { setSortKey('noOfSamples'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">No of Samples{sortKey === 'noOfSamples' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('sequencingStatus') && <TableHead onClick={() => { setSortKey('sequencingStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sequencing status{sortKey === 'sequencingStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableHead onClick={() => { setSortKey('sequencingDataStorageDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sequencing data storage date{sortKey === 'sequencingDataStorageDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('basecalling') && <TableHead onClick={() => { setSortKey('basecalling'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Basecalling{sortKey === 'basecalling' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableHead onClick={() => { setSortKey('basecallingDataStorageDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Basecalling data storage date{sortKey === 'basecallingDataStorageDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('workflowType') && <TableHead onClick={() => { setSortKey('workflowType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Workflow type{sortKey === 'workflowType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('analysisStatus') && <TableHead onClick={() => { setSortKey('analysisStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis status{sortKey === 'analysisStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('analysisDate') && <TableHead onClick={() => { setSortKey('analysisDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis date{sortKey === 'analysisDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('thirdPartyName') && <TableHead onClick={() => { setSortKey('thirdPartyName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party Name{sortKey === 'thirdPartyName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableHead onClick={() => { setSortKey('sampleSentToThirdPartyDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Sample sent to third party Date{sortKey === 'sampleSentToThirdPartyDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableHead onClick={() => { setSortKey('thirdPartyTrf'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party TRF{sortKey === 'thirdPartyTrf' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableHead onClick={() => { setSortKey('resultsRawDataReceivedDate'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Results/Raw data received date{sortKey === 'resultsRawDataReceivedDate' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('thirdPartyReport') && <TableHead onClick={() => { setSortKey('thirdPartyReport'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Third party report{sortKey === 'thirdPartyReport' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">TAT{sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('vcfFileLink') && <TableHead onClick={() => { setSortKey('vcfFileLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">VCF file link{sortKey === 'vcfFileLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('cnvStatus') && <TableHead onClick={() => { setSortKey('cnvStatus'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">CNV status{sortKey === 'cnvStatus' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('progenicsRawData') && <TableHead onClick={() => { setSortKey('progenicsRawData'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data{sortKey === 'progenicsRawData' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableHead onClick={() => { setSortKey('progenicsRawDataSize'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data size{sortKey === 'progenicsRawDataSize' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableHead onClick={() => { setSortKey('progenicsRawDataLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Progenics raw data link{sortKey === 'progenicsRawDataLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableHead onClick={() => { setSortKey('analysisHtmlLink'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Analysis HTML link{sortKey === 'analysisHtmlLink' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableHead onClick={() => { setSortKey('relativeAbundanceSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Relative abundance sheet{sortKey === 'relativeAbundanceSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableHead onClick={() => { setSortKey('dataAnalysisSheet'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Data analysis sheet{sortKey === 'dataAnalysisSheet' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableHead onClick={() => { setSortKey('databaseToolsInformation'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Database/Tools information{sortKey === 'databaseToolsInformation' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableHead onClick={() => { setSortKey('alertToTechnicalLead'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Alert to Technical lead{sortKey === 'alertToTechnicalLead' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('alertToReportTeam') && <TableHead onClick={() => { setSortKey('alertToReportTeam'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Alert to Report team{sortKey === 'alertToReportTeam' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('createdAt') && <TableHead onClick={() => { setSortKey('createdAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created at{sortKey === 'createdAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('createdBy') && <TableHead onClick={() => { setSortKey('createdBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Created by{sortKey === 'createdBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('modifiedAt') && <TableHead onClick={() => { setSortKey('modifiedAt'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified at{sortKey === 'modifiedAt' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('modifiedBy') && <TableHead onClick={() => { setSortKey('modifiedBy'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Modified by{sortKey === 'modifiedBy' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('remarkComment') && <TableHead onClick={() => { setSortKey('remarkComment'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold">Remark/Comment{sortKey === 'remarkComment' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
+                    {columnPrefs.isColumnVisible('actions') && <TableHead className="sticky right-0 z-40 whitespace-nowrap font-semibold bg-white dark:bg-gray-900 border-l-2 border-gray-200 dark:border-gray-700 actions-column">Actions</TableHead>}
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {visibleRows.length === 0 ? (
@@ -985,73 +971,73 @@ export default function Bioinformatics() {
                   ) : (
                     visibleRows.map((r) => (
                       <TableRow key={r.id} className={`${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} hover:bg-opacity-75 dark:hover:bg-opacity-75 cursor-pointer`}>
-                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className={`font-medium sticky left-0 z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1 min-w-[120px]`}>{r.uniqueId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('projectId') && <TableCell className={`sticky left-[120px] z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sampleId') && <TableCell className="py-1">{(r as any).projectId ? `${(r as any).projectId}_${getSequentialSampleId(r, typeFilteredRows)}` : r.sampleId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('clientId') && <TableCell className="py-1">{(r as any).clientId ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('organisationHospital') && <TableCell className="py-1">{(r as any).organisationHospital ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="py-1">{(r as any).clinicianResearcherName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('patientClientName') && <TableCell className="py-1">{(r as any).patientClientName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('age') && <TableCell className="py-1">{(r as any).age ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('gender') && <TableCell className="py-1">{(r as any).gender ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('serviceName') && <TableCell className="py-1">{(r as any).serviceName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('noOfSamples') && <TableCell className="py-1">{(r as any).noOfSamples ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sequencingStatus') && <TableCell className="py-1">{(r as any).sequencingStatus ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableCell className="py-1">{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('basecalling') && <TableCell className="py-1">{(r as any).basecalling ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableCell className="py-1">{(r as any).basecallingDataStorageDate ? new Date((r as any).basecallingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('workflowType') && <TableCell className="py-1">{(r as any).workflowType ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('analysisStatus') && <TableCell className="py-1">{(r as any).analysisStatus ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('analysisDate') && <TableCell className="py-1">{(r as any).analysisDate ? new Date((r as any).analysisDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('thirdPartyName') && <TableCell className="py-1">{r.thirdPartyName ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell className="py-1">{(r as any).sampleSentToThirdPartyDate ? new Date((r as any).sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableCell className="py-1">{(r as any).thirdPartyTrf ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableCell className="py-1">{(r as any).resultsRawDataReceivedFromThirdPartyDate ? new Date((r as any).resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('thirdPartyReport') && <TableCell className="py-1">{(r as any).thirdPartyReport ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('tat') && <TableCell className="py-1">{(r as any).tat ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('vcfFileLink') && <TableCell className="py-1">{(r as any).vcfFileLink ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('cnvStatus') && <TableCell className="py-1">{(r as any).cnvStatus ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('progenicsRawData') && <TableCell className="py-1">{(r as any).progenicsRawData ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableCell className="py-1">{(r as any).progenicsRawDataSize ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableCell className="py-1">{(r as any).progenicsRawDataLink ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableCell className="py-1">{(r as any).analysisHtmlLink ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableCell className="py-1">{(r as any).relativeAbundanceSheet ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableCell className="py-1">{(r as any).dataAnalysisSheet ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableCell className="py-1">{(r as any).databaseToolsInformation ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableCell className="py-1">{(r as any).alertToTechnicalLeadd ? 'Yes' : 'No'}</TableCell>}
-                            {columnPrefs.isColumnVisible('alertToReportTeam') && <TableCell className="py-1">{(r as any).alertToReportTeam ? 'Yes' : 'No'}</TableCell>}
-                            {columnPrefs.isColumnVisible('createdAt') && <TableCell className="py-1">{(r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('createdBy') && <TableCell className="py-1">{(r as any).createdBy ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('modifiedAt') && <TableCell className="py-1">{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('modifiedBy') && <TableCell className="py-1">{(r as any).modifiedBy ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('remarkComment') && <TableCell className="max-w-[220px] truncate pr-4 py-1" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>}
-                            {columnPrefs.isColumnVisible('actions') && (
-                              <TableCell className={`sticky right-0 z-20 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} py-1`}>
-                                <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full px-2 py-1">
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit record" onClick={() => openEdit(r)}>
-                                    <EditIcon className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    className={`min-w-[48px] px-2 py-1 h-7 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-xs ${(r as any).alertToReportTeam
-                                      ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
-                                      : 'bg-green-500 hover:bg-green-600 text-white'
-                                      } disabled:bg-gray-400 disabled:cursor-not-allowed`}
-                                    onClick={() => { sendToReportsMutation.mutate(r); }}
-                                    disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}
-                                    title={(r as any).alertToReportTeam ? 'Already sent to reports' : 'Send to Reports module'}
-                                    aria-label="Send to Reports"
-                                  >
-                                    <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
-                                    <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            )}
+                        {columnPrefs.isColumnVisible('uniqueId') && <TableCell className={`font-medium sticky left-0 z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1 min-w-[120px]`}>{r.uniqueId ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('projectId') && <TableCell className={`sticky left-[120px] z-20 ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] py-1`}>{(r as any).projectId ?? (r as any)._raw?.project_id ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('sampleId') && <TableCell className="py-1">{r.sampleId ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('clientId') && <TableCell className="py-1">{(r as any).clientId ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('organisationHospital') && <TableCell className="py-1">{(r as any).organisationHospital ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('clinicianResearcherName') && <TableCell className="py-1">{(r as any).clinicianResearcherName ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('patientClientName') && <TableCell className="py-1">{(r as any).patientClientName ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('age') && <TableCell className="py-1">{(r as any).age ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('gender') && <TableCell className="py-1">{(r as any).gender ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('serviceName') && <TableCell className="py-1">{(r as any).serviceName ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('noOfSamples') && <TableCell className="py-1">{(r as any).noOfSamples ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('sequencingStatus') && <TableCell className="py-1">{(r as any).sequencingStatus ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('sequencingDataStorageDate') && <TableCell className="py-1">{(r as any).sequencingDataStorageDate ? new Date((r as any).sequencingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('basecalling') && <TableCell className="py-1">{(r as any).basecalling ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('basecallingDataStorageDate') && <TableCell className="py-1">{(r as any).basecallingDataStorageDate ? new Date((r as any).basecallingDataStorageDate).toLocaleDateString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('workflowType') && <TableCell className="py-1">{(r as any).workflowType ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('analysisStatus') && <TableCell className="py-1">{(r as any).analysisStatus ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('analysisDate') && <TableCell className="py-1">{(r as any).analysisDate ? new Date((r as any).analysisDate).toLocaleDateString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('thirdPartyName') && <TableCell className="py-1">{r.thirdPartyName ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('sampleSentToThirdPartyDate') && <TableCell className="py-1">{(r as any).sampleSentToThirdPartyDate ? new Date((r as any).sampleSentToThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('thirdPartyTrf') && <TableCell className="py-1">{(r as any).thirdPartyTrf ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('resultsRawDataReceivedDate') && <TableCell className="py-1">{(r as any).resultsRawDataReceivedFromThirdPartyDate ? new Date((r as any).resultsRawDataReceivedFromThirdPartyDate).toLocaleDateString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('thirdPartyReport') && <TableCell className="py-1">{(r as any).thirdPartyReport ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('tat') && <TableCell className="py-1">{(r as any).tat ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('vcfFileLink') && <TableCell className="py-1">{(r as any).vcfFileLink ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('cnvStatus') && <TableCell className="py-1">{(r as any).cnvStatus ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('progenicsRawData') && <TableCell className="py-1">{(r as any).progenicsRawData ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('progenicsRawDataSize') && <TableCell className="py-1">{(r as any).progenicsRawDataSize ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('progenicsRawDataLink') && <TableCell className="py-1">{(r as any).progenicsRawDataLink ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('analysisHtmlLink') && <TableCell className="py-1">{(r as any).analysisHtmlLink ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('relativeAbundanceSheet') && <TableCell className="py-1">{(r as any).relativeAbundanceSheet ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('dataAnalysisSheet') && <TableCell className="py-1">{(r as any).dataAnalysisSheet ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('databaseToolsInformation') && <TableCell className="py-1">{(r as any).databaseToolsInformation ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('alertToTechnicalLead') && <TableCell className="py-1">{(r as any).alertToTechnicalLeadd ? 'Yes' : 'No'}</TableCell>}
+                        {columnPrefs.isColumnVisible('alertToReportTeam') && <TableCell className="py-1">{(r as any).alertToReportTeam ? 'Yes' : 'No'}</TableCell>}
+                        {columnPrefs.isColumnVisible('createdAt') && <TableCell className="py-1">{(r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('createdBy') && <TableCell className="py-1">{(r as any).createdBy ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('modifiedAt') && <TableCell className="py-1">{(r as any).modifiedAt ? new Date((r as any).modifiedAt).toLocaleString() : '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('modifiedBy') && <TableCell className="py-1">{(r as any).modifiedBy ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('remarkComment') && <TableCell className="max-w-[220px] truncate pr-4 py-1" title={(r as any).remarkComment || ''}>{(r as any).remarkComment ?? '-'}</TableCell>}
+                        {columnPrefs.isColumnVisible('actions') && (
+                          <TableCell className={`sticky right-0 z-20 border-l-2 border-gray-200 dark:border-gray-700 min-w-[150px] actions-column text-right ${(r as any).alertToReportTeam ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} py-1`}>
+                            <div className="action-buttons flex-shrink-0 flex space-x-2 items-center justify-end h-full px-2 py-1">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit record" onClick={() => openEdit(r)}>
+                                <EditIcon className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className={`min-w-[48px] px-2 py-1 h-7 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-xs ${(r as any).alertToReportTeam
+                                  ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
+                                  : 'bg-green-500 hover:bg-green-600 text-white'
+                                  } disabled:bg-gray-400 disabled:cursor-not-allowed`}
+                                onClick={() => { sendToReportsMutation.mutate(r); }}
+                                disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}
+                                title={(r as any).alertToReportTeam ? 'Already sent to reports' : 'Send to Reports module'}
+                                aria-label="Send to Reports"
+                              >
+                                <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
+                                <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Delete record" onClick={() => handleDelete(r.id)}>
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
