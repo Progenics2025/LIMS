@@ -203,6 +203,11 @@ export default function Login() {
 
           <Card className="border-white/40 shadow-2xl bg-white/60 backdrop-blur-xl dark:bg-gray-900/60 ring-1 ring-white/60 dark:ring-gray-800">
             <CardHeader className="space-y-1 pb-6">
+              <div className="flex justify-center mb-5">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <img src="/favicon.png" alt="LIMS Logo" className="w-full h-full object-contain" />
+                </div>
+              </div>
               <CardTitle className="text-3xl font-bold text-center tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 {view === 'login' ? 'Welcome Back' : view === 'forgot-email' ? 'Reset Password' : 'Set New Password'}
               </CardTitle>

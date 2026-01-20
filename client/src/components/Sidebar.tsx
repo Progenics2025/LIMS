@@ -45,16 +45,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Explicit allowed pages per role according to requirements.
   const pagesByRole: Record<string, string[]> = {
-  admin: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle','admin'],
-  manager: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle'],
-  operations: ['dashboard','leads','process_master','samples','finance','lab','genetic','bioinformatics','nutrition','reports','recycle','admin'],
-  reporting: ['leads','finance','lab','genetic','bioinformatics','reports',],
-  nutritionist: ['leads','reports','nutrition'],
-  lab: ['leads','samples','lab'],
-  genetic_counselling: ['leads','samples'],
-  genetic: ['leads','samples'],
-  sales: ['leads','samples','reports','genetic'],
-  bioinformatics: ['leads','samples','lab'],
+    admin: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'nutrition', 'reports', 'recycle', 'admin'],
+    manager: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'nutrition', 'reports', 'recycle'],
+    operations: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'nutrition', 'reports', 'recycle', 'admin'],
+    reporting: ['leads', 'finance', 'lab', 'genetic', 'bioinformatics', 'reports',],
+    nutritionist: ['leads', 'reports', 'nutrition'],
+    lab: ['leads', 'samples', 'lab'],
+    genetic_counselling: ['leads', 'samples'],
+    genetic: ['leads', 'samples'],
+    sales: ['leads', 'samples', 'reports', 'genetic'],
+    bioinformatics: ['leads', 'samples', 'lab'],
   };
 
   const allowedPages = pagesByRole[userRole] ?? pagesByRole['admin'];
@@ -65,7 +65,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
           onClick={onClose}
         />
@@ -78,21 +78,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}>
         {/* Header / Logo Area */}
         <div className="p-6 border-b border-slate-800/50 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg relative overflow-hidden">
-             <Dna className="text-[#0085CA]" size={26} />
+          <div className="w-10 h-10 bg-white rounded-none flex items-center justify-center shadow-lg relative overflow-hidden p-1">
+            <img src="/favicon.png" alt="LIMS Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white leading-none">Progenics</h1>
             <p className="text-[10px] text-slate-400 font-medium tracking-wide mt-1">GENOMICS EXPERTISE</p>
           </div>
         </div>
-        
+
         <nav className="flex-1 px-7 py-4 space-y-4 mt-4 overflow-y-auto">
           <p className="pl-1 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Module Access</p>
           {filteredNavigation.map((item) => {
             const isActive = location === item.href;
             const Icon = item.icon;
-            
+
             return (
               <Link key={item.name} href={item.href}>
                 <div
