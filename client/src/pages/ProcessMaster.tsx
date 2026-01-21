@@ -36,7 +36,7 @@ function normalizeLead(l: any) {
     id: get('id', 'id'),
     uniqueId: get('unique_id', 'uniqueId') ?? get('title_unique_id', 'titleUniqueId') ?? get('titleUniqueId', 'titleUniqueId') ?? undefined,
     projectId: get('project_id', 'projectId') ?? get('projectId', 'projectId') ?? undefined,
-    sampleId: get('sample_id', 'sampleId') ?? get('sampleId', 'sampleId') ?? undefined,
+    sampleId: get('sample_id', 'sampleId') ?? get('sampleId', 'sampleId') ?? (l.sample ? (l.sample.sampleId ?? l.sample.sample_id) : undefined) ?? undefined,
     clientId: get('client_id', 'clientId') || undefined,
     testName: get('test_name', 'testName') ?? get('testName', 'testName'),
     dateSampleCollected:

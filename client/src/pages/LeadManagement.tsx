@@ -197,15 +197,15 @@ const editLeadSchema = leadFormSchema.partial();
 function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData, userId?: string, isEditMode?: boolean) {
   const copy: any = { ...data };
 
-  // Auto-populate leadCreatedBy for new leads (only if not already set)
+  // Auto-populate leadCreatedBy and leadCreated for new leads (only if not already set)
   if (!isEditMode) {
     if (!copy.leadCreatedBy && userId) {
       copy.leadCreatedBy = userId;
     }
+    if (!copy.leadCreated) {
+      copy.leadCreated = new Date().toISOString();
+    }
   }
-
-  // leadCreated should be handled by server/db defaults to ensure consistency
-  // copy.leadCreated = new Date().toISOString(); 
 
   // Auto-populate leadModified on every update
   copy.leadModified = new Date().toISOString();
@@ -1990,18 +1990,18 @@ export default function LeadManagement() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="WES">WES</SelectItem>
-                          <SelectItem value="WES+ Mito">WES+Mito</SelectItem>
+                          <SelectItem value="WES+Mito">WES+Mito</SelectItem>
                           <SelectItem value="CMA">CMA</SelectItem>
                           <SelectItem value="MLPA">MLPA</SelectItem>
                           <SelectItem value="NBS">NBS</SelectItem>
                           <SelectItem value="Karyotyping">Karyotyping</SelectItem>
                           <SelectItem value="Wellgenics">Wellgenics</SelectItem>
-                          <SelectItem value="Sanger Clinical">Sanger Sequencing - Clinical</SelectItem>
-                          <SelectItem value="Sanger Discovery">Sanger Sequencing - Discovery</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Clinical">Sanger Sequencing - Clinical</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Discovery">Sanger Sequencing - Discovery</SelectItem>
                           <SelectItem value="Gut Genics">Gut Genics</SelectItem>
-                          <SelectItem value="WGS">Whole Genome Sequencing</SelectItem>
-                          <SelectItem value="Targeted Amplicons">Targeted Amplicons Sequencing</SelectItem>
-                          <SelectItem value="Shotgun">Shotgun Metagenomics Sequencing</SelectItem>
+                          <SelectItem value="Whole Genome Sequencing">Whole Genome Sequencing</SelectItem>
+                          <SelectItem value="Targeted Amplicons Sequencing">Targeted Amplicons Sequencing</SelectItem>
+                          <SelectItem value="Shotgun Metagenomics Sequencing">Shotgun Metagenomics Sequencing</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -2528,18 +2528,18 @@ export default function LeadManagement() {
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="WES">WES</SelectItem>
-                          <SelectItem value="WES+ Mito">WES+Mito</SelectItem>
+                          <SelectItem value="WES+Mito">WES+Mito</SelectItem>
                           <SelectItem value="CMA">CMA</SelectItem>
                           <SelectItem value="MLPA">MLPA</SelectItem>
                           <SelectItem value="NBS">NBS</SelectItem>
                           <SelectItem value="Karyotyping">Karyotyping</SelectItem>
                           <SelectItem value="Wellgenics">Wellgenics</SelectItem>
-                          <SelectItem value="Sanger Clinical">Sanger Sequencing - Clinical</SelectItem>
-                          <SelectItem value="Sanger Discovery">Sanger Sequencing - Discovery</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Clinical">Sanger Sequencing - Clinical</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Discovery">Sanger Sequencing - Discovery</SelectItem>
                           <SelectItem value="Gut Genics">Gut Genics</SelectItem>
-                          <SelectItem value="WGS">Whole Genome Sequencing</SelectItem>
-                          <SelectItem value="Targeted Amplicons">Targeted Amplicons Sequencing</SelectItem>
-                          <SelectItem value="Shotgun">Shotgun Metagenomics Sequencing</SelectItem>
+                          <SelectItem value="Whole Genome Sequencing">Whole Genome Sequencing</SelectItem>
+                          <SelectItem value="Targeted Amplicons Sequencing">Targeted Amplicons Sequencing</SelectItem>
+                          <SelectItem value="Shotgun Metagenomics Sequencing">Shotgun Metagenomics Sequencing</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>

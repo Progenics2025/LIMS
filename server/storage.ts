@@ -530,12 +530,19 @@ export class DBStorage implements IStorage {
 
   async updateLead(id: string, updates: Partial<Lead>): Promise<Lead | undefined> {
 
-    await db.update(leads).set(updates as any).where(eq(leads.id, id));
+    const updatesWithInfo = {
+      ...updates,
+      leadModified: new Date(),
+    };
+    await db.update(leads).set(updatesWithInfo as any).where(eq(leads.id, id));
     return this.getLeadById(id);
   }
 
   async updateLeadStatus(id: string, status: string): Promise<Lead | undefined> {
-    await db.update(leads).set({ status } as any).where(eq(leads.id, id));
+    await db.update(leads).set({
+      status,
+      leadModified: new Date()
+    } as any).where(eq(leads.id, id));
     return this.getLeadById(id);
   }
 
@@ -570,7 +577,10 @@ export class DBStorage implements IStorage {
 
       return await db.transaction(async (tx) => {
         // Update lead status
-        await tx.update(leads).set({ status: "converted" } as any).where(eq(leads.id, leadId));
+        await tx.update(leads).set({
+          status: "converted",
+          leadModified: new Date()
+        } as any).where(eq(leads.id, leadId));
         console.log('✅ Lead status updated to converted');
 
         // Determine Sample ID: Clinical (PG) -> same as Project ID; Discovery (DG) -> Generated DG ID
