@@ -440,6 +440,7 @@ export class DBStorage implements IStorage {
           salesResponsiblePerson: null,
           leadCreated: new Date(),
           leadModified: new Date(),
+          modifiedBy: null,
           createdBy: null,
         },
         {
@@ -485,6 +486,7 @@ export class DBStorage implements IStorage {
           salesResponsiblePerson: "John Sales Manager",
           leadCreated: new Date(),
           leadModified: new Date(),
+          modifiedBy: null,
           createdBy: null,
         }
       ];
@@ -571,9 +573,19 @@ export class DBStorage implements IStorage {
         await tx.update(leads).set({ status: "converted" } as any).where(eq(leads.id, leadId));
         console.log('✅ Lead status updated to converted');
 
+        // Determine Sample ID: Clinical (PG) -> same as Project ID; Discovery (DG) -> Generated DG ID
+        const leadProjectCode = (lead as any).projectId;
+        let sampleIdForTracking = (lead as any).uniqueId; // fallback
+
+        if (leadProjectCode && String(leadProjectCode).startsWith('PG')) {
+          sampleIdForTracking = leadProjectCode;
+        } else if (leadProjectCode && String(leadProjectCode).startsWith('DG')) {
+          sampleIdForTracking = this.generateSampleId('discovery');
+        }
+
         // Create sample_tracking row using fields available on lead
         await tx.insert(samples).values({
-          uniqueId: (lead as any).uniqueId ?? null,
+          uniqueId: sampleIdForTracking,
           projectId: (lead as any).projectId ?? null,
           sampleCollectionDate: (lead as any).sampleCollectionDate ?? null,
           sampleShippedDate: (lead as any).sampleShippedDate ?? null,
@@ -597,7 +609,7 @@ export class DBStorage implements IStorage {
         const createdSamples = await tx
           .select()
           .from(samples)
-          .where(eq(samples.uniqueId as any, (lead as any).uniqueId))
+          .where(eq(samples.uniqueId as any, sampleIdForTracking))
           .orderBy(desc(samples.createdAt as any))
           .limit(1);
         const createdSample = (createdSamples && createdSamples[0]) ? (createdSamples[0] as any) : null;
@@ -647,10 +659,15 @@ export class DBStorage implements IStorage {
 
         // Create a process_master_sheet record from the converted lead
         try {
+          const leadProjectId = (lead as any).projectId;
+          // For Clinical samples (PG), the Project ID and Sample ID must be the same
+          const shouldUseProjectIdAsSampleId = leadProjectId && String(leadProjectId).startsWith('PG');
+          const masterSheetSampleId = shouldUseProjectIdAsSampleId ? leadProjectId : ((createdSample as any)?.uniqueId ?? null);
+
           await tx.insert(processMasterSheet).values({
             uniqueId: (lead as any).uniqueId ?? null,
-            projectId: (lead as any).projectId ?? null,
-            sampleId: (createdSample as any)?.uniqueId ?? null,
+            projectId: leadProjectId ?? null,
+            sampleId: masterSheetSampleId,
             clientId: (lead as any).clientId ?? null,
             organisationHospital: (lead as any).organisationHospital ?? null,
             clinicianResearcherName: (lead as any).clinicianResearcherName ?? null,

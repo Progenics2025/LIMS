@@ -10,6 +10,7 @@ import { LeadManagementModule } from './leads';
 import { SampleTrackingModule } from './samples';
 import { DashboardModule } from './dashboard';
 import { FinanceModule } from './finance';
+import { GeneticAnalystModule } from './geneticanalyst';
 
 export class ModuleManager {
   private modules: BaseModule[] = [];
@@ -29,6 +30,7 @@ export class ModuleManager {
       new SampleTrackingModule(this.storage),
       new FinanceModule(this.storage),
       new DashboardModule(this.storage),
+      new GeneticAnalystModule(this.storage),
     ];
     
     // Initialize each module

@@ -197,15 +197,15 @@ const editLeadSchema = leadFormSchema.partial();
 function coerceNumericFields(data: Partial<LeadFormData> | LeadFormData, userId?: string, isEditMode?: boolean) {
   const copy: any = { ...data };
 
-  // Auto-populate leadCreatedBy and leadCreated for new leads (only if not already set)
+  // Auto-populate leadCreatedBy for new leads (only if not already set)
   if (!isEditMode) {
     if (!copy.leadCreatedBy && userId) {
       copy.leadCreatedBy = userId;
     }
-    if (!copy.leadCreated) {
-      copy.leadCreated = new Date().toISOString();
-    }
   }
+
+  // leadCreated should be handled by server/db defaults to ensure consistency
+  // copy.leadCreated = new Date().toISOString(); 
 
   // Auto-populate leadModified on every update
   copy.leadModified = new Date().toISOString();
@@ -3052,12 +3052,12 @@ export default function LeadManagement() {
                   {leadColumnPrefs.isColumnVisible('patientClientName') && <TableHead onClick={() => { setSortKey('patientClientName'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Patient / Client Name{sortKey === 'patientClientName' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('age') && <TableHead className="whitespace-nowrap font-semibold min-w-[200px] py-1">Age</TableHead>}
                   {leadColumnPrefs.isColumnVisible('gender') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Gender</TableHead>}
+                  {leadColumnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Service Name</TableHead>}
                   {leadColumnPrefs.isColumnVisible('patientClientEmail') && <TableHead className="whitespace-nowrap font-semibold min-w-[80px] py-1">Patient / Client Email</TableHead>}
                   {leadColumnPrefs.isColumnVisible('patientClientPhone') && <TableHead className="whitespace-nowrap font-semibold min-w-[100px] py-1">Patient / Client Phone</TableHead>}
                   {leadColumnPrefs.isColumnVisible('patientClientAddress') && <TableHead className="whitespace-nowrap font-semibold min-w-[120px] py-1">Patient / Client Address</TableHead>}
                   {leadColumnPrefs.isColumnVisible('geneticCounsellorRequired') && <TableHead onClick={() => { setSortKey('geneticCounsellorRequired'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Genetic Counselling Required{sortKey === 'geneticCounsellorRequired' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableHead className="whitespace-nowrap font-semibold min-w-[200px] py-1">Nutritional Counselling Required</TableHead>}
-                  {leadColumnPrefs.isColumnVisible('serviceName') && <TableHead className="whitespace-nowrap font-semibold min-w-[150px] py-1">Service Name</TableHead>}
                   {leadColumnPrefs.isColumnVisible('amountQuoted') && <TableHead onClick={() => { setSortKey('amountQuoted'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[150px] py-1">Amount Quoted{sortKey === 'amountQuoted' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('tat') && <TableHead onClick={() => { setSortKey('tat'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[100px] py-1">TAT(Days){sortKey === 'tat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
                   {leadColumnPrefs.isColumnVisible('sampleType') && <TableHead onClick={() => { setSortKey('sampleType'); setSortDir(s => s === 'asc' ? 'desc' : 'asc'); }} className="cursor-pointer whitespace-nowrap font-semibold min-w-[120px] py-1">Sample Type{sortKey === 'sampleType' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}</TableHead>}
@@ -3115,12 +3115,12 @@ export default function LeadManagement() {
                       {leadColumnPrefs.isColumnVisible('patientClientName') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientName ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('age') && <TableCell className="whitespace-nowrap py-1">{lead.age != null ? String(lead.age) : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('gender') && <TableCell className="whitespace-nowrap py-1">{lead.gender ?? '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('serviceName') && <TableCell className="whitespace-nowrap py-1">{lead.serviceName ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('patientClientEmail') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientEmail ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('patientClientPhone') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientPhone ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('patientClientAddress') && <TableCell className="whitespace-nowrap py-1">{lead.patientClientAddress ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('geneticCounsellorRequired') && <TableCell className="whitespace-nowrap py-1">{lead.geneticCounselorRequired ? 'Yes' : 'No'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('nutritionalCounsellingRequired') && <TableCell className="whitespace-nowrap py-1">{lead.nutritionalCounsellingRequired ? 'Yes' : 'No'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('serviceName') && <TableCell className="whitespace-nowrap py-1">{lead.serviceName ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('amountQuoted') && <TableCell className="whitespace-nowrap py-1">{lead.amountQuoted != null ? `₹${formatINR(Number(lead.amountQuoted))}` : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('tat') && <TableCell className="whitespace-nowrap py-1">{lead.tat != null ? String(lead.tat) : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('sampleType') && <TableCell className="whitespace-nowrap py-1">{lead.sampleType ?? '-'}</TableCell>}
@@ -3141,8 +3141,8 @@ export default function LeadManagement() {
                       {leadColumnPrefs.isColumnVisible('followUp') && <TableCell className="whitespace-nowrap py-1">{lead.followUp ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('leadCreatedBy') && <TableCell className="whitespace-nowrap py-1">{getUserNameById(lead.leadCreatedBy)}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('salesResponsiblePerson') && <TableCell className="whitespace-nowrap py-1">{lead.salesResponsiblePerson ? (lead.salesResponsiblePerson.trim() || '-') : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('leadCreated') && <TableCell className="whitespace-nowrap py-1">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString() : '-'}</TableCell>}
-                      {leadColumnPrefs.isColumnVisible('leadModified') && <TableCell className="whitespace-nowrap py-1">{lead.leadModified ? new Date(lead.leadModified).toLocaleString() : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('leadCreated') && <TableCell className="whitespace-nowrap py-1">{lead.leadCreated ? new Date(lead.leadCreated).toLocaleString('en-GB', { timeZone: 'UTC' }) : '-'}</TableCell>}
+                      {leadColumnPrefs.isColumnVisible('leadModified') && <TableCell className="whitespace-nowrap py-1">{lead.leadModified ? new Date(lead.leadModified).toLocaleString('en-GB', { timeZone: 'UTC' }) : '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('remarkComment') && <TableCell className="whitespace-nowrap py-1">{(lead as any).remarkComment ?? (lead as any).remarks ?? (lead as any).remark ?? (lead as any).comments ?? '-'}</TableCell>}
                       {leadColumnPrefs.isColumnVisible('actions') && <TableCell className={`actions-column py-1 sticky right-0 z-20 ${lead.status === 'converted' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 border-gray-200 dark:border-gray-700`}>
                         <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 cursor-pointer flex-wrap">

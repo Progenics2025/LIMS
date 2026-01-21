@@ -23,6 +23,7 @@ import ReportManagement from "@/pages/ReportManagement";
 import AdminPanel from "@/pages/AdminPanel";
 import GeneticCounselling from "@/pages/GeneticCounselling";
 import Bioinformatics from "@/pages/Bioinformatics";
+import GeneticAnalyst from "@/pages/GeneticAnalyst";
 import Nutrition from "@/pages/Nutrition";
 import RecycleBin from "@/pages/RecycleBin";
 import NotFound from "@/pages/not-found";
@@ -85,6 +86,11 @@ function Router() {
       <Route path="/bioinformatics">
         <ProtectedRoute roles={['bioinformatics', 'manager', 'admin', 'reporting']}>
           <Bioinformatics />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/genetic-analyst">
+        <ProtectedRoute roles={['bioinformatics', 'manager', 'admin', 'reporting']}>
+          <GeneticAnalyst />
         </ProtectedRoute>
       </Route>
       <Route path="/nutrition">

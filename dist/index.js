@@ -1088,6 +1088,7 @@ var DBStorage = class {
           salesResponsiblePerson: null,
           leadCreated: /* @__PURE__ */ new Date(),
           leadModified: /* @__PURE__ */ new Date(),
+          modifiedBy: null,
           createdBy: null
         },
         {
@@ -1133,6 +1134,7 @@ var DBStorage = class {
           salesResponsiblePerson: "John Sales Manager",
           leadCreated: /* @__PURE__ */ new Date(),
           leadModified: /* @__PURE__ */ new Date(),
+          modifiedBy: null,
           createdBy: null
         }
       ];
@@ -1188,8 +1190,15 @@ var DBStorage = class {
       return await db.transaction(async (tx) => {
         await tx.update(leads).set({ status: "converted" }).where(eq(leads.id, leadId));
         console.log("\u2705 Lead status updated to converted");
+        const leadProjectCode = lead.projectId;
+        let sampleIdForTracking = lead.uniqueId;
+        if (leadProjectCode && String(leadProjectCode).startsWith("PG")) {
+          sampleIdForTracking = leadProjectCode;
+        } else if (leadProjectCode && String(leadProjectCode).startsWith("DG")) {
+          sampleIdForTracking = this.generateSampleId("discovery");
+        }
         await tx.insert(samples).values({
-          uniqueId: lead.uniqueId ?? null,
+          uniqueId: sampleIdForTracking,
           projectId: lead.projectId ?? null,
           sampleCollectionDate: lead.sampleCollectionDate ?? null,
           sampleShippedDate: lead.sampleShippedDate ?? null,
@@ -1208,7 +1217,7 @@ var DBStorage = class {
           salesResponsiblePerson: lead.salesResponsiblePerson ?? null
         });
         console.log("\u2705 Sample tracking created from lead");
-        const createdSamples = await tx.select().from(samples).where(eq(samples.uniqueId, lead.uniqueId)).orderBy(desc(samples.createdAt)).limit(1);
+        const createdSamples = await tx.select().from(samples).where(eq(samples.uniqueId, sampleIdForTracking)).orderBy(desc(samples.createdAt)).limit(1);
         const createdSample = createdSamples && createdSamples[0] ? createdSamples[0] : null;
         let createdFinanceRecord = null;
         try {
@@ -1245,10 +1254,13 @@ var DBStorage = class {
           console.error("Error details:", e);
         }
         try {
+          const leadProjectId = lead.projectId;
+          const shouldUseProjectIdAsSampleId = leadProjectId && String(leadProjectId).startsWith("PG");
+          const masterSheetSampleId = shouldUseProjectIdAsSampleId ? leadProjectId : createdSample?.uniqueId ?? null;
           await tx.insert(processMasterSheet).values({
             uniqueId: lead.uniqueId ?? null,
-            projectId: lead.projectId ?? null,
-            sampleId: createdSample?.uniqueId ?? null,
+            projectId: leadProjectId ?? null,
+            sampleId: masterSheetSampleId,
             clientId: lead.clientId ?? null,
             organisationHospital: lead.organisationHospital ?? null,
             clinicianResearcherName: lead.clinicianResearcherName ?? null,
@@ -9270,6 +9282,277 @@ var FinanceModule = class extends AbstractModule {
   }
 };
 
+// server/modules/geneticanalyst/index.ts
+import mysql7 from "mysql2/promise";
+var GeneticAnalystModule = class extends AbstractModule {
+  name = "genetic-analyst";
+  version = "1.0.0";
+  constructor(storage2) {
+    super(storage2);
+  }
+  async validateSchema() {
+    try {
+      const connection = await mysql7.createConnection({
+        host: process.env.DB_HOST || "localhost",
+        user: process.env.DB_USER || "remote_user",
+        password: decodeURIComponent(process.env.DB_PASSWORD || "Prolab%2305"),
+        database: process.env.DB_NAME || "lead_lims2"
+      });
+      const [rows] = await connection.execute("DESCRIBE geneticanalyst");
+      await connection.end();
+      const columns = rows.map((row) => row.Field);
+      const requiredColumns = [
+        "id",
+        "unique_id",
+        "project_id",
+        "sample_id"
+      ];
+      const hasAllColumns = requiredColumns.every(
+        (col) => columns.includes(col)
+      );
+      console.log(`Genetic Analyst Schema Check: ${hasAllColumns ? "\u2705" : "\u274C"}`);
+      return hasAllColumns;
+    } catch (error) {
+      console.error("Genetic Analyst schema validation error:", error);
+      return false;
+    }
+  }
+  registerRoutes(app2) {
+    console.log("\u{1F517} Registering Genetic Analyst routes...");
+    app2.get("/api/genetic-analyst", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const [rows] = await pool.execute("SELECT * FROM geneticanalyst ORDER BY created_at DESC");
+        const records = rows.map((row) => this.mapRowToRecord(row));
+        res.json(records);
+      } catch (error) {
+        console.error("Error fetching genetic analyst records:", error);
+        res.status(500).json({ message: "Failed to fetch genetic analyst records" });
+      }
+    });
+    app2.get("/api/genetic-analyst/:id", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const { id } = req.params;
+        const [rows] = await pool.execute("SELECT * FROM geneticanalyst WHERE id = ?", [id]);
+        if (rows.length === 0) {
+          return res.status(404).json({ message: "Record not found" });
+        }
+        const record = this.mapRowToRecord(rows[0]);
+        res.json(record);
+      } catch (error) {
+        console.error("Error fetching genetic analyst record:", error);
+        res.status(500).json({ message: "Failed to fetch genetic analyst record" });
+      }
+    });
+    app2.post("/api/genetic-analyst", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const {
+          id,
+          uniqueId,
+          projectId,
+          sampleId,
+          receivedDateForAnalysis,
+          completedAnalysis,
+          analyzedBy,
+          reviewerComments,
+          reportPreparationDate,
+          reportReviewDate,
+          reportReleaseDate,
+          remarks,
+          createdBy
+        } = req.body;
+        if (!id || !uniqueId || !projectId || !sampleId) {
+          return res.status(400).json({
+            message: "Missing required fields: id, uniqueId, projectId, sampleId"
+          });
+        }
+        const [result] = await pool.execute(
+          `INSERT INTO geneticanalyst (
+            id, unique_id, project_id, sample_id,
+            received_date_for_analysis, completed_analysis, analyzed_by,
+            reviewer_comments, report_preparation_date, report_review_date,
+            report_release_date, remarks, created_by, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            id,
+            uniqueId,
+            projectId,
+            sampleId,
+            receivedDateForAnalysis || null,
+            completedAnalysis || null,
+            analyzedBy || null,
+            reviewerComments || null,
+            reportPreparationDate || null,
+            reportReviewDate || null,
+            reportReleaseDate || null,
+            remarks || null,
+            createdBy || "system"
+          ]
+        );
+        const record = {
+          id,
+          uniqueId,
+          projectId,
+          sampleId,
+          receivedDateForAnalysis,
+          completedAnalysis,
+          analyzedBy,
+          reviewerComments,
+          reportPreparationDate,
+          reportReviewDate,
+          reportReleaseDate,
+          remarks,
+          createdBy,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        res.status(201).json(record);
+      } catch (error) {
+        console.error("Error creating genetic analyst record:", error);
+        res.status(500).json({
+          message: "Failed to create genetic analyst record",
+          error: error.message
+        });
+      }
+    });
+    app2.put("/api/genetic-analyst/:id", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const { id } = req.params;
+        const {
+          receivedDateForAnalysis,
+          completedAnalysis,
+          analyzedBy,
+          reviewerComments,
+          reportPreparationDate,
+          reportReviewDate,
+          reportReleaseDate,
+          remarks,
+          modifiedBy
+        } = req.body;
+        const [rows] = await pool.execute("SELECT * FROM geneticanalyst WHERE id = ?", [id]);
+        if (rows.length === 0) {
+          return res.status(404).json({ message: "Record not found" });
+        }
+        await pool.execute(
+          `UPDATE geneticanalyst SET
+            received_date_for_analysis = ?,
+            completed_analysis = ?,
+            analyzed_by = ?,
+            reviewer_comments = ?,
+            report_preparation_date = ?,
+            report_review_date = ?,
+            report_release_date = ?,
+            remarks = ?,
+            modified_by = ?,
+            modified_at = NOW()
+          WHERE id = ?`,
+          [
+            receivedDateForAnalysis || null,
+            completedAnalysis || null,
+            analyzedBy || null,
+            reviewerComments || null,
+            reportPreparationDate || null,
+            reportReviewDate || null,
+            reportReleaseDate || null,
+            remarks || null,
+            modifiedBy || "system",
+            id
+          ]
+        );
+        const [updatedRows] = await pool.execute("SELECT * FROM geneticanalyst WHERE id = ?", [id]);
+        const record = this.mapRowToRecord(updatedRows[0]);
+        res.json(record);
+      } catch (error) {
+        console.error("Error updating genetic analyst record:", error);
+        res.status(500).json({
+          message: "Failed to update genetic analyst record",
+          error: error.message
+        });
+      }
+    });
+    app2.delete("/api/genetic-analyst/:id", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const { id } = req.params;
+        const [rows] = await pool.execute("SELECT * FROM geneticanalyst WHERE id = ?", [id]);
+        if (rows.length === 0) {
+          return res.status(404).json({ message: "Record not found" });
+        }
+        const record = this.mapRowToRecord(rows[0]);
+        await pool.execute("DELETE FROM geneticanalyst WHERE id = ?", [id]);
+        res.json({
+          message: "Record deleted successfully",
+          deletedRecord: record
+        });
+      } catch (error) {
+        console.error("Error deleting genetic analyst record:", error);
+        res.status(500).json({
+          message: "Failed to delete genetic analyst record",
+          error: error.message
+        });
+      }
+    });
+    app2.get("/api/genetic-analyst/filter/:type/:value", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const { type, value } = req.params;
+        let query = "SELECT * FROM geneticanalyst WHERE ";
+        if (type === "project") {
+          query += "project_id = ?";
+        } else if (type === "sample") {
+          query += "sample_id = ?";
+        } else {
+          return res.status(400).json({ message: 'Invalid filter type. Use "project" or "sample"' });
+        }
+        const [rows] = await pool.execute(query + " ORDER BY created_at DESC", [value]);
+        const records = rows.map((row) => this.mapRowToRecord(row));
+        res.json(records);
+      } catch (error) {
+        console.error("Error filtering genetic analyst records:", error);
+        res.status(500).json({ message: "Failed to filter genetic analyst records" });
+      }
+    });
+  }
+  mapRowToRecord(row) {
+    return {
+      id: row.id,
+      uniqueId: row.unique_id,
+      projectId: row.project_id,
+      sampleId: row.sample_id,
+      receivedDateForAnalysis: row.received_date_for_analysis,
+      completedAnalysis: row.completed_analysis,
+      analyzedBy: row.analyzed_by,
+      reviewerComments: row.reviewer_comments,
+      reportPreparationDate: row.report_preparation_date,
+      reportReviewDate: row.report_review_date,
+      reportReleaseDate: row.report_release_date,
+      remarks: row.remarks,
+      createdAt: row.created_at,
+      createdBy: row.created_by,
+      modifiedAt: row.modified_at,
+      modifiedBy: row.modified_by
+    };
+  }
+  async cleanup() {
+    console.log(`Cleaning up module: ${this.name}`);
+    this.initialized = false;
+  }
+};
+
 // server/modules/manager.ts
 var ModuleManager = class {
   modules = [];
@@ -9284,7 +9567,8 @@ var ModuleManager = class {
       new LeadManagementModule(this.storage),
       new SampleTrackingModule(this.storage),
       new FinanceModule(this.storage),
-      new DashboardModule(this.storage)
+      new DashboardModule(this.storage),
+      new GeneticAnalystModule(this.storage)
     ];
     for (const module of this.modules) {
       try {

@@ -24,6 +24,7 @@ const navigation = [
   { id: 'finance', name: 'Finance', href: '/finance', icon: IndianRupee },
   { id: 'lab', name: 'Lab Processing', href: '/lab', icon: Microscope },
   { id: 'bioinformatics', name: 'Bioinformatics', href: '/bioinformatics', icon: Cpu },
+  { id: 'genetic_analyst', name: 'Genetic Analyst', href: '/genetic-analyst', icon: Dna },
   { id: 'nutrition', name: 'Nutrition', href: '/nutrition', icon: FileText },
   { id: 'reports', name: 'Reports', href: '/reports', icon: FileText },
   { id: 'admin', name: 'Admin Panel', href: '/admin', icon: Users },
@@ -45,8 +46,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Explicit allowed pages per role according to requirements.
   const pagesByRole: Record<string, string[]> = {
-    admin: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'nutrition', 'reports', 'recycle', 'admin'],
-    manager: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'nutrition', 'reports', 'recycle'],
+    admin: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'genetic_analyst', 'nutrition', 'reports', 'recycle', 'admin'],
+    manager: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'genetic_analyst', 'nutrition', 'reports', 'recycle'],
     operations: ['dashboard', 'leads', 'process_master', 'samples', 'finance', 'lab', 'genetic', 'bioinformatics', 'nutrition', 'reports', 'recycle', 'admin'],
     reporting: ['leads', 'finance', 'lab', 'genetic', 'bioinformatics', 'reports',],
     nutritionist: ['leads', 'reports', 'nutrition'],
@@ -54,7 +55,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     genetic_counselling: ['leads', 'samples'],
     genetic: ['leads', 'samples'],
     sales: ['leads', 'samples', 'reports', 'genetic'],
-    bioinformatics: ['leads', 'samples', 'lab'],
+    bioinformatics: ['leads', 'samples', 'lab', 'genetic_analyst'],
   };
 
   const allowedPages = pagesByRole[userRole] ?? pagesByRole['admin'];
