@@ -958,13 +958,31 @@ var DBStorage = class {
   async getAllUsers() {
     return db.select().from(users);
   }
-  async deleteUser(id) {
+  async deleteUser(id, deletedBy) {
     try {
       try {
         const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
         if (rows[0]) {
           const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "users", entityId: id, data: rows[0], originalPath: `/users/${id}` });
+          let deletedByEmail = deletedBy;
+          if (deletedBy) {
+            try {
+              const deleter = await this.getUser(deletedBy);
+              if (deleter?.email) {
+                deletedByEmail = deleter.email;
+              }
+            } catch (e) {
+              console.error("Failed to fetch deleter user email:", e.message);
+            }
+          }
+          await db.insert(recycleBin2).values({
+            id: randomUUID(),
+            entityType: "users",
+            entityId: id,
+            data: rows[0],
+            originalPath: `/users/${id}`,
+            createdBy: deletedByEmail || null
+          });
         }
       } catch (e) {
         console.error("Failed to create recycle snapshot for user:", e.message);
@@ -976,13 +994,32 @@ var DBStorage = class {
       return false;
     }
   }
-  async deleteLead(id) {
+  async deleteLead(id, deletedBy) {
     try {
       try {
         const rows = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
         if (rows[0]) {
           const { recycleBin: recycleBin2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          await db.insert(recycleBin2).values({ id: randomUUID(), entityType: "leads", entityId: id, data: rows[0], originalPath: `/leads/${id}` });
+          let deletedByEmail = deletedBy;
+          console.log("\u{1F50D} [deleteLead] deletedBy received:", deletedBy);
+          if (deletedBy) {
+            try {
+              const deleter = await this.getUser(deletedBy);
+              if (deleter?.email) {
+                deletedByEmail = deleter.email;
+              }
+            } catch (e) {
+              console.error("Failed to fetch deleter user email:", e.message);
+            }
+          }
+          await db.insert(recycleBin2).values({
+            id: randomUUID(),
+            entityType: "leads",
+            entityId: id,
+            data: rows[0],
+            originalPath: `/leads/${id}`,
+            createdBy: deletedByEmail || null
+          });
         }
       } catch (e) {
         console.error("Failed to create recycle snapshot for lead:", e.message);
@@ -1159,11 +1196,18 @@ var DBStorage = class {
     return rows[0];
   }
   async updateLead(id, updates) {
-    await db.update(leads).set(updates).where(eq(leads.id, id));
+    const updatesWithInfo = {
+      ...updates,
+      leadModified: /* @__PURE__ */ new Date()
+    };
+    await db.update(leads).set(updatesWithInfo).where(eq(leads.id, id));
     return this.getLeadById(id);
   }
   async updateLeadStatus(id, status) {
-    await db.update(leads).set({ status }).where(eq(leads.id, id));
+    await db.update(leads).set({
+      status,
+      leadModified: /* @__PURE__ */ new Date()
+    }).where(eq(leads.id, id));
     return this.getLeadById(id);
   }
   async findLeadByEmailPhone(email, phone) {
@@ -1188,7 +1232,10 @@ var DBStorage = class {
       console.log("Converting lead:", lead.id);
       console.log("Sample data:", sampleData);
       return await db.transaction(async (tx) => {
-        await tx.update(leads).set({ status: "converted" }).where(eq(leads.id, leadId));
+        await tx.update(leads).set({
+          status: "converted",
+          leadModified: /* @__PURE__ */ new Date()
+        }).where(eq(leads.id, leadId));
         console.log("\u2705 Lead status updated to converted");
         const leadProjectCode = lead.projectId;
         let sampleIdForTracking = lead.uniqueId;
@@ -3666,7 +3713,8 @@ async function registerRoutes(app2) {
   app2.delete("/api/users/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const ok = await storage.deleteUser(id);
+      const { deletedBy } = req.query;
+      const ok = await storage.deleteUser(id, deletedBy);
       if (!ok) return res.status(500).json({ message: "Failed to delete user" });
       res.json({ id });
     } catch (error) {
@@ -7875,6 +7923,9 @@ async function setupVite(app2, server) {
   app2.use(vite.middlewares);
   app2.get("*", async (req, res, next) => {
     const url = req.originalUrl;
+    if (url.startsWith("/uploads/") || url.startsWith("/api/") || url.startsWith("/wes-report/") || url.match(/\.(pdf|jpg|jpeg|png|gif|svg|ico|css|js|json|woff|woff2|ttf|eot)$/i)) {
+      return next();
+    }
     try {
       const clientTemplate = path4.resolve(__dirname2, "..", "client", "index.html");
       let template = await fs3.promises.readFile(clientTemplate, "utf-8");
@@ -8543,7 +8594,9 @@ var LeadManagementModule = class extends AbstractModule {
       try {
         if (!this.enabled) return res.status(503).json({ message: "Lead Management module is disabled" });
         const { id } = req.params;
-        const ok = await this.storage.deleteLead(id);
+        const { deletedBy } = req.query;
+        console.log("\u{1F50D} [DELETE /api/leads/:id] Received:", { id, deletedBy, query: req.query });
+        const ok = await this.storage.deleteLead(id, deletedBy);
         if (!ok) return res.status(500).json({ message: "Failed to delete lead" });
         res.json({ id });
       } catch (error) {

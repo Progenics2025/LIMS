@@ -1025,7 +1025,10 @@ export default function LeadManagement() {
     mutationFn: async ({ id }: { id: string }) => {
       // eslint-disable-next-line no-console
       console.debug('[LeadManagement] deleteLead id:', id);
-      const response = await apiRequest('DELETE', `/api/leads/${id}`);
+      // Send deletedBy as query parameter since DELETE requests may not support body
+      const deletedBy = user?.id || '';
+      const url = deletedBy ? `/api/leads/${id}?deletedBy=${encodeURIComponent(deletedBy)}` : `/api/leads/${id}`;
+      const response = await apiRequest('DELETE', url);
       return response.json();
     },
     onSuccess: () => {

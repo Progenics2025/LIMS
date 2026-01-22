@@ -51,6 +51,19 @@ export async function setupVite(app: Express, server: Server) {
   app.get("*", async (req, res, next) => {
     const url = req.originalUrl;
 
+    // Skip Vite's HTML serving for:
+    // - Static file routes (/uploads, /wes-report, etc.)
+    // - API routes (already handled by routes.ts)
+    // - Any other non-HTML resources
+    if (
+      url.startsWith('/uploads/') ||
+      url.startsWith('/api/') ||
+      url.startsWith('/wes-report/') ||
+      url.match(/\.(pdf|jpg|jpeg|png|gif|svg|ico|css|js|json|woff|woff2|ttf|eot)$/i)
+    ) {
+      return next();
+    }
+
     try {
       const clientTemplate = path.resolve(__dirname, "..", "client", "index.html");
 

@@ -175,7 +175,11 @@ export default function RecycleBin() {
                       <div className="font-medium">{it.name ?? `${it.entityType} — ${it.entityId}`}</div>
                       <div className="text-xs text-muted-foreground space-y-1">
                         <div>Deleted at {formatTimestamp(it.deletedAt)}{it.originalPath ? ` • from ${it.originalPath}` : ''}</div>
-                        {it.createdBy && <div>Deleted by {it.createdBy}</div>}
+                        {it.createdBy && (
+                          <div className="text-blue-600 dark:text-blue-400 font-medium">
+                            🗑️ Deleted by: {it.createdBy}
+                          </div>
+                        )}
                       </div>
                     </div>
                     {isAdmin ? (

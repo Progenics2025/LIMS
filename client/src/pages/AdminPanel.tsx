@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,6 +36,7 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const confirmation = useConfirmationDialog();
+  const { user } = useAuth(); // Get current user for tracking deletions
 
   // Column configuration for hide/show feature
   const adminColumns: ColumnConfig[] = useMemo(() => [
@@ -154,7 +156,10 @@ export default function AdminPanel() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/users/${id}`);
+      // Send deletedBy as query parameter since DELETE requests may not support body
+      const deletedBy = user?.id || '';
+      const url = deletedBy ? `/api/users/${id}?deletedBy=${encodeURIComponent(deletedBy)}` : `/api/users/${id}`;
+      const response = await apiRequest('DELETE', url);
       return { id };
     },
     onSuccess: async ({ id }) => {

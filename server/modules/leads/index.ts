@@ -438,7 +438,9 @@ export class LeadManagementModule extends AbstractModule {
       try {
         if (!this.enabled) return res.status(503).json({ message: 'Lead Management module is disabled' });
         const { id } = req.params;
-        const ok = await this.storage.deleteLead(id);
+        const { deletedBy } = req.query; // Read from query parameter
+        console.log('🔍 [DELETE /api/leads/:id] Received:', { id, deletedBy, query: req.query });
+        const ok = await this.storage.deleteLead(id, deletedBy as string);
         if (!ok) return res.status(500).json({ message: 'Failed to delete lead' });
         res.json({ id });
       } catch (error) {

@@ -65,9 +65,9 @@ export interface IStorage {
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
   // Delete a user
-  deleteUser(id: string): Promise<boolean>;
+  deleteUser(id: string, deletedBy?: string): Promise<boolean>;
   // Delete a lead
-  deleteLead(id: string): Promise<boolean>;
+  deleteLead(id: string, deletedBy?: string): Promise<boolean>;
 
 
   // Lead management
@@ -300,14 +300,33 @@ export class DBStorage implements IStorage {
     return db.select().from(users);
   }
 
-  async deleteUser(id: string): Promise<boolean> {
+  async deleteUser(id: string, deletedBy?: string): Promise<boolean> {
     try {
       // snapshot into recycle bin
       try {
         const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
         if (rows[0]) {
           const { recycleBin } = await import('@shared/schema');
-          await db.insert(recycleBin).values({ id: randomUUID(), entityType: 'users', entityId: id, data: rows[0], originalPath: `/users/${id}` });
+          // Get the email of the user who deleted this item
+          let deletedByEmail = deletedBy;
+          if (deletedBy) {
+            try {
+              const deleter = await this.getUser(deletedBy);
+              if (deleter?.email) {
+                deletedByEmail = deleter.email;
+              }
+            } catch (e) {
+              console.error('Failed to fetch deleter user email:', (e as Error).message);
+            }
+          }
+          await db.insert(recycleBin).values({
+            id: randomUUID(),
+            entityType: 'users',
+            entityId: id,
+            data: rows[0],
+            originalPath: `/users/${id}`,
+            createdBy: deletedByEmail || null
+          });
         }
       } catch (e) {
         console.error('Failed to create recycle snapshot for user:', (e as Error).message);
@@ -321,13 +340,33 @@ export class DBStorage implements IStorage {
     }
   }
 
-  async deleteLead(id: string): Promise<boolean> {
+  async deleteLead(id: string, deletedBy?: string): Promise<boolean> {
     try {
       try {
         const rows = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
         if (rows[0]) {
           const { recycleBin } = await import('@shared/schema');
-          await db.insert(recycleBin).values({ id: randomUUID(), entityType: 'leads', entityId: id, data: rows[0], originalPath: `/leads/${id}` });
+          // Get the email of the user who deleted this item
+          let deletedByEmail = deletedBy;
+          console.log('🔍 [deleteLead] deletedBy received:', deletedBy);
+          if (deletedBy) {
+            try {
+              const deleter = await this.getUser(deletedBy);
+              if (deleter?.email) {
+                deletedByEmail = deleter.email;
+              }
+            } catch (e) {
+              console.error('Failed to fetch deleter user email:', (e as Error).message);
+            }
+          }
+          await db.insert(recycleBin).values({
+            id: randomUUID(),
+            entityType: 'leads',
+            entityId: id,
+            data: rows[0],
+            originalPath: `/leads/${id}`,
+            createdBy: deletedByEmail || null
+          });
         }
       } catch (e) {
         console.error('Failed to create recycle snapshot for lead:', (e as Error).message);

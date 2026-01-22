@@ -530,7 +530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/users/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const ok = await storage.deleteUser(id);
+      const { deletedBy } = req.query; // Read from query parameter
+      const ok = await storage.deleteUser(id, deletedBy as string);
       if (!ok) return res.status(500).json({ message: 'Failed to delete user' });
       res.json({ id });
     } catch (error) {
