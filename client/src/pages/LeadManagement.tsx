@@ -1418,6 +1418,34 @@ export default function LeadManagement() {
       sampleReceivedDate: (lead as any).sampleReceivedDate ? new Date((lead as any).sampleReceivedDate) : null,
       geneticCounselorRequired: (lead as any).geneticCounselorRequired != null ? !!(lead as any).geneticCounselorRequired : false,
     });
+
+    // Migrate old service names to new full names
+    const serviceNameMigration: Record<string, string> = {
+      'Sanger Clinical': 'Sanger Sequencing - Clinical',
+      'Sanger Discovery': 'Sanger Sequencing - Discovery',
+      'WGS': 'Whole Genome Sequencing',
+      'Targeted Amplicons': 'Targeted Amplicons Sequencing',
+      'Shotgun': 'Shotgun Metagenomics Sequencing',
+      'WES+ Mito': 'WES+Mito'
+    };
+
+    let currentServiceName = (lead as any).serviceName || '';
+    // Check if it's an old shortened name and migrate it
+    if (serviceNameMigration[currentServiceName]) {
+      currentServiceName = serviceNameMigration[currentServiceName];
+      editForm.setValue('serviceName', currentServiceName);
+    }
+
+    // Check if service name is a custom value (not in predefined list)
+    const predefinedServices = ['WES', 'WES+Mito', 'CMA', 'MLPA', 'NBS', 'Karyotyping', 'Wellgenics',
+      'Sanger Sequencing - Clinical', 'Sanger Sequencing - Discovery', 'Gut Genics',
+      'Whole Genome Sequencing', 'Targeted Amplicons Sequencing', 'Shotgun Metagenomics Sequencing'];
+    if (currentServiceName && !predefinedServices.includes(currentServiceName)) {
+      setShowCustomServiceName(true);
+    } else {
+      setShowCustomServiceName(false);
+    }
+
     setIsEditDialogOpen(true);
   };
 
@@ -2176,7 +2204,7 @@ export default function LeadManagement() {
                     </div>
                     <div>
                       <Label>Amount Quoted (INR) <span className="text-red-500">*</span></Label>
-                      <CurrencyInput value={editForm.watch('amountQuoted') as any} onValueChange={(v: any) => editForm.setValue('amountQuoted', v)} />
+                      <CurrencyInput value={editForm.watch('amountQuoted') as any} onValueChange={(v: any) => editForm.setValue('amountQuoted', String(v || 0))} />
                       {editForm.formState.errors.amountQuoted && (
                         <p className="text-sm text-red-600 mt-1">{editForm.formState.errors.amountQuoted.message}</p>
                       )}
@@ -2475,7 +2503,7 @@ export default function LeadManagement() {
                     <div>
                       <Label>Progenics TRF</Label>
                       <div className="flex items-center space-x-2">
-                        <Input {...editForm.register('progenicsTrf')} placeholder="TRF reference" />
+                        <Input {...editForm.register('progenicsTrf')} value={editForm.watch('progenicsTrf') || ''} onChange={(e) => editForm.setValue('progenicsTrf', e.target.value)} placeholder="TRF reference" />
                         <input
                           type="file"
                           accept="application/pdf"
@@ -2528,7 +2556,7 @@ export default function LeadManagement() {
                         }}
                         value={editForm.watch('serviceName') || ''}
                       >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder={editForm.watch('serviceName') || 'Select service'} /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="WES">WES</SelectItem>
                           <SelectItem value="WES+Mito">WES+Mito</SelectItem>
