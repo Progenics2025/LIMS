@@ -1631,10 +1631,19 @@ export class DBStorage implements IStorage {
       const normalizeDates = (v: any): any => {
         if (v == null) return v;
         if (typeof v === 'string') {
-          // Try creating a Date; if valid, use it. This is permissive but
-          // avoids false positives by checking getTime().
-          const d = new Date(v);
-          if (!isNaN(d.getTime())) return d;
+          // STRICTER CHECK: Must clearly look like a date/timestamp
+          // Avoid converting simple numbers like "2000" or "10" to dates
+          // Matches: YYYY-MM-DD, YYYY/MM/DD, DD/MM/YYYY, ISO strings
+          const looksLikeDate =
+            /^\d{4}-\d{2}-\d{2}/.test(v) ||
+            /^\d{4}\/\d{2}\/\d{2}/.test(v) ||
+            /^\d{2}\/\d{2}\/\d{4}/.test(v) ||
+            /^\d{4}-\d{2}-\d{2}T/.test(v); // ISO
+
+          if (looksLikeDate) {
+            const d = new Date(v);
+            if (!isNaN(d.getTime())) return d;
+          }
           return v;
         }
         if (Array.isArray(v)) return v.map(normalizeDates);

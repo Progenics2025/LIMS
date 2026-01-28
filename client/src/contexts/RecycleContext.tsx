@@ -5,7 +5,7 @@ import { listRecycle as _listRecycle, addToRecycle as _addToRecycle, removeFromR
 type RecycleContextType = {
     items: RecycleItem[];
     refresh: () => Promise<void>;
-    add: (payload: { entityType: string; entityId: string; name?: string; originalPath?: string; data: any; deletedAt?: string }) => Promise<RecycleItem>;
+    add: (payload: { entityType: string; entityId: string; name?: string; originalPath?: string; data: any; deletedAt?: string; createdBy?: string }) => Promise<RecycleItem>;
     remove: (uid: string) => Promise<void>;
     clear: () => Promise<void>;
 };
@@ -83,10 +83,21 @@ export const RecycleProvider = ({ children }: { children: React.ReactNode }) => 
         return () => window.removeEventListener('ll:recycle:update', onUpdate);
     }, []);
 
-    const add = async (payload: { entityType: string; entityId: string; name?: string; originalPath?: string; data: any; deletedAt?: string }) => {
+    const add = async (payload: { entityType: string; entityId: string; name?: string; originalPath?: string; data: any; deletedAt?: string; createdBy?: string }) => {
         try {
+            // Ensure payload.createdBy uses payload.createdBy (fallback passed from UI)
+            const createdBy = payload.createdBy;
+
             const res = await fetch('/api/recycle', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entityType: payload.entityType, entityId: payload.entityId, data: payload.data, originalPath: payload.originalPath })
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entityType: payload.entityType,
+                    entityId: payload.entityId,
+                    data: payload.data,
+                    originalPath: payload.originalPath,
+                    createdBy: createdBy
+                })
             });
             if (!res.ok) throw new Error('server add failed');
             const json = await res.json();
@@ -94,7 +105,17 @@ export const RecycleProvider = ({ children }: { children: React.ReactNode }) => 
             // update local list
             setItems((s) => [it, ...s]);
             // Pass server's deletedAt timestamp to local storage
-            try { _addToRecycle({ entityType: payload.entityType, entityId: payload.entityId, name: payload.name, originalPath: payload.originalPath, data: payload.data, deletedAt: it.deletedAt }); } catch (e) { /* ignore */ }
+            try {
+                _addToRecycle({
+                    entityType: payload.entityType,
+                    entityId: payload.entityId,
+                    name: payload.name,
+                    originalPath: payload.originalPath,
+                    data: payload.data,
+                    deletedAt: it.deletedAt,
+                    createdBy: it.createdBy || createdBy
+                });
+            } catch (e) { /* ignore */ }
             return it;
         } catch (err) {
             // fallback: local only

@@ -119,7 +119,15 @@ CREATE TABLE IF NOT EXISTS sample_tracking (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_by VARCHAR(80),
 
-  remark_comment TEXT
+  remark_comment TEXT,
+
+  -- Unique constraint to prevent duplicate sample records for same unique_id/project_id
+  UNIQUE KEY uk_unique_project (unique_id, project_id),
+
+  -- Indexes for common queries
+  INDEX idx_unique_id (unique_id),
+  INDEX idx_project_id (project_id),
+  INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS finance_sheet (

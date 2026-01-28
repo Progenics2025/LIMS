@@ -610,7 +610,8 @@ export default function ProcessMaster() {
               name: leadToDelete.patientClientName || leadToDelete.sampleId || 'Unknown Lead',
               originalPath: '/process-master',
               data: leadToDelete,
-              deletedAt: new Date().toISOString()
+              deletedAt: new Date().toISOString(),
+              createdBy: user?.email
             });
           }
 

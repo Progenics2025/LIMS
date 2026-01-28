@@ -335,7 +335,8 @@ export default function GeneticCounselling() {
             // Ensure we pass the exact deletion time
             deletedAt
           },
-          deletedAt
+          deletedAt,
+          createdBy: user?.email
         }).catch(() => { /* ignore */ });
       }
     } catch (err) {
@@ -403,13 +404,13 @@ export default function GeneticCounselling() {
           } catch (e) {
             console.error('[GC onSave] Failed to generate unique_id from server:', e);
           }
-          
+
           // Ensure unique_id is set
           if (!data.unique_id || data.unique_id === '') {
             console.warn('[GC onSave] unique_id is empty, using fallback');
             data.unique_id = generatedUniqueId || '';
           }
-          
+
           // Set created_by to current user's name
           data.created_by = user?.name || user?.email || 'system';
           console.log('[GC onSave] About to submit record with data:', data);
@@ -1036,8 +1037,8 @@ export default function GeneticCounselling() {
                 name="counseling_type"
                 control={form.control}
                 render={({ field }) => (
-                  <Select 
-                    value={String(field.value || '')} 
+                  <Select
+                    value={String(field.value || '')}
                     onValueChange={async (value) => {
                       field.onChange(value);
                       // Generate project_id when transitioning to Post-test (if not already set)

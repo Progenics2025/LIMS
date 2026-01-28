@@ -3,6 +3,7 @@ import { useRecycle } from "@/contexts/RecycleContext";
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 
 // Helper to format timestamp - database stores in IST so just format it
@@ -66,6 +67,7 @@ function formatDateOnly(date: Date): string {
 
 export default function RecycleBin() {
   const { items, remove, add, clear, refresh } = useRecycle();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [confirmUid, setConfirmUid] = useState<string | null>(null);
   const [confirmType, setConfirmType] = useState<'permanent' | 'restore' | null>(null);
@@ -129,11 +131,17 @@ export default function RecycleBin() {
         window.dispatchEvent(new Event('ll:recycle:update'));
         window.dispatchEvent(new CustomEvent('ll:data:changed', { detail: { action: 'restore', uid } }));
       } catch (err) {
-        // fallback: just remove from recycle list locally
-        await remove(uid);
+        console.error('Failed to restore item:', err);
+        // Do not remove from UI if failed, and show toast
+        toast({
+          title: "Restore failed",
+          description: "Failed to restore item. Please try again.",
+          variant: "destructive",
+        });
       }
     })();
   }
+
 
   function handlePermanentDelete(uid: string) {
     // Permanently delete via server (remove also updates UI)
@@ -182,20 +190,18 @@ export default function RecycleBin() {
                         )}
                       </div>
                     </div>
-                    {isAdmin ? (
-                      <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
-                        <Button size="sm" className="min-w-[40px] px-2 py-1 text-sm" onClick={() => { handleRestore(it.uid); }}>
-                          <span className="sm:hidden">Restore</span>
-                          <span className="hidden sm:inline">Restore</span>
-                        </Button>
+                    <div className="action-buttons flex items-center space-x-2 h-full bg-white dark:bg-gray-900 px-2 py-1">
+                      <Button size="sm" className="min-w-[40px] px-2 py-1 text-sm" onClick={() => { setConfirmUid(it.uid); setConfirmType('restore'); }}>
+                        <span className="sm:hidden">Restore</span>
+                        <span className="hidden sm:inline">Restore</span>
+                      </Button>
+                      {isAdmin && (
                         <Button size="sm" variant="destructive" className="min-w-[40px] px-2 py-1 text-sm" onClick={() => { setConfirmUid(it.uid); setConfirmType('permanent'); }}>
                           <span className="sm:hidden">Delete</span>
                           <span className="hidden sm:inline">Delete permanently</span>
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground">Admin only</div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -212,18 +218,20 @@ export default function RecycleBin() {
             <DialogDescription>
               {confirmType === 'permanent'
                 ? 'This will permanently remove the item from the recycle bin. This action cannot be undone.'
-                : 'Restore the item back to its original location (frontend-only action).'}
+                : 'Restore the item back to its original location.'}
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex justify-end space-x-2">
             <Button variant="outline" onClick={() => { setConfirmUid(null); setConfirmType(null); }}>Cancel</Button>
             <Button variant={confirmType === 'permanent' ? 'destructive' : 'default'} onClick={() => {
-              // Only admins may perform restore / permanent delete actions
-              if (!isAdmin) {
+              // Only admins may perform permanent delete actions
+              // Restore is allowed for everyone
+              if (!isAdmin && confirmType === 'permanent') {
                 setConfirmUid(null);
                 setConfirmType(null);
                 return;
               }
+
               if (!confirmUid) return;
               if (confirmUid === 'clear') {
                 if (confirmType === 'permanent') clear();

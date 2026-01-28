@@ -613,6 +613,8 @@ export default function LeadManagement() {
   const [customSampleType, setCustomSampleType] = useState<string>('');
   const [showCustomSampleType, setShowCustomSampleType] = useState<boolean>(false);
   const [showCustomServiceName, setShowCustomServiceName] = useState<boolean>(false);
+  const [isPreTestSelected, setIsPreTestSelected] = useState<boolean>(false);
+  const [isEditPreTestSelected, setIsEditPreTestSelected] = useState<boolean>(false);
 
   const [selectedTitle, setSelectedTitle] = useState<string>('Dr');
   const [clinicianName, setClinicianName] = useState<string>('');
@@ -942,6 +944,7 @@ export default function LeadManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
       setIsEditDialogOpen(false);
       setSelectedLead(null);
+      setIsEditPreTestSelected(false);
       editForm.reset();
       toast({ title: "Lead updated", description: "Lead has been successfully updated" });
 
@@ -1439,11 +1442,18 @@ export default function LeadManagement() {
     // Check if service name is a custom value (not in predefined list)
     const predefinedServices = ['WES', 'WES+Mito', 'CMA', 'MLPA', 'NBS', 'Karyotyping', 'Wellgenics',
       'Sanger Sequencing - Clinical', 'Sanger Sequencing - Discovery', 'Gut Genics',
-      'Whole Genome Sequencing', 'Targeted Amplicons Sequencing', 'Shotgun Metagenomics Sequencing'];
+      'Whole Genome Sequencing', 'Targeted Amplicons Sequencing', 'Shotgun Metagenomics Sequencing', 'Pre-Test'];
     if (currentServiceName && !predefinedServices.includes(currentServiceName)) {
       setShowCustomServiceName(true);
     } else {
       setShowCustomServiceName(false);
+    }
+
+    // Check if Pre-Test is selected and disable Genetic Counsellor Required field
+    if (currentServiceName === 'Pre-Test') {
+      setIsEditPreTestSelected(true);
+    } else {
+      setIsEditPreTestSelected(false);
     }
 
     setIsEditDialogOpen(true);
@@ -1648,6 +1658,115 @@ export default function LeadManagement() {
                     <div>
                       <Label>TAT (Days)</Label>
                       <Input {...form.register('tat')} placeholder="e.g., 14" />
+                    </div>
+                    <div>
+                      <Label>Progenics TRF</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input {...form.register('progenicsTrf')} placeholder="TRF reference" />
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={async (e) => {
+                            const f = e.target.files && e.target.files[0];
+                            if (!f) return;
+
+                            // Validate file type
+                            if (!f.type || !f.type.includes('pdf')) {
+                              toast({ title: 'Error', description: 'Please select a PDF file', variant: 'destructive' });
+                              return;
+                            }
+
+                            const fd = new FormData();
+                            fd.append('file', f);
+                            try {
+                              // Use the new categorized upload API
+                              const res = await fetch('/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=new', {
+                                method: 'POST',
+                                body: fd
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                // Store the file path from the new API response
+                                form.setValue('progenicsTrf', data.filePath);
+                                console.log('✅ File uploaded successfully:', {
+                                  filePath: data.filePath,
+                                  uploadId: data.uploadId,
+                                  category: data.category,
+                                  fileSize: data.fileSize
+                                });
+                                toast({
+                                  title: 'Success',
+                                  description: `TRF uploaded successfully to ${data.category} folder`
+                                });
+                              } else {
+                                const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+                                toast({ title: 'Error', description: errorData.message || 'Failed to upload TRF', variant: 'destructive' });
+                              }
+                            } catch (err) {
+                              const errorMessage = err instanceof Error ? err.message : 'Failed to upload TRF';
+                              toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Service Name</Label>
+                      <Select onValueChange={(value) => {
+                        if (value === 'other') {
+                          setShowCustomServiceName(true);
+                          form.setValue('serviceName', '');
+                          setIsPreTestSelected(false);
+                        } else {
+                          setShowCustomServiceName(false);
+                          form.setValue('serviceName', value);
+                          // If Pre-Test is selected, auto-set Genetic Counsellor Required to Yes
+                          if (value === 'Pre-Test') {
+                            setIsPreTestSelected(true);
+                            form.setValue('geneticCounselorRequired', true);
+                          } else {
+                            setIsPreTestSelected(false);
+                          }
+                        }
+                      }}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="WES">WES</SelectItem>
+                          <SelectItem value="WES+Mito">WES+Mito</SelectItem>
+                          <SelectItem value="CMA">CMA</SelectItem>
+                          <SelectItem value="MLPA">MLPA</SelectItem>
+                          <SelectItem value="NBS">NBS</SelectItem>
+                          <SelectItem value="Karyotyping">Karyotyping</SelectItem>
+                          <SelectItem value="Wellgenics">Wellgenics</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Clinical">Sanger Sequencing - Clinical</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Discovery">Sanger Sequencing - Discovery</SelectItem>
+                          <SelectItem value="Gut Genics">Gut Genics</SelectItem>
+                          <SelectItem value="Whole Genome Sequencing">Whole Genome Sequencing</SelectItem>
+                          <SelectItem value="Targeted Amplicons Sequencing">Targeted Amplicons Sequencing</SelectItem>
+                          <SelectItem value="Shotgun Metagenomics Sequencing">Shotgun Metagenomics Sequencing</SelectItem>
+                          <SelectItem value="Pre-Test">Pre-Test</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {showCustomServiceName && (
+                        <Input className="mt-2" placeholder="Enter service name" onChange={(e) => form.setValue('serviceName', e.target.value)} />
+                      )}
+                    </div>
+                    <div>
+                      <Label>Genetic Counsellor Required</Label>
+                      <Select 
+                        onValueChange={(value) => form.setValue('geneticCounselorRequired', value === 'yes')} 
+                        disabled={isPreTestSelected}
+                        value={form.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
+                        <SelectTrigger className={isPreTestSelected ? 'opacity-60 cursor-not-allowed' : ''}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {isPreTestSelected && (
+                        <p className="text-xs text-blue-600 mt-1">Automatically set to "Yes" for Pre-Test service</p>
+                      )}
                     </div>
                   </div>
                 </div>              {/* Section 2: Organization / Clinician */}
@@ -1953,92 +2072,8 @@ export default function LeadManagement() {
                       <Input {...form.register('courierCompany')} placeholder="DHL, BlueDart, etc." />
                     </div>
                     <div>
-                      <Label>Progenics TRF</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input {...form.register('progenicsTrf')} placeholder="TRF reference" />
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={async (e) => {
-                            const f = e.target.files && e.target.files[0];
-                            if (!f) return;
-
-                            // Validate file type
-                            if (!f.type || !f.type.includes('pdf')) {
-                              toast({ title: 'Error', description: 'Please select a PDF file', variant: 'destructive' });
-                              return;
-                            }
-
-                            const fd = new FormData();
-                            fd.append('file', f);
-                            try {
-                              // Use the new categorized upload API
-                              const res = await fetch('/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=new', {
-                                method: 'POST',
-                                body: fd
-                              });
-                              if (res.ok) {
-                                const data = await res.json();
-                                // Store the file path from the new API response
-                                form.setValue('progenicsTrf', data.filePath);
-                                console.log('✅ File uploaded successfully:', {
-                                  filePath: data.filePath,
-                                  uploadId: data.uploadId,
-                                  category: data.category,
-                                  fileSize: data.fileSize
-                                });
-                                toast({
-                                  title: 'Success',
-                                  description: `TRF uploaded successfully to ${data.category} folder`
-                                });
-                              } else {
-                                const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
-                                toast({ title: 'Error', description: errorData.message || 'Failed to upload TRF', variant: 'destructive' });
-                              }
-                            } catch (err) {
-                              const errorMessage = err instanceof Error ? err.message : 'Failed to upload TRF';
-                              toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div>
                       <Label>Phlebotomist Charges</Label>
                       <Input {...form.register('phlebotomistCharges')} type="number" step="0.01" placeholder="e.g., 200" />
-                    </div>
-                    <div>
-                      <Label>Service Name</Label>
-                      <Select onValueChange={(value) => {
-                        if (value === 'other') {
-                          setShowCustomServiceName(true);
-                          form.setValue('serviceName', '');
-                        } else {
-                          setShowCustomServiceName(false);
-                          form.setValue('serviceName', value);
-                        }
-                      }}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="WES">WES</SelectItem>
-                          <SelectItem value="WES+Mito">WES+Mito</SelectItem>
-                          <SelectItem value="CMA">CMA</SelectItem>
-                          <SelectItem value="MLPA">MLPA</SelectItem>
-                          <SelectItem value="NBS">NBS</SelectItem>
-                          <SelectItem value="Karyotyping">Karyotyping</SelectItem>
-                          <SelectItem value="Wellgenics">Wellgenics</SelectItem>
-                          <SelectItem value="Sanger Sequencing - Clinical">Sanger Sequencing - Clinical</SelectItem>
-                          <SelectItem value="Sanger Sequencing - Discovery">Sanger Sequencing - Discovery</SelectItem>
-                          <SelectItem value="Gut Genics">Gut Genics</SelectItem>
-                          <SelectItem value="Whole Genome Sequencing">Whole Genome Sequencing</SelectItem>
-                          <SelectItem value="Targeted Amplicons Sequencing">Targeted Amplicons Sequencing</SelectItem>
-                          <SelectItem value="Shotgun Metagenomics Sequencing">Shotgun Metagenomics Sequencing</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {showCustomServiceName && (
-                        <Input className="mt-2" placeholder="Enter service name" onChange={(e) => form.setValue('serviceName', e.target.value)} />
-                      )}
                     </div>
                   </div>
                 </div>
@@ -2047,16 +2082,6 @@ export default function LeadManagement() {
                 <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Requirements & Remarks</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
-                    <div>
-                      <Label>Genetic Counsellor Required</Label>
-                      <Select onValueChange={(value) => form.setValue('geneticCounselorRequired', value === 'yes')} defaultValue={form.getValues('geneticCounselorRequired') ? 'yes' : 'no'}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                     <div>
                       <Label>Nutrition Counsellor Required</Label>
                       <Select onValueChange={(value) => form.setValue('nutritionalCounsellingRequired', value === 'yes')} defaultValue={form.getValues('nutritionalCounsellingRequired') ? 'yes' : 'no'}>
@@ -2212,6 +2237,115 @@ export default function LeadManagement() {
                     <div>
                       <Label>TAT (Days)</Label>
                       <Input {...editForm.register('tat')} />
+                    </div>
+                    <div>
+                      <Label>Progenics TRF</Label>
+                      <div className="flex items-center space-x-2">
+                        <Input {...editForm.register('progenicsTrf')} placeholder="TRF reference" />
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={async (e) => {
+                            const f = e.target.files && e.target.files[0];
+                            if (!f) return;
+
+                            // Validate file type
+                            if (!f.type || !f.type.includes('pdf')) {
+                              toast({ title: 'Error', description: 'Please select a PDF file', variant: 'destructive' });
+                              return;
+                            }
+
+                            const fd = new FormData();
+                            fd.append('file', f);
+                            try {
+                              // Use the new categorized upload API
+                              const res = await fetch('/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=new', {
+                                method: 'POST',
+                                body: fd
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                // Store the file path from the new API response
+                                editForm.setValue('progenicsTrf', data.filePath);
+                                console.log('✅ File uploaded successfully:', {
+                                  filePath: data.filePath,
+                                  uploadId: data.uploadId,
+                                  category: data.category,
+                                  fileSize: data.fileSize
+                                });
+                                toast({
+                                  title: 'Success',
+                                  description: `TRF uploaded successfully to ${data.category} folder`
+                                });
+                              } else {
+                                const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
+                                toast({ title: 'Error', description: errorData.message || 'Failed to upload TRF', variant: 'destructive' });
+                              }
+                            } catch (err) {
+                              const errorMessage = err instanceof Error ? err.message : 'Failed to upload TRF';
+                              toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Service Name</Label>
+                      <Select onValueChange={(value) => {
+                        if (value === 'other') {
+                          setShowCustomServiceName(true);
+                          editForm.setValue('serviceName', '');
+                          setIsEditPreTestSelected(false);
+                        } else {
+                          setShowCustomServiceName(false);
+                          editForm.setValue('serviceName', value);
+                          // If Pre-Test is selected, auto-set Genetic Counsellor Required to Yes
+                          if (value === 'Pre-Test') {
+                            setIsEditPreTestSelected(true);
+                            editForm.setValue('geneticCounselorRequired', true);
+                          } else {
+                            setIsEditPreTestSelected(false);
+                          }
+                        }
+                      }} value={editForm.watch('serviceName') || ''}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="WES">WES</SelectItem>
+                          <SelectItem value="WES+Mito">WES+Mito</SelectItem>
+                          <SelectItem value="CMA">CMA</SelectItem>
+                          <SelectItem value="MLPA">MLPA</SelectItem>
+                          <SelectItem value="NBS">NBS</SelectItem>
+                          <SelectItem value="Karyotyping">Karyotyping</SelectItem>
+                          <SelectItem value="Wellgenics">Wellgenics</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Clinical">Sanger Sequencing - Clinical</SelectItem>
+                          <SelectItem value="Sanger Sequencing - Discovery">Sanger Sequencing - Discovery</SelectItem>
+                          <SelectItem value="Gut Genics">Gut Genics</SelectItem>
+                          <SelectItem value="Whole Genome Sequencing">Whole Genome Sequencing</SelectItem>
+                          <SelectItem value="Targeted Amplicons Sequencing">Targeted Amplicons Sequencing</SelectItem>
+                          <SelectItem value="Shotgun Metagenomics Sequencing">Shotgun Metagenomics Sequencing</SelectItem>
+                          <SelectItem value="Pre-Test">Pre-Test</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {showCustomServiceName && (
+                        <Input className="mt-2" placeholder="Enter service name" onChange={(e) => editForm.setValue('serviceName', e.target.value)} defaultValue={editForm.getValues('serviceName') || ''} />
+                      )}
+                    </div>
+                    <div>
+                      <Label>Genetic Counsellor Required</Label>
+                      <Select 
+                        onValueChange={(value) => editForm.setValue('geneticCounselorRequired', value === 'yes')} 
+                        disabled={isEditPreTestSelected}
+                        value={editForm.watch('geneticCounselorRequired') ? 'yes' : 'no'}>
+                        <SelectTrigger className={isEditPreTestSelected ? 'opacity-60 cursor-not-allowed' : ''}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {isEditPreTestSelected && (
+                        <p className="text-xs text-blue-600 mt-1">Automatically set to "Yes" for Pre-Test service</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2501,82 +2635,8 @@ export default function LeadManagement() {
                       <Input {...editForm.register('courierCompany')} placeholder="DHL, BlueDart, etc." />
                     </div>
                     <div>
-                      <Label>Progenics TRF</Label>
-                      <div className="flex items-center space-x-2">
-                        <Input {...editForm.register('progenicsTrf')} value={editForm.watch('progenicsTrf') || ''} onChange={(e) => editForm.setValue('progenicsTrf', e.target.value)} placeholder="TRF reference" />
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={async (e) => {
-                            const f = e.target.files && e.target.files[0];
-                            if (!f) return;
-
-                            // Validate file type
-                            if (!f.type || !f.type.includes('pdf')) {
-                              toast({ title: 'Error', description: 'Please select a PDF file', variant: 'destructive' });
-                              return;
-                            }
-
-                            const fd = new FormData();
-                            fd.append('file', f);
-                            const leadId = selectedLead?.id || 'new';
-                            try {
-                              const res = await fetch(`/api/uploads/categorized?category=Progenics_TRF&entityType=lead&entityId=${leadId}`, { method: 'POST', body: fd });
-                              if (res.ok) {
-                                const data = await res.json();
-                                editForm.setValue('progenicsTrf', data.filePath);
-                                toast({ title: 'Success', description: `TRF uploaded successfully to ${data.category} folder` });
-                              } else {
-                                const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
-                                toast({ title: 'Error', description: errorData.message || 'Failed to upload TRF', variant: 'destructive' });
-                              }
-                            } catch (err) {
-                              const errorMessage = err instanceof Error ? err.message : 'Failed to upload TRF';
-                              toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div>
                       <Label>Phlebotomist Charges</Label>
                       <Input {...editForm.register('phlebotomistCharges')} type="number" step="0.01" placeholder="e.g., 200" />
-                    </div>
-                    <div>
-                      <Label>Service Name</Label>
-                      <Select
-                        onValueChange={(value) => {
-                          if (value === 'other') {
-                            setShowCustomServiceName(true);
-                            editForm.setValue('serviceName', '');
-                          } else {
-                            setShowCustomServiceName(false);
-                            editForm.setValue('serviceName', value);
-                          }
-                        }}
-                        value={editForm.watch('serviceName') || ''}
-                      >
-                        <SelectTrigger><SelectValue placeholder={editForm.watch('serviceName') || 'Select service'} /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="WES">WES</SelectItem>
-                          <SelectItem value="WES+Mito">WES+Mito</SelectItem>
-                          <SelectItem value="CMA">CMA</SelectItem>
-                          <SelectItem value="MLPA">MLPA</SelectItem>
-                          <SelectItem value="NBS">NBS</SelectItem>
-                          <SelectItem value="Karyotyping">Karyotyping</SelectItem>
-                          <SelectItem value="Wellgenics">Wellgenics</SelectItem>
-                          <SelectItem value="Sanger Sequencing - Clinical">Sanger Sequencing - Clinical</SelectItem>
-                          <SelectItem value="Sanger Sequencing - Discovery">Sanger Sequencing - Discovery</SelectItem>
-                          <SelectItem value="Gut Genics">Gut Genics</SelectItem>
-                          <SelectItem value="Whole Genome Sequencing">Whole Genome Sequencing</SelectItem>
-                          <SelectItem value="Targeted Amplicons Sequencing">Targeted Amplicons Sequencing</SelectItem>
-                          <SelectItem value="Shotgun Metagenomics Sequencing">Shotgun Metagenomics Sequencing</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {showCustomServiceName && (
-                        <Input className="mt-2" placeholder="Enter service name" onChange={(e) => editForm.setValue('serviceName', e.target.value)} defaultValue={editForm.getValues('serviceName') || ''} />
-                      )}
                     </div>
                   </div>
                 </div>
@@ -2585,16 +2645,6 @@ export default function LeadManagement() {
                 <div className="border-b pb-6 form-section">
                   <h3 className="text-lg font-medium mb-4">Requirements & Remarks</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 grid-cols-form">
-                    <div>
-                      <Label>Genetic Counsellor Required</Label>
-                      <Select onValueChange={(value) => editForm.setValue('geneticCounselorRequired', value === 'yes')} value={editForm.watch('geneticCounselorRequired') ? 'yes' : 'no'}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                     <div>
                       <Label>Nutrition Counsellor Required</Label>
                       <Select onValueChange={(value) => editForm.setValue('nutritionalCounsellingRequired', value === 'yes')} value={editForm.watch('nutritionalCounsellingRequired') ? 'yes' : 'no'}>
@@ -2613,7 +2663,7 @@ export default function LeadManagement() {
                 </div>
 
                 <div className="flex justify-end space-x-3">
-                  <Button variant="outline" type="button" onClick={() => { setIsEditDialogOpen(false); setSelectedLead(null); }}>Cancel</Button>
+                  <Button variant="outline" type="button" onClick={() => { setIsEditDialogOpen(false); setSelectedLead(null); setIsEditPreTestSelected(false); }}>Cancel</Button>
                   <Button type="submit" disabled={updateLeadMutation.isPending}>{updateLeadMutation.isPending ? 'Saving...' : 'Save Changes'}</Button>
                 </div>
               </form>

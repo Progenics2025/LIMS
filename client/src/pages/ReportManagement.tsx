@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useRecycle } from '@/contexts/RecycleContext';
 import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ export default function ReportManagement() {
   const confirmation = useConfirmationDialog();
   const editConfirmation = useConfirmationDialog();
   const [, location] = useLocation();
+  const { add } = useRecycle();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [filter, setFilter] = useState('all');
   const [autoPopulatedData, setAutoPopulatedData] = useState<any>(null);
@@ -397,6 +399,18 @@ export default function ReportManagement() {
       title: 'Delete Report Record',
       description: `Are you sure you want to delete the report record for "${record.patient_client_name || uniqueId}"? This action cannot be undone.`,
       onConfirm: async () => {
+        // Recycle bin
+        const now = new Date().toISOString();
+        add({
+          entityType: 'report_management',
+          entityId: uniqueId,
+          name: record.patient_client_name || uniqueId,
+          originalPath: '/report-management',
+          data: { ...record, deletedAt: now },
+          deletedAt: now,
+          createdBy: user?.email
+        }).catch(err => console.error(err));
+
         await deleteMutation.mutateAsync(uniqueId);
         confirmation.hideConfirmation();
       }

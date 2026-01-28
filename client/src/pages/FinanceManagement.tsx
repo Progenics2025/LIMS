@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRecycle } from '@/contexts/RecycleContext';
 import { ConfirmationDialog, useConfirmationDialog } from "@/components/ConfirmationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ export default function FinanceManagement() {
   const queryClient = useQueryClient();
   const deleteConfirmation = useConfirmationDialog();
   const editConfirmation = useConfirmationDialog();
+  const { add } = useRecycle();
 
   const financeFormSchema = z.object({
     uniqueId: z.string().optional(),
@@ -962,7 +964,7 @@ export default function FinanceManagement() {
                               {financeColumnPrefs.isColumnVisible('modeOfPayment') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.modeOfPayment || '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('transactionalNumber') && <TableCell className="min-w-[140px] text-gray-900 dark:text-white">{record.transactionalNumber ?? record.transactionNumber ?? '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('balanceAmountReceivedDate') && <TableCell className="min-w-[170px] text-gray-900 dark:text-white">{record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toLocaleDateString() : '-'}</TableCell>}
-                              {financeColumnPrefs.isColumnVisible('totalAmountReceivedStatus') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.totalAmountReceivedStatus ? 'Yes' : 'No'}</TableCell>}
+                              {financeColumnPrefs.isColumnVisible('totalAmountReceivedStatus') && <TableCell className="min-w-[180px] text-gray-900 dark:text-white">{record.totalAmountReceivedStatus === 'YES' ? 'Yes' : 'No'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('utrDetails') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.utrDetails ?? '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('thirdPartyCharges') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.thirdPartyCharges != null ? `₹${formatINR(Number(record.thirdPartyCharges))}` : '-'}</TableCell>}
                               {financeColumnPrefs.isColumnVisible('otherCharges') && <TableCell className="min-w-[160px] text-gray-900 dark:text-white">{record.otherCharges != null ? `₹${formatINR(Number(record.otherCharges))}` : '-'}</TableCell>}
@@ -1014,7 +1016,7 @@ export default function FinanceManagement() {
                                         modeOfPayment: record.modeOfPayment ?? '',
                                         utrDetails: record.utrDetails ?? '',
                                         balanceAmountReceivedDate: record.balanceAmountReceivedDate ? new Date(record.balanceAmountReceivedDate).toISOString().slice(0, 10) : undefined,
-                                        totalAmountReceivedStatus: record.totalAmountReceivedStatus ?? false,
+                                        totalAmountReceivedStatus: record.totalAmountReceivedStatus ?? 'NO',
                                         phlebotomistCharges: record.phlebotomistCharges ?? record.sample?.lead?.phlebotomistCharges ?? '',
                                         sampleShipmentAmount: record.sampleShipmentAmount ?? record.sample?.lead?.sampleShipmentAmount ?? '',
                                         thirdPartyCharges: record.thirdPartyCharges ?? '',
@@ -1045,6 +1047,18 @@ export default function FinanceManagement() {
                                       title: 'Delete Finance Record',
                                       description: `Are you sure you want to delete the finance record for "${record.unique_id || record.uniqueId}"? This action cannot be undone.`,
                                       onConfirm: () => {
+                                        // Recycle bin
+                                        const now = new Date().toISOString();
+                                        add({
+                                          entityType: 'finance',
+                                          entityId: record.id,
+                                          name: record.unique_id || record.uniqueId || String(record.id),
+                                          originalPath: '/finance',
+                                          data: { ...record, deletedAt: now },
+                                          deletedAt: now,
+                                          createdBy: user?.email
+                                        }).catch(err => console.error(err));
+
                                         deleteFinanceMutation.mutate({ id: record.id });
                                         deleteConfirmation.hideConfirmation();
                                       }

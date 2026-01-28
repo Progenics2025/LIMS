@@ -43,9 +43,10 @@ export function addToRecycle(payload: {
   originalPath?: string;
   data: any;
   deletedAt?: string; // optional: use database timestamp if provided
+  createdBy?: string;
 }): RecycleItem {
   const items = readStorage();
-  const uid = `${payload.entityType}::${payload.entityId}::${Date.now()}::${Math.floor(Math.random()*10000)}`;
+  const uid = `${payload.entityType}::${payload.entityId}::${Date.now()}::${Math.floor(Math.random() * 10000)}`;
   const item: RecycleItem = {
     uid,
     entityType: payload.entityType,
@@ -54,6 +55,7 @@ export function addToRecycle(payload: {
     originalPath: payload.originalPath,
     data: payload.data,
     deletedAt: payload.deletedAt || new Date().toISOString(),
+    createdBy: payload.createdBy,
   };
   items.unshift(item);
   writeStorage(items);

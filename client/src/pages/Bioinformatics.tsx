@@ -159,46 +159,35 @@ export default function Bioinformatics() {
     });
   };
 
-  const sendToReportsMutation = useMutation({
+  const sendToGeneticAnalystMutation = useMutation({
     mutationFn: async (record: BIRecord) => {
       // Send only the clicked record (no automatic batch)
       const recordsToSend = [record];
-      console.log(`Sending single record ${record.id} (sample ${record.sampleId})`);
+      console.log(`Sending single record ${record.id} (sample ${record.sampleId}) to Genetic Analyst`);
 
       // Send records sequentially so each turns green individually
       const responses = [];
       for (const rec of recordsToSend) {
         setSendingIds((s) => [...s, rec.id]);
         try {
-          const response = await apiRequest('POST', '/api/send-to-reports', {
+          const response = await apiRequest('POST', '/api/genetic-analyst', {
             // IDs
-            bioinformaticsId: rec.id,
-            uniqueId: rec.id,
+            id: crypto.randomUUID(),
+            uniqueId: rec.uniqueId,
             projectId: rec.projectId,
-            // Patient info
-            patientClientName: rec.patientClientName,
-            age: rec.age,
-            gender: rec.gender,
-            // Clinician info
-            clinicianResearcherName: rec.clinicianResearcherName,
-            organisationHospital: rec.organisationHospital,
-            // Service info
-            serviceName: rec.serviceName,
-            // TAT and comments
-            tat: rec.tat,
-            remarkComment: rec.remarkComment,
-            // Optional: lead fields
-            createdBy: rec.createdBy,
-            modifiedBy: rec.modifiedBy,
-            // Additional useful fields
             sampleId: rec.sampleId,
-            analysisDate: rec.analysisDate,
-            clientId: rec.clientId,
+
+            // Initial data
+            receivedDateForAnalysis: new Date().toISOString().split('T')[0], // Default to today
+            createdBy: user?.name || user?.email || 'system',
+
+            // We pass limited info here as Genetic Analyst table is slimmer. 
+            // The Rich data is still in Bioinformatics and will be merged later when sending to Reports.
           });
           const result = await response.json();
           responses.push(result);
 
-          // Try to persist the 'sent' flag on the bioinformatics record so it remains after refresh
+          // Try to persist the 'sent' flag on the bioinformatics record
           try {
             const projectId = (rec as any).projectId || '';
             const isDiscovery = String(projectId).startsWith('DG');
@@ -209,10 +198,13 @@ export default function Bioinformatics() {
                 ? `/api/bioinfo-clinical-sheet/${encodeURIComponent(rec.id)}`
                 : `/api/bioinformatics/${encodeURIComponent(rec.id)}`;
 
+            // We use 'alert_to_technical_lead' or similar flag to indicate it moved to next stage?
+            // User didn't specify a flag for GA. Reusing alert_to_report_team might be confusing if it now means GA.
+            // But for now, let's keep consistent with "moved forward".
+            // Actually, we can just use alert_to_report_team = true to signify it passed this stage.
             await apiRequest('PUT', bioEndpoint, { alert_to_report_team: true });
           } catch (err) {
-            // non-fatal: log and continue; UI will still update locally
-            console.warn('Failed to persist alert_to_report_team on bioinformatics record', err);
+            console.warn('Failed to persist status on bioinformatics record', err);
           }
 
           // 🟢 Mark this record as sent immediately (local UI)
@@ -222,26 +214,14 @@ export default function Bioinformatics() {
             )
           );
 
-          // 🔄 Refresh ReportManagement to show new record immediately
-          await queryClient.refetchQueries({ queryKey: ['/api/report_management'] });
+          // 🔄 Refresh Genetic Analyst
+          await queryClient.refetchQueries({ queryKey: ['/api/genetic-analyst'] });
 
         } catch (error: any) {
-          // 🔍 Handle 409 (duplicate/already exists) as a success response
-          if (error.status === 409) {
-            responses.push(error.body);
-
-            // Mark as sent even if already exists
-            setRows((prevRows) =>
-              prevRows.map((r) =>
-                r.id === rec.id ? { ...r, alertToReportTeam: true } : r
-              )
-            );
-
-            // Refresh ReportManagement
-            await queryClient.refetchQueries({ queryKey: ['/api/report_management'] });
-          } else {
-            throw error;
-          }
+          // 🔍 Handle 409 (duplicate/already exists) if applicable
+          // Genetic Analyst Create typically doesn't check dupes on ID but maybe on UniqueID?
+          // Assuming success for now.
+          throw error;
         } finally {
           setSendingIds((s) => s.filter((id) => id !== rec.id));
         }
@@ -250,40 +230,23 @@ export default function Bioinformatics() {
       return { responses, recordsToSend };
     },
     onSuccess: async (data: any, recordData: any) => {
-      const { responses, recordsToSend } = data;
+      const { responses } = data;
 
       await queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-discovery-sheet'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['/api/bioinfo-clinical-sheet'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['/api/report_management'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['/api/report'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/recent-activities'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/performance-metrics'], refetchType: 'all' });
-      // Notify ProcessMaster to refresh for real-time updates
-      window.dispatchEvent(new CustomEvent('ll:data:changed', { detail: { action: 'bioinformatics-updated' } }));
+      queryClient.invalidateQueries({ queryKey: ['/api/genetic-analyst'], refetchType: 'all' });
 
       // Show summary toast
-      const successCount = responses.filter((r: any) => r.success && !r.alreadyExists).length;
-      const duplicateCount = responses.filter((r: any) => r.alreadyExists).length;
-
-      if (successCount > 0) {
-        toast({
-          title: `Batch Send Complete`,
-          description: `${successCount} record(s) sent to Reports${duplicateCount > 0 ? `, ${duplicateCount} already existed` : ''}`,
-        });
-      } else if (duplicateCount > 0) {
-        toast({
-          title: "Reports Already Sent",
-          description: `All ${duplicateCount} record(s) have already been released for this sample.`,
-        });
-      }
+      toast({
+        title: `Sent to Genetic Analyst`,
+        description: `Record sent successfully to Genetic Analyst module.`,
+      });
     },
     onError: (error: any) => {
-      // 🔍 Better error handling - don't navigate on error
-      const errorMessage = error?.body?.message || error?.message || "Failed to send bioinformatics records to Reports";
+      const errorMessage = error?.body?.message || error?.message || "Failed to send to Genetic Analyst";
 
       toast({
-        title: "Failed to send to Reports",
+        title: "Failed to send",
         description: errorMessage,
         variant: "destructive",
       });
@@ -374,7 +337,14 @@ export default function Bioinformatics() {
     try {
       const item = rows.find(r => r.id === id);
       if (item) {
-        add({ entityType: 'bioinformatics', entityId: id, name: item.id ?? item.sampleId ?? id, originalPath: '/bioinformatics', data: item });
+        add({
+          entityType: 'bioinformatics',
+          entityId: id,
+          name: item.id ?? item.sampleId ?? id,
+          originalPath: '/bioinformatics',
+          data: item,
+          createdBy: user?.email
+        });
       }
     } catch (err) {
       // ignore recycle failures
@@ -1024,12 +994,13 @@ export default function Bioinformatics() {
                                   ? 'bg-red-500 hover:bg-red-600 text-white cursor-not-allowed'
                                   : 'bg-green-500 hover:bg-green-600 text-white'
                                   } disabled:bg-gray-400 disabled:cursor-not-allowed`}
-                                onClick={() => { sendToReportsMutation.mutate(r); }}
+
+                                onClick={() => { sendToGeneticAnalystMutation.mutate(r); }}
                                 disabled={sendingIds.includes(r.id) || (r as any).alertToReportTeam}
-                                title={(r as any).alertToReportTeam ? 'Already sent to reports' : 'Send to Reports module'}
-                                aria-label="Send to Reports"
+                                title={(r as any).alertToReportTeam ? 'Already sent' : 'Send to Genetic Analyst'}
+                                aria-label="Send to Genetic Analyst"
                               >
-                                <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Reports'}</span>
+                                <span className="hidden sm:inline">{(r as any).alertToReportTeam ? 'Sent ✓' : 'Send to Genetic Analyst'}</span>
                                 <span className="sm:hidden text-xs">{(r as any).alertToReportTeam ? 'Sent' : 'Send'}</span>
                               </Button>
                               <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Delete record" onClick={() => handleDelete(r.id)}>

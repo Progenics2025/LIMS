@@ -2102,8 +2102,11 @@ var DBStorage = class {
       const normalizeDates = (v) => {
         if (v == null) return v;
         if (typeof v === "string") {
-          const d = new Date(v);
-          if (!isNaN(d.getTime())) return d;
+          const looksLikeDate = /^\d{4}-\d{2}-\d{2}/.test(v) || /^\d{4}\/\d{2}\/\d{2}/.test(v) || /^\d{2}\/\d{2}\/\d{4}/.test(v) || /^\d{4}-\d{2}-\d{2}T/.test(v);
+          if (looksLikeDate) {
+            const d = new Date(v);
+            if (!isNaN(d.getTime())) return d;
+          }
           return v;
         }
         if (Array.isArray(v)) return v.map(normalizeDates);
@@ -9553,6 +9556,89 @@ var GeneticAnalystModule = class extends AbstractModule {
         console.error("Error deleting genetic analyst record:", error);
         res.status(500).json({
           message: "Failed to delete genetic analyst record",
+          error: error.message
+        });
+      }
+    });
+    app2.post("/api/genetic-analyst/:id/deploy-to-reports", async (req, res) => {
+      try {
+        if (!this.enabled) {
+          return res.status(503).json({ message: "Genetic Analyst module is disabled" });
+        }
+        const { id } = req.params;
+        const [gaRows] = await pool.execute("SELECT * FROM geneticanalyst WHERE id = ?", [id]);
+        if (gaRows.length === 0) {
+          return res.status(404).json({ message: "Genetic Analyst record not found" });
+        }
+        const gaRecord = gaRows[0];
+        const [existingReport] = await pool.execute(
+          "SELECT id FROM report_management WHERE unique_id = ? LIMIT 1",
+          [gaRecord.unique_id]
+        );
+        if (existingReport.length > 0) {
+          return res.status(409).json({
+            success: true,
+            alreadyExists: true,
+            message: "Report has already been released for this sample."
+          });
+        }
+        let bioRecord = null;
+        let [bioRows] = await pool.execute(
+          "SELECT * FROM bioinformatics_sheet_discovery WHERE project_id = ? LIMIT 1",
+          [gaRecord.project_id]
+        );
+        if (bioRows.length > 0) {
+          bioRecord = bioRows[0];
+        } else {
+          [bioRows] = await pool.execute(
+            "SELECT * FROM bioinformatics_sheet_clinical WHERE project_id = ? LIMIT 1",
+            [gaRecord.project_id]
+          );
+          if (bioRows.length > 0) {
+            bioRecord = bioRows[0];
+          }
+        }
+        if (!bioRecord) {
+          console.warn(`Genetic Analyst Deploy: No parent bioinformatics record found for project ${gaRecord.project_id}. Proceeding with minimal data.`);
+        }
+        const reportData = {
+          unique_id: gaRecord.unique_id,
+          project_id: gaRecord.project_id,
+          sample_id: gaRecord.sample_id,
+          created_at: /* @__PURE__ */ new Date(),
+          lead_created_by: req.body.createdBy || gaRecord.analyzed_by || "system",
+          lead_modified: /* @__PURE__ */ new Date(),
+          // Map fields from Genetic Analyst
+          // (If GA had fields mapping to Report, we'd map them here. Currently mainly dates)
+          // Map fields from Bioinformatics (Rich Data)
+          patient_client_name: bioRecord?.patient_client_name || null,
+          age: bioRecord?.age || null,
+          gender: bioRecord?.gender || null,
+          clinician_researcher_name: bioRecord?.clinician_researcher_name || null,
+          organisation_hospital: bioRecord?.organisation_hospital || null,
+          service_name: bioRecord?.service_name || null,
+          no_of_samples: bioRecord?.no_of_samples || null,
+          tat: bioRecord?.tat || null,
+          remark_comment: gaRecord.remarks || bioRecord?.remark_comment || null
+          // Prefer GA remarks if present
+        };
+        const keys = Object.keys(reportData);
+        const cols = keys.map((k) => `\`${k}\``).join(",");
+        const placeholders = keys.map(() => "?").join(",");
+        const values = keys.map((k) => reportData[k]);
+        await pool.execute(
+          `INSERT INTO report_management (${cols}) VALUES (${placeholders})`,
+          values
+        );
+        await pool.execute(
+          "UPDATE geneticanalyst SET report_release_date = COALESCE(report_release_date, CURDATE()) WHERE id = ?",
+          [id]
+        );
+        res.json({ success: true, message: "Successfully deployed to Reports" });
+      } catch (error) {
+        console.error("Error deploying to reports:", error);
+        res.status(500).json({
+          message: "Failed to deploy to reports",
           error: error.message
         });
       }

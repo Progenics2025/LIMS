@@ -1161,6 +1161,18 @@ export default function LabProcessing() {
               title: 'Delete Lab Processing Record',
               description: `Are you sure you want to delete the lab processing record for "${lab.titleUniqueId || lab.sampleId || lab.id}"? This action cannot be undone.`,
               onConfirm: () => {
+                // Recycle Bin Backup
+                const now = new Date().toISOString();
+                add({
+                  entityType: 'lab_processing',
+                  entityId: lab.id,
+                  name: lab.titleUniqueId || lab.sampleId || lab.uniqueId || String(lab.id),
+                  originalPath: '/lab-processing',
+                  data: { ...lab, deletedAt: now },
+                  deletedAt: now,
+                  createdBy: user?.email
+                }).catch(err => console.error("Recycle failed:", err));
+
                 deleteLabMutation.mutate({ id: lab.id });
                 deleteConfirmation.hideConfirmation();
               }

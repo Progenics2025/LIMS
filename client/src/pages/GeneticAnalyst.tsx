@@ -16,6 +16,8 @@ import { FilterBar } from "@/components/FilterBar";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
 import { sortData } from '@/lib/utils';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 type GeneticAnalystRecord = {
     id: string;
@@ -100,6 +102,44 @@ export default function GeneticAnalyst() {
     const columnPrefs = useColumnPreferences('genetic_analyst_table', columns);
     const form = useForm<GeneticAnalystRecord>();
     const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [sendingIds, setSendingIds] = useState<string[]>([]);
+
+    const sendToReportsMutation = useMutation({
+        mutationFn: async (record: GeneticAnalystRecord) => {
+            setSendingIds(s => [...s, record.id]);
+            try {
+                const res = await apiRequest('POST', `/api/genetic-analyst/${record.id}/deploy-to-reports`, {
+                    createdBy: user?.name,
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message || 'Failed to send to reports');
+                }
+                return await res.json();
+            } finally {
+                setSendingIds(s => s.filter(id => id !== record.id));
+            }
+        },
+        onSuccess: async (data, record) => {
+            toast({ title: 'Success', description: 'Record sent to Reports module' });
+            // Update local state without full refetch if possible, or just refetch
+            await queryClient.invalidateQueries({ queryKey: ['/api/report_management'], refetchType: 'all' });
+
+            // Update the row locally to show it's sent (reportReleaseDate is updated by backend)
+            setRows(prev => prev.map(r => r.id === record.id ? { ...r, reportReleaseDate: new Date().toISOString().split('T')[0] } : r));
+        },
+        onError: (err: any, record) => {
+            // Handle 409 (already exists)
+            if (err.message && err.message.includes('already been released')) {
+                toast({ title: 'Already Sent', description: err.message });
+                // Mark as sent locally
+                setRows(prev => prev.map(r => r.id === record.id ? { ...r, reportReleaseDate: new Date().toISOString().split('T')[0] } : r));
+            } else {
+                toast({ title: 'Error', description: err.message, variant: 'destructive' });
+            }
+        }
+    });
 
     // Filter records
     const filteredRows = rows.filter((record) => {
@@ -159,7 +199,14 @@ export default function GeneticAnalyst() {
         try {
             const item = rows.find(r => r.id === id);
             if (item) {
-                add({ entityType: 'genetic_analyst', entityId: id, name: item.uniqueId ?? item.sampleId ?? id, originalPath: '/genetic-analyst', data: item });
+                add({
+                    entityType: 'genetic_analyst',
+                    entityId: id,
+                    name: item.uniqueId ?? item.sampleId ?? id,
+                    originalPath: '/genetic-analyst',
+                    data: item,
+                    createdBy: user?.email
+                });
             }
         } catch (err) {
             console.error("Failed to recycle", err);
@@ -249,144 +296,153 @@ export default function GeneticAnalyst() {
                     ) : (
                         <>
                             <FilterBar
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        dateRange={dateRange}
-                        setDateRange={setDateRange}
-                        dateFilterField={dateFilterField}
-                        setDateFilterField={setDateFilterField}
-                        dateFieldOptions={[
-                            { label: "Created At", value: "createdAt" },
-                            { label: "Received Date", value: "receivedDateForAnalysis" },
-                            { label: "Completed Analysis", value: "completedAnalysis" },
-                            { label: "Report Prep Date", value: "reportPreparationDate" },
-                            { label: "Report Release Date", value: "reportReleaseDate" },
-                        ]}
-                        totalItems={totalFiltered}
-                        pageSize={pageSize}
-                        setPageSize={setPageSize}
-                        setPage={setPage}
-                        placeholder="Search Unique ID / Project ID / Sample ID..."
-                    />
+                                searchQuery={searchQuery}
+                                setSearchQuery={setSearchQuery}
+                                dateRange={dateRange}
+                                setDateRange={setDateRange}
+                                dateFilterField={dateFilterField}
+                                setDateFilterField={setDateFilterField}
+                                dateFieldOptions={[
+                                    { label: "Created At", value: "createdAt" },
+                                    { label: "Received Date", value: "receivedDateForAnalysis" },
+                                    { label: "Completed Analysis", value: "completedAnalysis" },
+                                    { label: "Report Prep Date", value: "reportPreparationDate" },
+                                    { label: "Report Release Date", value: "reportReleaseDate" },
+                                ]}
+                                totalItems={totalFiltered}
+                                pageSize={pageSize}
+                                setPageSize={setPageSize}
+                                setPage={setPage}
+                                placeholder="Search Unique ID / Project ID / Sample ID..."
+                            />
 
-                    <div className="mt-2">
-                        <ColumnSettings
-                            columns={columns}
-                            isColumnVisible={columnPrefs.isColumnVisible}
-                            toggleColumn={columnPrefs.toggleColumn}
-                            resetToDefaults={columnPrefs.resetToDefaults}
-                            showAllColumns={columnPrefs.showAllColumns}
-                            showCompactView={columnPrefs.showCompactView}
-                            visibleCount={columnPrefs.visibleCount}
-                            totalCount={columnPrefs.totalCount}
-                        />
-                    </div>
+                            <div className="mt-2">
+                                <ColumnSettings
+                                    columns={columns}
+                                    isColumnVisible={columnPrefs.isColumnVisible}
+                                    toggleColumn={columnPrefs.toggleColumn}
+                                    resetToDefaults={columnPrefs.resetToDefaults}
+                                    showAllColumns={columnPrefs.showAllColumns}
+                                    showCompactView={columnPrefs.showCompactView}
+                                    visibleCount={columnPrefs.visibleCount}
+                                    totalCount={columnPrefs.totalCount}
+                                />
+                            </div>
 
-                    <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
-                        <div className="max-h-[60vh] overflow-y-auto">
-                            <Table className="leads-table">
-                                <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                                    <TableRow>
-                                        {/* Dynamic Columns */}
-                                        {columns.map(col => {
-                                            if (!columnPrefs.isColumnVisible(col.id)) return null;
+                            <div className="overflow-x-auto leads-table-wrapper process-table-wrapper">
+                                <div className="max-h-[60vh] overflow-y-auto">
+                                    <Table className="leads-table">
+                                        <TableHeader className="sticky top-0 bg-white/95 dark:bg-gray-900/95 z-30 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
+                                            <TableRow>
+                                                {/* Dynamic Columns */}
+                                                {columns.map(col => {
+                                                    if (!columnPrefs.isColumnVisible(col.id)) return null;
 
-                                            // Calculate sticky classes
-                                            let stickyClass = '';
-                                            if (col.id === 'actions') {
-                                                stickyClass = 'sticky right-0 z-40 bg-white dark:bg-gray-900 border-l-2';
-                                            } else if (col.id === 'uniqueId') {
-                                                stickyClass = 'sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]';
-                                            } else if (col.id === 'projectId') {
-                                                stickyClass = 'sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]';
-                                            } else if (col.id === 'sampleId') {
-                                                stickyClass = 'sticky left-[240px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]';
-                                            } else {
-                                                stickyClass = 'cursor-pointer';
-                                            }
+                                                    // Calculate sticky classes
+                                                    let stickyClass = '';
+                                                    if (col.id === 'actions') {
+                                                        stickyClass = 'sticky right-0 z-40 bg-white dark:bg-gray-900 border-l-2';
+                                                    } else if (col.id === 'uniqueId') {
+                                                        stickyClass = 'sticky left-0 z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]';
+                                                    } else if (col.id === 'projectId') {
+                                                        stickyClass = 'sticky left-[120px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]';
+                                                    } else if (col.id === 'sampleId') {
+                                                        stickyClass = 'sticky left-[240px] z-40 bg-white dark:bg-gray-900 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[120px]';
+                                                    } else {
+                                                        stickyClass = 'cursor-pointer';
+                                                    }
 
-                                            return (
-                                                <TableHead
-                                                    key={col.id}
-                                                    onClick={() => col.id !== 'actions' && (setSortKey(col.id), setSortDir(s => s === 'asc' ? 'desc' : 'asc'))}
-                                                    className={`whitespace-nowrap font-semibold ${stickyClass}`}
-                                                >
-                                                    {col.label}
-                                                    {col.id !== 'actions' && sortKey === col.id ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
-                                                </TableHead>
-                                            );
-                                        })}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {visibleRows.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={columns.filter(c => columnPrefs.isColumnVisible(c.id)).length} className="text-center py-8 text-muted-foreground">
-                                                No records match your search criteria
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        visibleRows.map((r) => {
-                                            const rowColor = r.reportReleaseDate
-                                                ? 'bg-green-100 dark:bg-green-900/30'
-                                                : r.completedAnalysis
-                                                    ? 'bg-blue-100 dark:bg-blue-900/30'
-                                                    : 'bg-yellow-50 dark:bg-yellow-900/20';
-
-                                            return (
-                                                <TableRow key={r.id} className={`${rowColor} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
-                                                    {columnPrefs.isColumnVisible('uniqueId') && <TableCell className={`font-medium sticky left-0 z-20 ${rowColor} border-r py-1 min-w-[120px]`}>{r.uniqueId}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('projectId') && <TableCell className={`sticky left-[120px] z-20 ${rowColor} border-r py-1 min-w-[120px]`}>{r.projectId}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('sampleId') && <TableCell className={`sticky left-[240px] z-20 ${rowColor} border-r py-1 min-w-[120px]`}>{r.sampleId}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('receivedDateForAnalysis') && <TableCell className="py-1">{r.receivedDateForAnalysis}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('completedAnalysis') && <TableCell className="py-1">{r.completedAnalysis}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('analyzedBy') && <TableCell className="py-1">{r.analyzedBy}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('reviewerComments') && <TableCell className="py-1">{r.reviewerComments}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('reportPreparationDate') && <TableCell className="py-1">{r.reportPreparationDate}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('reportReviewDate') && <TableCell className="py-1">{r.reportReviewDate}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('reportReleaseDate') && <TableCell className="py-1">{r.reportReleaseDate}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('remarks') && <TableCell className="py-1">{r.remarks}</TableCell>}
-                                                    {columnPrefs.isColumnVisible('actions') && (
-                                                        <TableCell className={`sticky right-0 z-20 border-l-2 border-gray-200 dark:border-gray-700 ${rowColor} py-1 text-right`}>
-                                                            <div className="flex items-center justify-end space-x-2">
-                                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit" onClick={() => openEdit(r)}>
-                                                                    <EditIcon className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Recycle" onClick={() => handleDelete(r.id)}>
-                                                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    )}
+                                                    return (
+                                                        <TableHead
+                                                            key={col.id}
+                                                            onClick={() => col.id !== 'actions' && (setSortKey(col.id), setSortDir(s => s === 'asc' ? 'desc' : 'asc'))}
+                                                            className={`whitespace-nowrap font-semibold ${stickyClass}`}
+                                                        >
+                                                            {col.label}
+                                                            {col.id !== 'actions' && sortKey === col.id ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                                                        </TableHead>
+                                                    );
+                                                })}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {visibleRows.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={columns.filter(c => columnPrefs.isColumnVisible(c.id)).length} className="text-center py-8 text-muted-foreground">
+                                                        No records match your search criteria
+                                                    </TableCell>
                                                 </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
+                                            ) : (
+                                                visibleRows.map((r) => {
+                                                    const rowColor = r.reportReleaseDate
+                                                        ? 'bg-green-100 dark:bg-green-900/30'
+                                                        : r.completedAnalysis
+                                                            ? 'bg-blue-100 dark:bg-blue-900/30'
+                                                            : 'bg-yellow-50 dark:bg-yellow-900/20';
 
-                    {/* Pagination */}
-                    {visibleRows.length > 0 && (
-                        <div className="p-4 border-t">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                <div className="text-sm text-muted-foreground">
-                                    Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered} records
-                                </div>
-
-                                <div className="flex items-center space-x-2 justify-end pagination-controls">
-                                    <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-                                        Prev
-                                    </Button>
-                                    <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
-                                    <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
-                                        Next
-                                    </Button>
+                                                    return (
+                                                        <TableRow key={r.id} className={`${rowColor} hover:bg-opacity-75 dark:hover:bg-opacity-75`}>
+                                                            {columnPrefs.isColumnVisible('uniqueId') && <TableCell className={`font-medium sticky left-0 z-20 ${rowColor} border-r py-1 min-w-[120px]`}>{r.uniqueId}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('projectId') && <TableCell className={`sticky left-[120px] z-20 ${rowColor} border-r py-1 min-w-[120px]`}>{r.projectId}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('sampleId') && <TableCell className={`sticky left-[240px] z-20 ${rowColor} border-r py-1 min-w-[120px]`}>{r.sampleId}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('receivedDateForAnalysis') && <TableCell className="py-1">{r.receivedDateForAnalysis}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('completedAnalysis') && <TableCell className="py-1">{r.completedAnalysis}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('analyzedBy') && <TableCell className="py-1">{r.analyzedBy}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('reviewerComments') && <TableCell className="py-1">{r.reviewerComments}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('reportPreparationDate') && <TableCell className="py-1">{r.reportPreparationDate}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('reportReviewDate') && <TableCell className="py-1">{r.reportReviewDate}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('reportReleaseDate') && <TableCell className="py-1">{r.reportReleaseDate}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('remarks') && <TableCell className="py-1">{r.remarks}</TableCell>}
+                                                            {columnPrefs.isColumnVisible('actions') && (
+                                                                <TableCell className={`sticky right-0 z-20 border-l-2 border-gray-200 dark:border-gray-700 ${rowColor} py-1 text-right`}>
+                                                                    <div className="flex items-center justify-end space-x-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className={`min-w-[48px] px-2 py-1 h-7 rounded-md flex items-center justify-center gap-1 transition-all font-medium text-xs ${r.reportReleaseDate ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                                                            disabled={!!r.reportReleaseDate || sendingIds.includes(r.id)}
+                                                                            onClick={() => sendToReportsMutation.mutate(r)}
+                                                                            title={r.reportReleaseDate ? "Already sent to Reports" : "Send to Reports"}
+                                                                        >
+                                                                            {r.reportReleaseDate ? 'Sent ✓' : 'Send to Reports'}
+                                                                        </Button>
+                                                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit" onClick={() => openEdit(r)}>
+                                                                            <EditIcon className="h-4 w-4" />
+                                                                        </Button>
+                                                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Recycle" onClick={() => handleDelete(r.id)}>
+                                                                            <Trash2 className="h-4 w-4 text-red-600" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </TableCell>
+                                                            )}
+                                                        </TableRow>
+                                                    );
+                                                })
+                                            )}
+                                        </TableBody>
+                                    </Table>
                                 </div>
                             </div>
-                        </div>
-                    )}
+
+                            {/* Pagination */}
+                            {visibleRows.length > 0 && (
+                                <div className="p-4 border-t">
+                                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                        <div className="text-sm text-muted-foreground">
+                                            Showing {(start + 1) <= totalFiltered ? (start + 1) : 0} - {Math.min(start + pageSize, totalFiltered)} of {totalFiltered} records
+                                        </div>
+
+                                        <div className="flex items-center space-x-2 justify-end pagination-controls">
+                                            <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                                                Prev
+                                            </Button>
+                                            <div className="whitespace-nowrap flex-shrink-0 px-2">Page {page} / {totalPages}</div>
+                                            <Button size="sm" className="flex-shrink-0 min-w-[64px]" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                                                Next
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </CardContent>

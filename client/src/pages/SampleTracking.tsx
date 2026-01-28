@@ -700,6 +700,18 @@ export default function SampleTracking() {
                                     title: 'Delete Sample',
                                     description: `Are you sure you want to delete the sample "${sample.uniqueId || sample.id}"? This action cannot be undone.`,
                                     onConfirm: () => {
+                                      // Add to recycle bin first
+                                      const now = new Date().toISOString();
+                                      add({
+                                        entityType: 'sample_tracking',
+                                        entityId: sample.id,
+                                        name: sample.uniqueId || sample.id,
+                                        originalPath: '/sample-tracking',
+                                        data: { ...sample, deletedAt: now },
+                                        deletedAt: now,
+                                        createdBy: user?.email
+                                      }).catch(console.error);
+
                                       deleteSampleMutation.mutate({ sampleId: sample.id });
                                       deleteConfirmation.hideConfirmation();
                                     }

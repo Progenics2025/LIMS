@@ -554,6 +554,7 @@ export default function Nutrition() {
                                         originalPath: '/nutrition',
                                         data: { ...record, deletedAt },
                                         deletedAt,
+                                        createdBy: user?.email,
                                       }).catch(() => { /* ignore */ });
                                     } catch (err) {
                                       // ignore recycle failures
