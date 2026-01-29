@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRecycle } from '@/contexts/RecycleContext';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Clock, Check, Search, Edit as EditIcon, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useForm, Controller } from 'react-hook-form';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { generateRoleId } from '@/lib/generateRoleId';
 import { FilterBar } from "@/components/FilterBar";
 import { useColumnPreferences, ColumnConfig } from '@/hooks/useColumnPreferences';
 import { ColumnSettings } from '@/components/ColumnSettings';
@@ -134,10 +136,15 @@ export default function GeneticCounselling() {
   useEffect(() => {
     if (serverRows && Array.isArray(serverRows)) {
       try {
+        console.log('[GC useEffect] Received serverRows, normalizing...');
+        console.log('[GC useEffect] Raw serverRows count:', serverRows.length);
+        console.log('[GC useEffect] First row (raw):', JSON.stringify(serverRows[0] || {}, null, 2));
         const normalized = serverRows.map(normalizeServerRow);
+        console.log('[GC useEffect] Normalized rows, sample:', JSON.stringify(normalized[0] || {}, null, 2));
         setRows(normalized);
         setPage(1);
       } catch (e) {
+        console.error('[GC useEffect] Error normalizing rows:', e);
         // fallback: just set raw serverRows
         setRows(serverRows as any);
         setPage(1);
@@ -229,6 +236,89 @@ export default function GeneticCounselling() {
   // Column visibility preferences (per-user)
   const gcColumnPrefs = useColumnPreferences('genetic_counselling_table', gcColumns);
 
+  // Helper function to get stage color
+  const getStageBadgeColor = (stage: string) => {
+    switch ((stage || '').toLowerCase()) {
+      case 'not started': return 'bg-gray-100 text-gray-800';
+      case 'in progress': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Helper function to get next stage
+  const getNextStage = (currentStage: string) => {
+    switch ((currentStage || '').toLowerCase()) {
+      case 'not started': return 'In Progress';
+      case 'in progress': return 'Completed';
+      default: return null;
+    }
+  };
+
+  // Mutation for updating GC testing_status (stage)
+  const updateGCStatusMutation = useMutation<any, any, { id: string; stage: string; projectId?: string }>({
+    mutationFn: async (vars: { id: string; stage: string; projectId?: string }) => {
+      const { id, stage, projectId } = vars;
+      console.log('[GC Mutation] Updating record ID:', id, 'Stage:', stage, 'ProjectId:', projectId);
+      const payload = {
+        testing_status: stage,
+        ...(projectId && { project_id: projectId })
+      };
+      console.log('[GC Mutation] Sending payload:', JSON.stringify(payload));
+      const response = await fetch(`/api/genetic-counselling-sheet/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[GC Mutation] Response error:', errorText);
+        throw new Error('Failed to update GC status');
+      }
+      const result = await response.json();
+      console.log('[GC Mutation] Response:', JSON.stringify(result));
+      return result;
+    },
+    onSuccess: (data) => {
+      console.log('[GC Mutation onSuccess] Updated record:', JSON.stringify(data));
+      queryClient.invalidateQueries({ queryKey: ['/api/genetic-counselling-sheet'] });
+      toast({ title: 'Updated', description: 'Stage updated successfully' });
+    },
+    onError: (error: any) => {
+      console.error('[GC Mutation onError]:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to update stage', variant: 'destructive' });
+    }
+  });
+
+  const handleStageChange = async (recordId: string, newStage: string) => {
+    try {
+      console.log('[GC handleStageChange] Record ID:', recordId, 'New Stage:', newStage);
+      // If transitioning to Completed, generate Project ID with GC prefix
+      let projectId = undefined;
+      if (newStage === 'Completed') {
+        try {
+          console.log('[GC handleStageChange] Generating Project ID for Completed stage');
+          const idRes = await fetch('/api/genetic-counselling/generate-project-id', {
+            method: 'POST'
+          });
+          console.log('[GC handleStageChange] ID generation response status:', idRes.status);
+          if (idRes.ok) {
+            const idData = await idRes.json();
+            projectId = idData.project_id;
+            console.log('[GC handleStageChange] Generated Project ID:', projectId);
+          } else {
+            console.error('[GC handleStageChange] ID generation failed with status:', idRes.status);
+          }
+        } catch (e) {
+          console.warn('[GC handleStageChange] Failed to generate Project ID:', e);
+        }
+      }
+      console.log('[GC handleStageChange] Calling mutation with projectId:', projectId);
+      updateGCStatusMutation.mutate({ id: recordId, stage: newStage, projectId });
+    } catch (e) {
+      console.error('[GC handleStageChange] Error:', e);
+    }
+  };
 
   const form = useForm<GCRecord>({
     defaultValues: {
@@ -387,29 +477,20 @@ export default function GeneticCounselling() {
           toast({ title: 'Updated', description: 'Record updated' });
         } else {
           console.log('[GC onSave] Creating new record with initial data:', data);
-          // Generate unique_id from server (only at creation time)
-          let generatedUniqueId = '';
+          // Generate unique_id using the SAME logic as Lead Management (based on user role)
           try {
-            const idRes = await fetch('/api/genetic-counselling/generate-ids', { method: 'POST' });
-            console.log('[GC onSave] ID generation response status:', idRes.status);
-            if (idRes.ok) {
-              const idData = await idRes.json();
-              generatedUniqueId = idData.unique_id;
-              data.unique_id = generatedUniqueId;
-              data.project_id = '';
-              console.log('[GC onSave] Generated unique_id:', generatedUniqueId, 'Setting project_id to empty');
-            } else {
-              console.error('[GC onSave] ID generation failed with status:', idRes.status);
+            if (!data.unique_id || data.unique_id === '') {
+              const roleForId = (user && (user as any).role) || 'production';
+              const uid = generateRoleId(String(roleForId));
+              data.unique_id = uid;
+              console.log('[GC onSave] Generated unique_id:', uid, 'based on role:', roleForId);
             }
           } catch (e) {
-            console.error('[GC onSave] Failed to generate unique_id from server:', e);
+            console.warn('[GC onSave] generateRoleId failed', e);
           }
-
-          // Ensure unique_id is set
-          if (!data.unique_id || data.unique_id === '') {
-            console.warn('[GC onSave] unique_id is empty, using fallback');
-            data.unique_id = generatedUniqueId || '';
-          }
+          
+          // Set project_id to empty for new GC records
+          data.project_id = '';
 
           // Set created_by to current user's name
           data.created_by = user?.name || user?.email || 'system';
@@ -758,7 +839,26 @@ export default function GeneticCounselling() {
                       {gcColumnPrefs.isColumnVisible('modified_by') && <TableCell className="py-1">{r.modified_by ?? '-'}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('remark_comment') && <TableCell className="max-w-xs truncate py-1">{r.remark_comment ?? '-'}</TableCell>}
                       {gcColumnPrefs.isColumnVisible('actions') && <TableCell className={`sticky right-0 z-20 ${r.testing_status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-50 dark:bg-yellow-900/20'} border-l-2 actions-column py-1`}>
-                        <div className="action-buttons flex space-x-2">
+                        <div className="action-buttons flex space-x-2 items-center">
+                          {/* Stage Action Button */}
+                          <div className="flex items-center space-x-1">
+                            <Badge className={`${getStageBadgeColor(r.testing_status || 'Not Started')} whitespace-nowrap px-2 py-1 text-xs flex-shrink-0`}>
+                              {r.testing_status || 'Not Started'}
+                            </Badge>
+                            {r.testing_status !== 'Completed' && getNextStage(r.testing_status || 'Not Started') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStageChange(r.id, getNextStage(r.testing_status || 'Not Started')!)}
+                                disabled={updateGCStatusMutation.isPending}
+                                className="text-xs px-1 py-0 h-7 whitespace-nowrap"
+                              >
+                                {getNextStage(r.testing_status || 'Not Started') === 'In Progress' && '⏳ In Progress'}
+                                {getNextStage(r.testing_status || 'Not Started') === 'Completed' && '✅ Completed'}
+                              </Button>
+                            )}
+                          </div>
+                          {/* Edit and Delete Buttons */}
                           <Button size="sm" variant="ghost" className="h-7 w-7 p-1" aria-label="Edit GC" onClick={() => openEdit(r)}>
                             <EditIcon className="h-4 w-4" />
                           </Button>

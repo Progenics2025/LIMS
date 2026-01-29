@@ -9,9 +9,10 @@ import { pool } from '../db';
  * - PG: Production/Discovery projects
  * - DG: Discovery projects (alternative)
  * - CL: Clinical projects
+ * - GC: Genetic Counselling projects
  * 
  * Format breakdown:
- * - PREFIX (2 chars): PG (Production) or CL (Clinical)
+ * - PREFIX (2 chars): PG (Production), DG (Discovery), CL (Clinical), or GC (Genetic Counselling)
  * - YY (2 chars): Last two digits of year (e.g., 25)
  * - MM (2 chars): Month with leading zero (e.g., 01-12)
  * - DD (2 chars): Day with leading zero (e.g., 01-31)
@@ -33,7 +34,9 @@ function padZero(num: number): string {
 function getPrefix(category: string): string {
   const cat = category?.toLowerCase().trim();
   
-  if (cat === 'discovery' || cat === 'dg') {
+  if (cat === 'genetic-counselling' || cat === 'gc') {
+    return 'GC';  // Genetic Counselling projects
+  } else if (cat === 'discovery' || cat === 'dg') {
     return 'DG';  // Discovery projects
   } else if (cat === 'clinical' || cat === 'pg') {
     return 'PG';  // Clinical/Production projects

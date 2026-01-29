@@ -4137,26 +4137,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/genetic-counselling/generate-ids', async (req, res) => {
     try {
       console.log('[GC ID Generation] Request received');
-      // Generate unique_id (GC format: GCYYMMDDHHMMSS)
-      const padZero = (num: number): string => {
-        return String(num).padStart(2, '0');
-      };
+      // Generate unique_id using the SAME logic as Lead Management (role-based)
+      // Note: Client-side generation now handles this, but keeping for backwards compatibility
+      const roleForId = 'production'; // Default to production role for GC records
+      const unique_id = await generateRoleId(String(roleForId));
+      const project_id = ''; // GC records have empty project_id
 
-      const now = new Date();
-      const yy = padZero(now.getFullYear() % 100);
-      const mm = padZero(now.getMonth() + 1);
-      const dd = padZero(now.getDate());
-      const hh = padZero(now.getHours());
-      const min = padZero(now.getMinutes());
-      const ss = padZero(now.getSeconds());
-
-      const timestamp = `${yy}${mm}${dd}${hh}${min}${ss}`;
-      const unique_id = `GC${timestamp}`;
-
-      // Generate project_id (GC format: GCYYMMDDHHMMSS)
-      const project_id = `GC${timestamp}`;
-
-      console.log('[GC ID Generation] Generated unique_id:', unique_id, 'project_id:', project_id);
+      console.log('[GC ID Generation] Generated unique_id:', unique_id, 'using role:', roleForId);
       const responseData = { unique_id, project_id };
       console.log('[GC ID Generation] Sending response:', JSON.stringify(responseData));
       res.json(responseData);
@@ -4164,6 +4151,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[GC ID Generation] Error:', (error as Error).message);
       console.error('[GC ID Generation] Stack:', (error as Error).stack);
       res.status(500).json({ message: 'Failed to generate GC IDs', error: (error as Error).message });
+    }
+  });
+
+  // Generate Project ID for GC (with GC prefix)
+  app.post('/api/genetic-counselling/generate-project-id', async (req, res) => {
+    try {
+      console.log('[GC Project ID Generation] Request received');
+      // Generate GC Project ID using generateProjectId with 'genetic-counselling' category
+      // This will produce format like GCYYMMDDHHMMSS
+      const projectId = await generateProjectId('genetic-counselling');
+      console.log('[GC Project ID Generation] Generated project_id:', projectId);
+      res.json({ project_id: projectId });
+    } catch (error) {
+      console.error('[GC Project ID Generation] Error:', (error as Error).message);
+      res.status(500).json({ message: 'Failed to generate GC Project ID', error: (error as Error).message });
     }
   });
 
