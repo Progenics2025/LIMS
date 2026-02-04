@@ -290,14 +290,14 @@ export default function GeneticCounselling() {
     }
   });
 
-  const handleStageChange = async (recordId: string, newStage: string) => {
+  const handleStageChange = async (recordId: string, newStage: string, existingProjectId?: string) => {
     try {
-      console.log('[GC handleStageChange] Record ID:', recordId, 'New Stage:', newStage);
-      // If transitioning to Completed, generate Project ID with GC prefix
+      console.log('[GC handleStageChange] Record ID:', recordId, 'New Stage:', newStage, 'Existing Project ID:', existingProjectId || 'none');
+      // If transitioning to Completed, generate Project ID ONLY if one doesn't already exist
       let projectId = undefined;
-      if (newStage === 'Completed') {
+      if (newStage === 'Completed' && !existingProjectId) {
         try {
-          console.log('[GC handleStageChange] Generating Project ID for Completed stage');
+          console.log('[GC handleStageChange] No existing Project ID found. Generating new Project ID for Completed stage');
           const idRes = await fetch('/api/genetic-counselling/generate-project-id', {
             method: 'POST'
           });
@@ -312,9 +312,11 @@ export default function GeneticCounselling() {
         } catch (e) {
           console.warn('[GC handleStageChange] Failed to generate Project ID:', e);
         }
+      } else if (newStage === 'Completed' && existingProjectId) {
+        console.log('[GC handleStageChange] Project ID already exists:', existingProjectId, '- using existing ID instead of regenerating');
       }
-      console.log('[GC handleStageChange] Calling mutation with projectId:', projectId);
-      updateGCStatusMutation.mutate({ id: recordId, stage: newStage, projectId });
+      console.log('[GC handleStageChange] Calling mutation with projectId:', projectId || existingProjectId || 'none');
+      updateGCStatusMutation.mutate({ id: recordId, stage: newStage, projectId: projectId || existingProjectId });
     } catch (e) {
       console.error('[GC handleStageChange] Error:', e);
     }
@@ -849,7 +851,7 @@ export default function GeneticCounselling() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleStageChange(r.id, getNextStage(r.testing_status || 'Not Started')!)}
+                                onClick={() => handleStageChange(r.id, getNextStage(r.testing_status || 'Not Started')!, r.project_id)}
                                 disabled={updateGCStatusMutation.isPending}
                                 className="text-xs px-1 py-0 h-7 whitespace-nowrap"
                               >
